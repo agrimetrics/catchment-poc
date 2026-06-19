@@ -2,78 +2,83 @@ import pandas as pd
 import geopandas as gpd
 import bng
 from scipy.spatial import cKDTree
+from rapidfuzz import fuzz
 
-# Add easting/northing to observational data
-obs_df = pd.read_csv("raw_datasets/poole_harbour_rivers_observations_2026.csv")
-obs_df=obs_df[["samplingPoint.notation", "samplingPoint.prefLabel", "samplingPoint.longitude", "samplingPoint.latitude"]]
-observations_df = gpd.GeoDataFrame(
-    obs_df,
-    geometry=gpd.points_from_xy(obs_df["samplingPoint.longitude"], obs_df["samplingPoint.latitude"]),
-    crs="EPSG:4326"
-)
-observations_df = observations_df.to_crs("EPSG:27700")
-observations_df["samplingPoint.easting"] = observations_df.geometry.x
-observations_df["samplingPoint.northing"] = observations_df.geometry.y
-observations_df=observations_df[["samplingPoint.notation", "samplingPoint.prefLabel", "samplingPoint.easting", "samplingPoint.northing"]]
-observations_df = observations_df.drop_duplicates(subset=["samplingPoint.notation"], keep="first")
-print(observations_df.head())
+## Create sampling point data from observational data
+# Load observations and convert lat/long into eastings/northings
+obs = pd.read_csv("raw_datasets/poole_harbour_rivers_observations_2026.csv")
+gdf = gpd.GeoDataFrame(obs,geometry=gpd.points_from_xy(obs["samplingPoint.longitude"],obs["samplingPoint.latitude"]),crs="EPSG:4326")
+gdf = gdf.to_crs("EPSG:27700")
+gdf["samplingPoint.easting"] = gdf.geometry.x
+gdf["samplingPoint.northing"] = gdf.geometry.y
+# Create a dataset of just sampling points and their eastings/northings
+sampling_points = gdf[["samplingPoint.notation","samplingPoint.prefLabel","samplingPoint.easting", "samplingPoint.northing"]].drop_duplicates(subset="samplingPoint.notation",keep="first")
 
-# Add easting/northing to discharge location data
-dis_df = pd.read_csv("raw_datasets/consents_active.csv")
-dis_df["DISCHARGE_EASTING"] = dis_df["DISCHARGE_NGR"].apply(lambda x: bng.to_osgb36(x)[0])
-dis_df["DISCHARGE_NORTHING"] = dis_df["DISCHARGE_NGR"].apply(lambda x: bng.to_osgb36(x)[1])
-dis_df = dis_df[["DISCHARGE_SITE_NAME","DISCHARGE_EASTING", "DISCHARGE_NORTHING", "PERMIT_NUMBER", "PERMIT_VERSION"]]
-print(dis_df.head())
+## Create discharge point data
+discharge_points = pd.read_csv("raw_datasets/consents_active.csv")
+# Convert NGR to eatings/northings and remove columns that aren't needed
+discharge_points["DISCHARGE_EASTING"] = discharge_points["DISCHARGE_NGR"].apply(lambda x: bng.to_osgb36(x)[0])
+discharge_points["DISCHARGE_NORTHING"] = discharge_points["DISCHARGE_NGR"].apply(lambda x: bng.to_osgb36(x)[1])
+discharge_points = discharge_points[["DISCHARGE_SITE_NAME","DISCHARGE_EASTING", "DISCHARGE_NORTHING", "PERMIT_NUMBER", "PERMIT_VERSION"]]
 
 # Build tree
-dp_coords = dis_df[['DISCHARGE_EASTING', 'DISCHARGE_NORTHING']].to_numpy()
+dp_coords = discharge_points[['DISCHARGE_EASTING', 'DISCHARGE_NORTHING']].to_numpy()
 tree = cKDTree(dp_coords)
-
+# set a radius in metres
 radius = 100
 
 
-obs_coords = observations_df[
-    ["samplingPoint.easting", "samplingPoint.northing"]
-].to_numpy()
+sampling_point_coords = sampling_points[["samplingPoint.easting", "samplingPoint.northing"]].to_numpy()
 
-# matches is a list of lists, each inner list corresponds to a sampling point easting/northing pair, the list associated are the row numbers in the dis_df
-matches = tree.query_ball_point(obs_coords, r=radius)
+# matches is a list of lists
+# the index of the list corresponds to the row index of the samplingPoint in the sampling_point dataframe
+# the list contains row indices from the discharge_points dataframe that link to the specific sampling_point
+matches = tree.query_ball_point(sampling_point_coords, r=radius)
 
-permit_details = []
+rows = []
 
-# For each sampling point, create a dataframe which contains its closely located discharge points
-for idx_list in matches:
+# For each sampling point, get the subset of discharge_points dataframe and pick the permit from these rows
+for sampling_point_index, corresponding_list in enumerate(matches):
 
-    # Create a subset dataframe of dis_df based on the matching
-    permits_df = (
-        dis_df.iloc[idx_list]
-        .drop_duplicates(subset=["PERMIT_NUMBER", "PERMIT_VERSION"])
-        .reset_index(drop=True)
+    sp = sampling_points.iloc[sampling_point_index]
+    sp_name = str(sp["samplingPoint.prefLabel"]).upper()
+
+    # no candidates
+    if len(corresponding_list) == 0:
+        rows.append({
+            "samplingPoint.notation": sp["samplingPoint.notation"],
+            "samplingPoint.prefLabel": sp["samplingPoint.prefLabel"],
+            "PERMIT_NUMBER": None,
+            "PERMIT_VERSION": None,
+            "DISCHARGE_SITE_NAME": None,
+            "CONFIDENCE": 0
+        })
+        continue
+
+    # spatial candidates
+    candidate_permits = discharge_points.iloc[corresponding_list].copy()
+
+    # fuzzy match score
+    candidate_permits["CONFIDENCE"] = candidate_permits["DISCHARGE_SITE_NAME"].apply(
+        lambda x: fuzz.token_set_ratio(sp_name, str(x).upper())
     )
 
-    row = {
-        "permit_count": len(permits_df)
-    }
+    # best match
+    best = candidate_permits.loc[candidate_permits["CONFIDENCE"].idxmax()]
 
-    for i, (_, permit) in enumerate(permits_df.iterrows(), start=1):
-        row[f"PERMIT{i}_ID"] = permit["PERMIT_NUMBER"]
-        row[f"PERMIT{i}_SITE_NAME"] = permit["DISCHARGE_SITE_NAME"]
-        row[f"PERMIT{i}_VERSION"] = permit["PERMIT_VERSION"]
-        row[f"PERMIT{i}_EASTING"] = permit["DISCHARGE_EASTING"]
-        row[f"PERMIT{i}_NORTHING"] = permit["DISCHARGE_NORTHING"]
+    rows.append({
+        "samplingPoint.notation": sp["samplingPoint.notation"],
+        "samplingPoint.prefLabel": sp["samplingPoint.prefLabel"],
+        "PERMIT_NUMBER": best["PERMIT_NUMBER"],
+        "PERMIT_VERSION": best["PERMIT_VERSION"],
+        "DISCHARGE_SITE_NAME": best["DISCHARGE_SITE_NAME"],
+        "CONFIDENCE": best["CONFIDENCE"]
+    })
 
-    permit_details.append(row)
+# FINAL DATAFRAME
+mapping_dataset = pd.DataFrame(rows)
+mapping_dataset = mapping_dataset.sort_values("CONFIDENCE", ascending=False)
 
-permit_df = pd.DataFrame(permit_details)
-
-observations_df = pd.concat(
-    [observations_df.reset_index(drop=True), permit_df],
-    axis=1
-)
-
-observations_df=observations_df.sort_values("permit_count", ascending=False)
-
-observations_df.to_csv("output_data/test.csv")
-
+mapping_dataset.to_csv("output_data/test1.csv")
 
 
