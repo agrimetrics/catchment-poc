@@ -27,7 +27,7 @@ determinands_filtered_by_permit_and_determinand = determinands_filtered_by_permi
     on=['DETE_CODE'],
     how='inner'
 )
-determinands_filtered_by_permit_and_determinand.to_csv("output_data/filter_determinands/filtered_determinands.csv")
+determinands_filtered_by_permit_and_determinand.to_csv("output_data/filter_determinands/filtered_determinands.csv",index=False)
 
 # Unpivot determinands table to create a long form dataset
 df = determinands_filtered_by_permit_and_determinand.copy()
@@ -46,7 +46,7 @@ long = (
     })
     .reset_index()
 )
-long.to_csv("output_data/filter_determinands/filtered_determinands_long.csv")
+long.to_csv("output_data/filter_determinands/filtered_determinands_long.csv",index=False)
 
 
 #### ANALYSIS (not relevant to output_data)
@@ -57,7 +57,7 @@ duplicates = (
     .reset_index(name="row_count")
 )
 duplicates = duplicates[duplicates["row_count"] > 1]
-duplicates.to_csv("analysis/test.csv")
+duplicates.to_csv("analysis/test.csv",index=False)
 #####
 group_cols = [
     "PERMIT_REF",
@@ -76,4 +76,4 @@ mask = (
 )
 
 conflicts = long[mask].sort_values(group_cols)
-conflicts.to_csv("analysis/conflicts.csv")
+conflicts.to_csv("analysis/conflicts.csv",index=False)

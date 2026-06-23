@@ -1,3 +1,5 @@
+These scripts need to be run in order
+
 ## 1. `location_linking.py`
 
 Input Data:
@@ -21,8 +23,8 @@ Logic:
   - Computes a fuzzy match score between:
     - `samplingPoint.prefLabel` (WQE Observational Data)
     - `DISCHARGE_SITE_NAME` (Discharge and Permit Data)
-  - Ranks candidates by similarity score
-  - Selects the highest scoring match as the representative link
+  - Ranks candidates by first by fuzzy match score then by permit version
+  - Selects the best candidate
 
 Purpose of the script
   - Establishes a link between sampling points and environmental permits
@@ -53,3 +55,7 @@ Purpose of the script
 
 Purpose of the script
 - Gets the observational data into a shape whereby each observation can be evaluated against the permit rules
+
+Note:
+The `row_pass_status` column in `observation_evaluation.csv` is a purely row based TRUE/FALSE on whether the row passes or not
+The `observation_pass_status` asks the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not

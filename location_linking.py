@@ -11,28 +11,25 @@ gdf = gpd.GeoDataFrame(obs,geometry=gpd.points_from_xy(obs["samplingPoint.longit
 gdf = gdf.to_crs("EPSG:27700")
 gdf["samplingPoint.easting"] = gdf.geometry.x
 gdf["samplingPoint.northing"] = gdf.geometry.y
-# Create a dataset of just sampling points and their eastings/northings
 sampling_points = gdf[["samplingPoint.notation","samplingPoint.prefLabel","samplingPoint.easting", "samplingPoint.northing"]].drop_duplicates(subset="samplingPoint.notation",keep="first")
 
 ## Clean discharge point data
-discharge_points = pd.read_csv("raw_datasets/consents_active.csv")
 # Convert NGR to eastings/northings and remove columns that aren't needed
+discharge_points = pd.read_csv("raw_datasets/consents_active.csv")
 discharge_points["DISCHARGE_EASTING"] = discharge_points["DISCHARGE_NGR"].apply(lambda x: bng.to_osgb36(x)[0])
 discharge_points["DISCHARGE_NORTHING"] = discharge_points["DISCHARGE_NGR"].apply(lambda x: bng.to_osgb36(x)[1])
 discharge_points = discharge_points[["DISCHARGE_SITE_NAME","DISCHARGE_EASTING", "DISCHARGE_NORTHING", "PERMIT_NUMBER", "PERMIT_VERSION"]].drop_duplicates()
 
-# Build tree f
+# Build tree from discharge points
 dp_coords = discharge_points[['DISCHARGE_EASTING', 'DISCHARGE_NORTHING']]
 tree = cKDTree(dp_coords)
 # set a radius in metres
 radius = 100
 
-sampling_point_coords = sampling_points[["samplingPoint.easting", "samplingPoint.northing"]]
-
 # matches is a list of lists
 # the index of each list corresponds to the row index of a samplingPoint in the sampling_point dataframe
 # the list contains row indices from the discharge_points dataframe that link to that specific sampling_point
-matches = tree.query_ball_point(sampling_point_coords, r=radius)
+matches = tree.query_ball_point(sampling_points[["samplingPoint.easting", "samplingPoint.northing"]], r=radius)
 
 
 rows = []
@@ -81,16 +78,16 @@ for sampling_point_index, corresponding_list in enumerate(matches):
 
     rows.append(row)
 
-# create final dataframe
+# Create final dataframe which maps a sampling point to a permit+version
 mapping_dataset_all = pd.DataFrame(rows)
 mapping_dataset_all = mapping_dataset_all.sort_values("MATCH_CONFIDENCE_1", ascending=False)
-mapping_dataset_all.to_csv("output_data/location_linking/sampling_point_to_permit_all.csv")
+mapping_dataset_all.to_csv("output_data/location_linking/sampling_point_to_permit_all.csv",index=False)
 mapping_dataset_filtered = mapping_dataset_all[["samplingPoint.notation","samplingPoint.prefLabel","DISCHARGE_SITE_NAME_1","MATCH_CONFIDENCE_1","PERMIT_NUMBER_1","PERMIT_VERSION_1"]].rename(columns={
     "DISCHARGE_SITE_NAME_1": "DISCHARGE_SITE_NAME",
     "MATCH_CONFIDENCE_1": "MATCH_CONFIDENCE",
     "PERMIT_NUMBER_1": "PERMIT_NUMBER",
     "PERMIT_VERSION_1": "PERMIT_VERSION"
 })
-mapping_dataset_filtered.to_csv("output_data/location_linking/sampling_point_to_permit_filtered.csv")
+mapping_dataset_filtered.to_csv("output_data/location_linking/sampling_point_to_permit_filtered.csv",index=False)
 
 
