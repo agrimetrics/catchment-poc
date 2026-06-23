@@ -50,20 +50,21 @@ long.to_csv("output_data/filter_determinands/filtered_determinands_long.csv",ind
 
 
 #### ANALYSIS (not relevant to output_data)
-######## Identify permits that have more than 1 row for a given permit ref, version and determinand code
+###### Identify permits that have more than 1 row for a given permit ref, version and determinand code
 duplicates = (
     determinands.groupby(["PERMIT_REF", "VERSION", "DETE_CODE"])
     .size()
     .reset_index(name="row_count")
 )
 duplicates = duplicates[duplicates["row_count"] > 1]
-duplicates.to_csv("analysis/test.csv",index=False)
-#####
+duplicates.to_csv("analysis/duplicate_rows_by_permit_version_and_deteCode.csv",index=False)
+
+###### Identify rows where given all other relevant columns are the same the month_from/month_to differ for a given permit
 group_cols = [
     "PERMIT_REF",
     "VERSION",
-    "MONTH_FROM",
-    "MONTH_TO",
+    "OUTLET_NUMBER",
+    "EFFLUENT_NUMBER",
     "DETE_CODE",
     "RULE_TYPE"
 ]
@@ -76,4 +77,4 @@ mask = (
 )
 
 conflicts = long[mask].sort_values(group_cols)
-conflicts.to_csv("analysis/conflicts.csv",index=False)
+conflicts.to_csv("analysis/month_analysis.csv",index=False)
