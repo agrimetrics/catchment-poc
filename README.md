@@ -6,6 +6,9 @@
   - Discharge and Permit Data: `raw_datasets/consents_active.csv`
   - Permit rules for each determinand: `raw_data/determinands.csv`
 
+## Output Data
+The final output dataset which evaluates observations against permit rules is stored in `output_data/shape_observational_data/observation_evaluation.csv`
+
 ## Scripts
 These scripts need to be run in order, these scripts can be run individually or you can run `make run` which runs each script consecutively.
 
