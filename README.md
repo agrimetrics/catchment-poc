@@ -1,4 +1,4 @@
-# Demonstrator-PoC
+# demonstrator-poc
 
 ## Data sources:
 - WQE Observational Data for Poole Harbour Rivers between 2020-2026: `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
