@@ -5,13 +5,8 @@ from scipy.spatial import cKDTree
 from rapidfuzz import fuzz
 
 ## Create sampling point data from observational data
-# Load observations and convert lat/long into eastings/northings
 obs = pd.read_csv("raw_datasets/poole_harbour_rivers_observations_2020-2026.csv")
-gdf = gpd.GeoDataFrame(obs,geometry=gpd.points_from_xy(obs["samplingPoint.longitude"],obs["samplingPoint.latitude"]),crs="EPSG:4326")
-gdf = gdf.to_crs("EPSG:27700")
-gdf["samplingPoint.easting"] = gdf.geometry.x
-gdf["samplingPoint.northing"] = gdf.geometry.y
-sampling_points = gdf[["samplingPoint.notation","samplingPoint.prefLabel","samplingPoint.easting", "samplingPoint.northing"]].drop_duplicates(subset="samplingPoint.notation",keep="first")
+sampling_points = obs[["samplingPoint.notation","samplingPoint.prefLabel","samplingPoint.easting", "samplingPoint.northing"]].drop_duplicates(subset="samplingPoint.notation",keep="first")
 
 ## Clean discharge point data
 # Convert NGR to eastings/northings and remove columns that aren't needed
@@ -44,10 +39,14 @@ for sampling_point_index, corresponding_list in enumerate(matches):
     if len(corresponding_list) == 0:
         row["samplingPoint.notation"]=sp["samplingPoint.notation"]
         row["samplingPoint.prefLabel"]=sp["samplingPoint.prefLabel"]
+        row["samplingPoint.easting"] = sp["samplingPoint.easting"]
+        row["samplingPoint.northing"] = sp["samplingPoint.northing"]
         row["DISCHARGE_SITE_NAME_1"] = None
         row["MATCH_CONFIDENCE_1"] = 0
         row["PERMIT_NUMBER_1"] = None
         row["PERMIT_VERSION_1"] = None
+        row["DISCHARGE_EASTING_1"] = None
+        row["DISCHARGE_NORTHING_1"] = None
         rows.append(row)
         continue
 
@@ -72,10 +71,14 @@ for sampling_point_index, corresponding_list in enumerate(matches):
         rank = i + 1
         row["samplingPoint.notation"]=sp["samplingPoint.notation"]
         row["samplingPoint.prefLabel"]=sp["samplingPoint.prefLabel"]
+        row["samplingPoint.easting"] = sp["samplingPoint.easting"]
+        row["samplingPoint.northing"] = sp["samplingPoint.northing"]
         row[f"DISCHARGE_SITE_NAME_{rank}"] = match_row["DISCHARGE_SITE_NAME"]
         row[f"MATCH_CONFIDENCE_{rank}"] = match_row["MATCH_CONFIDENCE"]
         row[f"PERMIT_NUMBER_{rank}"] = match_row["PERMIT_NUMBER"]
         row[f"PERMIT_VERSION_{rank}"] = match_row["PERMIT_VERSION"]
+        row[f"DISCHARGE_EASTING_{rank}"] = match_row["DISCHARGE_EASTING"]
+        row[f"DISCHARGE_NORTHING_{rank}"] = match_row["DISCHARGE_NORTHING"]
 
     rows.append(row)
 
@@ -85,11 +88,13 @@ mapping_dataset_all = mapping_dataset_all.sort_values("MATCH_CONFIDENCE_1", asce
 mapping_dataset_all.to_csv("output_data/location_linking/sampling_point_to_permit_all.csv",index=False)
 
 # Filter out rows where the MATCH_CONFIDENCE is under 50%
-mapping_dataset_filtered = mapping_dataset_all[["samplingPoint.notation","samplingPoint.prefLabel","DISCHARGE_SITE_NAME_1","MATCH_CONFIDENCE_1","PERMIT_NUMBER_1","PERMIT_VERSION_1"]].rename(columns={
+mapping_dataset_filtered = mapping_dataset_all[["samplingPoint.notation","samplingPoint.prefLabel","samplingPoint.easting","samplingPoint.northing","MATCH_CONFIDENCE_1","DISCHARGE_SITE_NAME_1","DISCHARGE_EASTING_1","DISCHARGE_NORTHING_1","PERMIT_NUMBER_1","PERMIT_VERSION_1"]].rename(columns={
     "DISCHARGE_SITE_NAME_1": "DISCHARGE_SITE_NAME",
     "MATCH_CONFIDENCE_1": "MATCH_CONFIDENCE",
     "PERMIT_NUMBER_1": "PERMIT_NUMBER",
-    "PERMIT_VERSION_1": "PERMIT_VERSION"
+    "PERMIT_VERSION_1": "PERMIT_VERSION",
+    "DISCHARGE_EASTING_1":"DISCHARGE_EASTING",
+    "DISCHARGE_NORTHING_1":"DISCHARGE_NORTHING"
 })
 mapping_dataset_filtered = mapping_dataset_filtered[mapping_dataset_filtered["MATCH_CONFIDENCE"] >= 50]
 mapping_dataset_filtered.to_csv("output_data/location_linking/sampling_point_to_permit_filtered.csv",index=False)

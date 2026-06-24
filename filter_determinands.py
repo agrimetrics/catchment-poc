@@ -31,13 +31,13 @@ determinands_filtered_by_permit_and_determinand.to_csv("output_data/filter_deter
 
 # Unpivot determinands table to create a long form dataset
 df = determinands_filtered_by_permit_and_determinand.copy()
-df = df.reset_index(names="row_id")
+df = df.reset_index(names="ROW_ID")
 long = (
     pd.wide_to_long(
         df,
         stubnames=["CODE", "VAL"],
-        i="row_id",
-        j="n",
+        i="ROW_ID",
+        j="N",
         sep="_"
     )
         .rename(columns={
