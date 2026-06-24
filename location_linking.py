@@ -58,6 +58,7 @@ for sampling_point_index, corresponding_list in enumerate(matches):
     .apply(lambda x: fuzz.token_set_ratio(sp_name, str(x).upper()))
 )
 
+    # A basic sorting by match confidence then by permit version (to handle cases where you might have multiple versions of the same permit)
     closest_discharge_points = (
         closest_discharge_points.copy()
         .sort_values(
@@ -82,12 +83,15 @@ for sampling_point_index, corresponding_list in enumerate(matches):
 mapping_dataset_all = pd.DataFrame(rows)
 mapping_dataset_all = mapping_dataset_all.sort_values("MATCH_CONFIDENCE_1", ascending=False)
 mapping_dataset_all.to_csv("output_data/location_linking/sampling_point_to_permit_all.csv",index=False)
+
+# Filter out rows where the MATCH_CONFIDENCE is under 50%
 mapping_dataset_filtered = mapping_dataset_all[["samplingPoint.notation","samplingPoint.prefLabel","DISCHARGE_SITE_NAME_1","MATCH_CONFIDENCE_1","PERMIT_NUMBER_1","PERMIT_VERSION_1"]].rename(columns={
     "DISCHARGE_SITE_NAME_1": "DISCHARGE_SITE_NAME",
     "MATCH_CONFIDENCE_1": "MATCH_CONFIDENCE",
     "PERMIT_NUMBER_1": "PERMIT_NUMBER",
     "PERMIT_VERSION_1": "PERMIT_VERSION"
 })
+mapping_dataset_filtered = mapping_dataset_filtered[mapping_dataset_filtered["MATCH_CONFIDENCE"] >= 50]
 mapping_dataset_filtered.to_csv("output_data/location_linking/sampling_point_to_permit_filtered.csv",index=False)
 
 
