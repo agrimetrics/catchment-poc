@@ -1,4 +1,5 @@
 import folium
+from folium.plugins import MarkerCluster
 import pandas as pd
 import geopandas as gpd
 
@@ -43,7 +44,16 @@ folium.GeoJson(
 
 # Add water quality sampling points 
 sampling_points = pd.read_csv("output_data/observations_with_permits_and_rules.csv")
-unique_sampling_points = sampling_points.drop_duplicates(subset="samplingPoint.notation", keep="first")
+# True only if all observations for a sampling point passed
+sampling_points["SAMPLING_POINT_PASS_STATUS"] = (
+    sampling_points.groupby("samplingPoint.notation")["ROW_PASS_STATUS"]
+    .transform("all")
+)
+
+unique_sampling_points = sampling_points.drop_duplicates(
+    subset="samplingPoint.notation",
+    keep="first"
+)
 points_gdf = gpd.GeoDataFrame(
     unique_sampling_points,
     geometry=gpd.points_from_xy(unique_sampling_points["samplingPoint.longitude"], unique_sampling_points["samplingPoint.latitude"]),
@@ -78,110 +88,88 @@ for _, row in joined.iterrows():
         index=False,
         classes="table table-striped table-hover table-condensed table-responsive"
     )
-
-    folium.Marker(
-        location=[row["samplingPoint.latitude"], row["samplingPoint.longitude"]],
-        popup=folium.Popup(html),
-        icon=folium.Icon(color="green")
-    ).add_to(sampling_point_group)
+    if row["SAMPLING_POINT_PASS_STATUS"] == True:
+        folium.Marker(
+            location=[row["samplingPoint.latitude"], row["samplingPoint.longitude"]],
+            popup=folium.Popup(html),
+            icon=folium.Icon(color="green")
+        ).add_to(sampling_point_group)
+    else:
+        folium.Marker(
+            location=[row["samplingPoint.latitude"], row["samplingPoint.longitude"]],
+            popup=folium.Popup(html),
+            icon=folium.Icon(color="red")
+        ).add_to(sampling_point_group)
 
 # Sustainable Farming Initiatives
 # Load the GeoJSON
 sfi = gpd.read_file("raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson")
 sfi = gpd.sjoin(sfi, geojson_data_dissolved, how="inner", predicate="within")
-#top_3 = sfi["option_code"].value_counts().head(3)
-#print(top_3)
+sfi["option_code_category"] = (
+    sfi["option_code"]
+    .astype(str)
+    .str.extract(r"([A-Za-z]+)")[0]
+    .str.replace(r"^C", "", regex=True)
+)
 
-#SAM1 option_code layer
-sfi_sam1 = sfi[(sfi["option_code"] == "SAM1")]
-sfi_sam1_group=folium.FeatureGroup("SFI SAM1 (Assess soil, produce a soil management plan, and test soil organic matter) - 1927 data points",show=False).add_to(m)
-for _, row in sfi_sam1.iterrows():
-    popup_dataframe = pd.DataFrame({
-        "Application ID": [row["app_id"]],
-        "Reference Year": [row["ref_year"]],
-        "Contract Start": [row["contract_start"]],
-        "Contract End": [row["contract_end"]],
-        "Scheme": [row["scheme"]],
-        "Application Type": [row["application_type"]],
-        "Option Code": [row["option_code"]],
-        "Area": [row["area"]],
-        "MTL": [row["mtl"]],
-        "Units": [row["units"]],
-        "Unit of Measure": [row["uom_desc"]],
-        "Option Year": [row["opt_year"]],
-        "Scheme Module": [row["schememodule"]],
-    }).T.reset_index()
-    popup_dataframe.columns = ["Field", "Value"]
-    html = popup_dataframe.to_html(
-        index=False,
-        classes="table table-striped table-hover table-condensed table-responsive"
-    )
-    folium.Marker(
-        location=[row.geometry.y, row.geometry.x],
-        popup=folium.Popup(html, max_width=500),
-        icon=folium.Icon(color="blue")
-    ).add_to(sfi_sam1_group)
+top10 = sfi["option_code_category"].value_counts().head(10)
+option_code_category_descriptions = {
+    "HRW": "Hedgerows",
+    "SAM": "Soil management",
+    "LIG": "Grassland nutrient management",
+    "IPM": "Pest management",
+    "PRF": "Nutrient application and weed control methods",
+    "AHL": "Arable and horticultural land",
+    "NUM": "Nutrient management and legumes",
+    "SOH": "Soil health",
+    "SP": "Supplementary management options",
+    "GRH": "Grassland habitat management",
+}
 
+for category in top10.index:
+    sfi_category = sfi[sfi["option_code_category"] == category]
+    description = option_code_category_descriptions.get(category)
+    if description:
+        layer_name = f"{category} ({description}) - {len(sfi_category)} data points"
+    else:
+        layer_name = f"{category} - {len(sfi_category)} data points"
 
-#CSAM1 option_code layer
-sfi_csam1 = sfi[(sfi["option_code"] == "CSAM1")]
-sfi_csam1_group=folium.FeatureGroup("SFI CSAM1 (Assess soil, test soil organic matter and produce a soil management plan) - 1484 data points",show=False).add_to(m)
-for _, row in sfi_csam1.iterrows():
-    popup_dataframe = pd.DataFrame({
-        "Application ID": [row["app_id"]],
-        "Reference Year": [row["ref_year"]],
-        "Contract Start": [row["contract_start"]],
-        "Contract End": [row["contract_end"]],
-        "Scheme": [row["scheme"]],
-        "Application Type": [row["application_type"]],
-        "Option Code": [row["option_code"]],
-        "Area": [row["area"]],
-        "MTL": [row["mtl"]],
-        "Units": [row["units"]],
-        "Unit of Measure": [row["uom_desc"]],
-        "Option Year": [row["opt_year"]],
-        "Scheme Module": [row["schememodule"]],
-    }).T.reset_index()
-    popup_dataframe.columns = ["Field", "Value"]
-    html = popup_dataframe.to_html(
-        index=False,
-        classes="table table-striped table-hover table-condensed table-responsive"
-    )
-    folium.Marker(
-        location=[row.geometry.y, row.geometry.x],
-        popup=folium.Popup(html, max_width=500),
-        icon=folium.Icon(color="blue")
-    ).add_to(sfi_csam1_group)
+    group = folium.FeatureGroup(
+        name=layer_name,
+        show=False,
+    ).add_to(m)
+    cluster = MarkerCluster().add_to(group)
 
-#HRW1 option_code layer
-sfi_hrw1 = sfi[(sfi["option_code"] == "HRW1")]
-sfi_hrw1_group=folium.FeatureGroup("SFI HRW1 (Assess and record hedgerow condition) - 993 data points",show=False).add_to(m)
-for _, row in sfi_hrw1.iterrows():
-    popup_dataframe = pd.DataFrame({
-        "Application ID": [row["app_id"]],
-        "Reference Year": [row["ref_year"]],
-        "Contract Start": [row["contract_start"]],
-        "Contract End": [row["contract_end"]],
-        "Scheme": [row["scheme"]],
-        "Application Type": [row["application_type"]],
-        "Option Code": [row["option_code"]],
-        "Area": [row["area"]],
-        "MTL": [row["mtl"]],
-        "Units": [row["units"]],
-        "Unit of Measure": [row["uom_desc"]],
-        "Option Year": [row["opt_year"]],
-        "Scheme Module": [row["schememodule"]],
-    }).T.reset_index()
-    popup_dataframe.columns = ["Field", "Value"]
-    html = popup_dataframe.to_html(
-        index=False,
-        classes="table table-striped table-hover table-condensed table-responsive"
-    )
-    folium.Marker(
-        location=[row.geometry.y, row.geometry.x],
-        popup=folium.Popup(html, max_width=500),
-        icon=folium.Icon(color="blue")
-    ).add_to(sfi_hrw1_group)
+    for _, row in sfi_category.iterrows():
+        popup_dataframe = pd.DataFrame({
+            "Application ID": [row["app_id"]],
+            "Reference Year": [row["ref_year"]],
+            "Contract Start": [row["contract_start"]],
+            "Contract End": [row["contract_end"]],
+            "Scheme": [row["scheme"]],
+            "Application Type": [row["application_type"]],
+            "Option Code": [row["option_code"]],
+            "Area": [row["area"]],
+            "MTL": [row["mtl"]],
+            "Units": [row["units"]],
+            "Unit of Measure": [row["uom_desc"]],
+            "Option Year": [row["opt_year"]],
+            "Scheme Module": [row["schememodule"]],
+        }).T.reset_index()
+
+        popup_dataframe.columns = ["Field", "Value"]
+
+        html = popup_dataframe.to_html(
+            index=False,
+            classes="table table-striped table-hover table-condensed table-responsive"
+        )
+
+        folium.Marker(
+            location=[row.geometry.y, row.geometry.x],
+            popup=folium.Popup(html, max_width=500),
+            icon=folium.Icon(color="blue"),
+        ).add_to(cluster)
+
 
 folium.LayerControl().add_to(m)
 m.save("output_data/map.html")

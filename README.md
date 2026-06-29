@@ -21,7 +21,7 @@
 - `source .venv/bin/activate`
 - `pip install -r requirements.txt`
 - Run `python link_data.py` which links the data together and saves the output data in the `output_data` folder. The final dataframe which stores observations, their permits and evaluates the observation against the min/max permit rules is the `output_data/observations_with_permits_and_rules.csv` file.
-- Run `python generate_map.py` which generates a map using the `output_data/observations_with_permits_and_rules.csv` dataset, this saves the map as a html file in `output_data/map.html`
+- Run `python generate_map.py` which generates a map using the `output_data/observations_with_permits_and_rules.csv` dataset, this saves the map as a html file in `output_data/map.html`. It can take a minute or so to generate this map due to how many data points are on the map.
 
 **Notes on the `output_data/observations_with_permits_and_rules.csv` dataset**
 - The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
