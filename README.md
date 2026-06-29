@@ -13,16 +13,15 @@
 - Sustainable Farming Initiatives GeoJSON for Poole Harbour: `raw_datasets/sustainable_farming_initiatives_for_poole_harbour.geojson`
     - Obtained from https://environment.data.gov.uk/explore/58cc85ab-a955-4b37-9c42-eee8532cbd01
 
-## Demo (map)
+# Demo
 `cd` into the `output_data` directory and run `python -m http.server 8000` then navigate to `http://localhost:8000/map.html` to view the interactive map
 
 # Running the code
-## Create virtual environment and install necessary libraries
-`python -m venv .venv`
-`source .venv/bin/activate`
-`pip install -r requirements.txt`
-
-Run `python link_data.py` which links the data together and saves the output data in the `output_data` folder. The final dataframe which stores observations, their permits and evaluates the observation against the min/max permit rules is the `output_data/observations_with_permits_and_rules.csv` file.
+- `python -m venv .venv`
+- `source .venv/bin/activate`
+- `pip install -r requirements.txt`
+- Run `python link_data.py` which links the data together and saves the output data in the `output_data` folder. The final dataframe which stores observations, their permits and evaluates the observation against the min/max permit rules is the `output_data/observations_with_permits_and_rules.csv` file.
+- Run `python generate_map.py` which generates a map using the `output_data/observations_with_permits_and_rules.csv` dataset, this saves the map as a html file in `output_data/map.html`
 
 **Notes on the `output_data/observations_with_permits_and_rules.csv` dataset**
 - The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
