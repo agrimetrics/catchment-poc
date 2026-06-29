@@ -9,7 +9,11 @@
 ## Output Data
 The final output dataset which evaluates observations against permit rules is stored in `output_data/shape_observational_data/observation_evaluation.csv`
 
-## Scripts
+The latest code with the correct link between sampling point and permit is all stored in the `second_attempt` folder.
+To run the map `cd` into the `second_attempt` folder and run `python -m http.server 8000` then navigate to `http://localhost:8000/map.html`
+
+
+## Scripts [OUTDATED]
 These scripts need to be run in order, these scripts can be run individually or you can run `make run` which runs each script consecutively.
 
 ### 1. `merge_observational_data.py`
@@ -92,7 +96,7 @@ These scripts need to be run in order, these scripts can be run individually or 
 
 **Note**
 - The `ROW_PASS_STATUS` column in `observation_evaluation.csv` is a purely row based TRUE/FALSE on whether the row passes or not.
-- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping.
+- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. This does not take into account outlet_number, effluent_number, month_from or month_to. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to.
 
 ## Assumptions
 - Even though we use 5 years of observational data, we only assess sampling points against `active` permits, and the latest versions of the permits
