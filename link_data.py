@@ -1,8 +1,7 @@
 import pandas as pd
 
-
 ###### Create a dataset between sampling points and permits from the effluents dataset
-effluents = pd.read_csv("../raw_datasets/effluents.csv")
+effluents = pd.read_csv("raw_datasets/access_database_csv_files/effluents.csv")
 # Filter for SW region
 effluents=effluents[effluents["EA_REGION"]=="SW"]
 # Filter dataframe for where we have both the EA_REGION and the EFF_SAMPLE_POINT in order to construct the sampling point notation
@@ -19,11 +18,11 @@ effluents_subset = effluents[[
     "EFFLUENT_NUMBER"]]
 effluents_subset=effluents_subset.drop_duplicates()
 # Save to file
-effluents.to_csv("sampling_point_to_permit_relationship.csv", index=False)
-effluents_subset.to_csv("sampling_point_to_permit_relationship_mapping_columns_only.csv",index=False)
+effluents.to_csv("output_data/sampling_point_to_permit_relationship.csv", index=False)
+effluents_subset.to_csv("output_data/sampling_point_to_permit_relationship_mapping_columns_only.csv",index=False)
 
 ###### For our 2020-2026 Poole Harbour Rivers Water Quality observations dataset we create a dataset where we have the observation rows with their associated permits (one observation row can become multiple if one sampling point links to multiple (PERMIT_REF,VERSION,OUTLET_NUMBER,EFFLUENT_NUMBER) combinations
-observations = pd.read_csv("../raw_datasets/poole_harbour_rivers_observations_2020-2026.csv")
+observations = pd.read_csv("raw_datasets/poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv")
 
 #Filter out observation results that are like "<5", we want just numeric values 
 numeric_observations = observations.copy()
@@ -32,10 +31,10 @@ numeric_observations = numeric_observations.dropna(subset=["result"])
 
 # Create dataframe of observations that we have permits for
 observations_with_permits = numeric_observations.merge(effluents_subset, on="samplingPoint.notation",how="inner")
-observations_with_permits.to_csv("observations_with_permits.csv", index=False)
+observations_with_permits.to_csv("output_data/observations_with_permits.csv", index=False)
 
 ###### Filter and shape determinands dataset (permits and their rules) in order to later merge with the observations dataset
-determinands = pd.read_csv("../raw_datasets/determinands.csv")
+determinands = pd.read_csv("raw_datasets/access_database_csv_files/determinands.csv")
 #Filter for SW region
 determinands = determinands[determinands["EA_REGION"]=="SW"]
 #Filter for 'ABSOLUTE' method 
@@ -61,7 +60,7 @@ long = (
 #Filter for just maximum and minimum rule types
 long = long[long["RULE_TYPE"].isin(["MAXIMUM VALUE", "MINIMUM VALUE"])]
 long=long.drop_duplicates()
-long.to_csv("filtered_determinands_long.csv",index=False)
+long.to_csv("output_data/filtered_determinands_long.csv",index=False)
 
 ###### Create observational data which contains permits and their rules
 long=long.rename(columns={
@@ -103,4 +102,4 @@ observations_with_permits_and_rules["OBSERVATION_GROUPING_PASS_STATUS"] = (
 #filter for only latest version per determinand?
 #DWF data?
 
-observations_with_permits_and_rules.to_csv("observations_with_permits_and_rules.csv",index=False)
+observations_with_permits_and_rules.to_csv("output_data/observations_with_permits_and_rules.csv",index=False)

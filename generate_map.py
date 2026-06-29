@@ -1,9 +1,8 @@
 import folium
 import pandas as pd
 import geopandas as gpd
-import requests
 
-geojson_data = gpd.read_file("../map_notebook/OC_3367.geojson")
+geojson_data = gpd.read_file("raw_datasets/poole_harbour_rivers_operational_catchment.geojson")
 
 m = folium.Map(location=[50.7536, -2.3543], zoom_start=11)  # Approximate centre of dorset
 
@@ -43,7 +42,7 @@ folium.GeoJson(
 ).add_to(m)
 
 # Add water quality sampling points 
-sampling_points = pd.read_csv("observations_with_permits_and_rules.csv")
+sampling_points = pd.read_csv("output_data/observations_with_permits_and_rules.csv")
 unique_sampling_points = sampling_points.drop_duplicates(subset="samplingPoint.notation", keep="first")
 points_gdf = gpd.GeoDataFrame(
     unique_sampling_points,
@@ -56,8 +55,6 @@ joined = gpd.sjoin(
     how="inner",
     predicate="within"
 )
-
-
 
 sampling_point_group=folium.FeatureGroup("Water quality sampling points from observational data between 2020-2026 that have permits with min and/or max rules").add_to(m)
 
@@ -90,13 +87,11 @@ for _, row in joined.iterrows():
 
 # Sustainable Farming Initiatives
 # Load the GeoJSON
-sfi = gpd.read_file("../map_notebook/sfi.geojson")
+sfi = gpd.read_file("raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson")
 sfi = gpd.sjoin(sfi, geojson_data_dissolved, how="inner", predicate="within")
 
-#manage hedgerows code and sfi 23
-sfi = sfi[(sfi["option_code"] == "AHL2")]
 
-sfi.to_csv("test.csv", index=False)
+sfi = sfi[(sfi["option_code"] == "AHL2")]
 
 sfi_group=folium.FeatureGroup("Sustainable Farming Filter").add_to(m)
 for _, row in sfi.iterrows():
@@ -130,8 +125,5 @@ for _, row in sfi.iterrows():
         icon=folium.Icon(color="blue")
     ).add_to(sfi_group)
 
-
-
-
 folium.LayerControl().add_to(m)
-m.save("map.html")
+m.save("output_data/map.html")

@@ -2,101 +2,28 @@
 
 ## Data sources:
 - WQE Observational Data for Poole Harbour Rivers between 2020-2026: `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
+    - Obtained from https://environment.data.gov.uk/water-quality/downloads
 - Consented Discharges to Controlled Waters with Conditions
-  - Discharge and Permit Data: `raw_datasets/consents_active.csv`
-  - Permit rules for each determinand: `raw_data/determinands.csv`
+    - Obtained from https://www.data.gov.uk/dataset/55b8eaa8-60df-48a8-929a-060891b7a109/consented-discharges-to-controlled-waters-with-conditions1
+        - Discharge and Permit Data: `raw_datasets/access_database_csv_files/consents_active.csv`
+        - Permit rules for each determinand: `raw_datasets/access_database_csv_files/determinands.csv`
+        - Effluents: `raw_datasets/access_database_csv_files/effluents.csv`
+- Operational Catchment GeoJSON for Poole Harbour: `raw_datasets/OC_3367.geojson`
+    - Obtained from https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367
+- Sustainable Farming Initiatives GeoJSON for Poole Harbour: `raw_datasets/sustainable_farming_initiatives_for_poole_harbour.geojson`
+    - Obtained from https://environment.data.gov.uk/explore/58cc85ab-a955-4b37-9c42-eee8532cbd01
 
-## Output Data
-The final output dataset which evaluates observations against permit rules is stored in `output_data/shape_observational_data/observation_evaluation.csv`
+## Demo (map)
+`cd` into the `output_data` directory and run `python -m http.server 8000` then navigate to `http://localhost:8000/map.html` to view the interactive map
 
-The latest code with the correct link between sampling point and permit is all stored in the `second_attempt` folder.
-To run the map `cd` into the `second_attempt` folder and run `python -m http.server 8000` then navigate to `http://localhost:8000/map.html`
+# Running the code
+## Create virtual environment and install necessary libraries
+`python -m venv .venv`
+`source .venv/bin/activate`
+`pip install -r requirements.txt`
 
+Run `python link_data.py` which links the data together and saves the output data in the `output_data` folder. The final dataframe which stores observations, their permits and evaluates the observation against the min/max permit rules is the `output_data/observations_with_permits_and_rules.csv` file.
 
-## Scripts [OUTDATED]
-These scripts need to be run in order, these scripts can be run individually or you can run `make run` which runs each script consecutively.
-
-### 1. `merge_observational_data.py`
-
-**Input Data**
-- WQE Observational data between 2020-2026: `raw_datasets/poole_harbour_2020-2026/`
-
-**Output Data**
-- WQE Observational Data (merged): `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
-
-**Purpose of the script**
-  - Reads in all of the observational data into one dataframe and converts lat/long into eastings and northings
-
-### 2. `location_linking.py`
-
-**Input Data**
-- WQE Observational Data: `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
-- Discharge and Permit Data: `raw_datasets/consents_active.csv`
-
-**Output Data**
-  - `output_data/location_linking/sampling_point_to_permit_all.csv`
-    - Contains all sampling point to permit matches with confidence scores
-  - `output_data/location_linking/sampling_point_to_permit_filtered.csv`
-    - Filters out matches where confidence score is below 50
-
-**Logic**
-- Uses WQE Observational Data and reduces it to sampling points
-  - Converts lat/long into easting and northings
-
-- Finds candidate discharge points for each sampling point 
-  - Establishes discharge points within a fixed radius search (spatial proximity via KDTree) for each sampling point
-
-- Selects the most relevant discharge point per sampling point
-  - Computes a fuzzy match score between:
-    - `samplingPoint.prefLabel` (WQE Observational Data)
-    - `DISCHARGE_SITE_NAME` (Discharge and Permit Data)
-  - Ranks candidates by first by fuzzy match score then by permit version
-  - Selects the best candidate
-
-**Purpose of the script**
-  - Establishes a link between WQE sampling points and environmental permits
-  - Acknowledges that multiple permits may apply to a single sampling point, for this proof of concept, only one permit is selected per sampling point
-
-
-### 3. `filter_determinands.py`
-
-**Input Data**
-- Determinands: `raw_datasets/determinands.csv`
-- Discharge and Permit data specific to our observational data: `output_data/location_linking/sampling_point_to_permit_filtered.csv`
-- WQE Observational Data: `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
-
-**Output Data**
-- Filtered Determinands: `output_data/filter_determinands/filtered_determinands.csv`
-- Filtered Determinands in long format: `output_data/filter_determinands/filtered_determinands_long.csv`
-
-**Logic**
-- Filters the full determinands dataset to only the permits identified in `output_data/location_linking/sampling_point_to_permit_filtered.csv`
-- Filters the full determinands dataset to only the determinands identified in `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
-
-**Purpose of the script**
-- Filters the large determinands dataset to make it specific to our sampling points and determinands in our observational data.
-- Produces a long format for determinands and their associated rules
-
-### 4. `shape_observational_data.py`
-
-**Input Data**
-- WQE Observational Data: `raw_datasets/poole_harbour_rivers_observations_2020-2026.csv`
-- Map between sampling point and permit: `output_data/location_linking/sampling_point_to_permit_filtered.csv`
-- Determinands (in long format): `output_data/filter_determinands/filtered_determinands_long.csv`
-
-**Output Data**
-- Observation Evaluation (contains all observations and whether they pass/fail against permit rules): `output_data/shape_observational_data/observation_evaluation.csv`
-
-**Logic**
-- Starting with the raw observational data add the applicable permit and their rules
-- For observation evaluate the observation result based on the rule dictated by its permit
-
-**Purpose of the script**
-- Gets the observational data into a shape whereby each observation can be evaluated against the permit rules
-
-**Note**
-- The `ROW_PASS_STATUS` column in `observation_evaluation.csv` is a purely row based TRUE/FALSE on whether the row passes or not.
-- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. This does not take into account outlet_number, effluent_number, month_from or month_to. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to.
-
-## Assumptions
-- Even though we use 5 years of observational data, we only assess sampling points against `active` permits, and the latest versions of the permits
+**Notes on the `output_data/observations_with_permits_and_rules.csv` dataset**
+- The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
+- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. This does not take into account outlet_number, effluent_number, month_from or month_to. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to values.
