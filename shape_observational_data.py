@@ -7,7 +7,7 @@ determinands = pd.read_csv("output_data/filter_determinands/filtered_determinand
 # For each observation in our observational data tack on the corresponding permit+version along with the discharge easting/northing
 obs_df = obs_df.merge(
     sampling_point_to_permit_filtered_df[
-        ["samplingPoint.notation", "PERMIT_NUMBER", "PERMIT_VERSION", "DISCHARGE_EASTING", "DISCHARGE_NORTHING"]
+        ["samplingPoint.notation", "PERMIT_NUMBER", "PERMIT_VERSION", "DISCHARGE_SITE_NAME", "DISCHARGE_NGR", "DISCHARGE_EASTING", "DISCHARGE_NORTHING","DISCHARGE_LATITUDE", "DISCHARGE_LONGITUDE"]
     ],
     on="samplingPoint.notation",
     how="left")
@@ -65,6 +65,8 @@ columns = [
     "id",
     "samplingPoint.notation",
     "samplingPoint.prefLabel",
+    "samplingPoint.latitude",
+    "samplingPoint.longitude",
     "samplingPoint.easting",
     "samplingPoint.northing",
     "samplingPoint.region",
@@ -82,6 +84,10 @@ columns = [
     "unit",
     "PERMIT_NUMBER",
     "PERMIT_VERSION",
+    "DISCHARGE_SITE_NAME",
+    "DISCHARGE_NGR",
+    "DISCHARGE_LATITUDE",
+    "DISCHARGE_LONGITUDE",
     "DISCHARGE_EASTING",
     "DISCHARGE_NORTHING",
     "EA_REGION",
@@ -103,3 +109,11 @@ columns = [
 
 filtered_eval_df[columns].to_csv("output_data/shape_observational_data/observation_evaluation.csv",index=False)
 
+site_counts = (
+    filtered_eval_df.groupby("DISCHARGE_NGR")["DISCHARGE_SITE_NAME"]
+      .nunique()
+)
+
+# NGRs that map to more than one site name
+multiple_names = site_counts[site_counts > 1]
+multiple_names.to_csv("test.csv", index=False)

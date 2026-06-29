@@ -22,6 +22,8 @@ cols_to_keep = [
     "id",
     "samplingPoint.notation",
     "samplingPoint.prefLabel",
+    "samplingPoint.latitude",
+    "samplingPoint.longitude",
     "samplingPoint.easting",
     "samplingPoint.northing",
     "samplingPoint.region",
