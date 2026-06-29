@@ -1,8 +1,8 @@
 # demonstrator-poc
 
 ## Data sources:
-- WQE Observational Data for Poole Harbour Rivers between 2020-2026: `poole_harbour_rivers_water_quality_observations_2020_2026_combined`
-    - Obtained from https://environment.data.gov.uk/water-quality/downloads
+- WQE Observational Data for Poole Harbour Rivers between 2020-2026: `poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv`
+    - Obtained from https://environment.data.gov.uk/water-quality/downloads and merged multi-year data together with `raw_datasets/merge_observational_data.py`
 - Consented Discharges to Controlled Waters with Conditions
     - Obtained from https://www.data.gov.uk/dataset/55b8eaa8-60df-48a8-929a-060891b7a109/consented-discharges-to-controlled-waters-with-conditions1
         - Discharge and Permit Data: `raw_datasets/access_database_csv_files/consents_active.csv`
@@ -25,4 +25,4 @@
 
 **Notes on the `output_data/observations_with_permits_and_rules.csv` dataset**
 - The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
-- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. This does not take into account outlet_number, effluent_number, month_from or month_to. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to values.
+- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to values.

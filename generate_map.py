@@ -89,13 +89,13 @@ for _, row in joined.iterrows():
 # Load the GeoJSON
 sfi = gpd.read_file("raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson")
 sfi = gpd.sjoin(sfi, geojson_data_dissolved, how="inner", predicate="within")
+#top_3 = sfi["option_code"].value_counts().head(3)
+#print(top_3)
 
-
-sfi = sfi[(sfi["option_code"] == "AHL2")]
-
-sfi_group=folium.FeatureGroup("Sustainable Farming Filter").add_to(m)
-for _, row in sfi.iterrows():
-
+#SAM1 option_code layer
+sfi_sam1 = sfi[(sfi["option_code"] == "SAM1")]
+sfi_sam1_group=folium.FeatureGroup("SFI SAM1 (Assess soil, produce a soil management plan, and test soil organic matter) - 1927 data points",show=False).add_to(m)
+for _, row in sfi_sam1.iterrows():
     popup_dataframe = pd.DataFrame({
         "Application ID": [row["app_id"]],
         "Reference Year": [row["ref_year"]],
@@ -111,19 +111,77 @@ for _, row in sfi.iterrows():
         "Option Year": [row["opt_year"]],
         "Scheme Module": [row["schememodule"]],
     }).T.reset_index()
-
     popup_dataframe.columns = ["Field", "Value"]
-
     html = popup_dataframe.to_html(
         index=False,
         classes="table table-striped table-hover table-condensed table-responsive"
     )
-
     folium.Marker(
         location=[row.geometry.y, row.geometry.x],
         popup=folium.Popup(html, max_width=500),
         icon=folium.Icon(color="blue")
-    ).add_to(sfi_group)
+    ).add_to(sfi_sam1_group)
+
+
+#CSAM1 option_code layer
+sfi_csam1 = sfi[(sfi["option_code"] == "CSAM1")]
+sfi_csam1_group=folium.FeatureGroup("SFI CSAM1 (Assess soil, test soil organic matter and produce a soil management plan) - 1484 data points",show=False).add_to(m)
+for _, row in sfi_csam1.iterrows():
+    popup_dataframe = pd.DataFrame({
+        "Application ID": [row["app_id"]],
+        "Reference Year": [row["ref_year"]],
+        "Contract Start": [row["contract_start"]],
+        "Contract End": [row["contract_end"]],
+        "Scheme": [row["scheme"]],
+        "Application Type": [row["application_type"]],
+        "Option Code": [row["option_code"]],
+        "Area": [row["area"]],
+        "MTL": [row["mtl"]],
+        "Units": [row["units"]],
+        "Unit of Measure": [row["uom_desc"]],
+        "Option Year": [row["opt_year"]],
+        "Scheme Module": [row["schememodule"]],
+    }).T.reset_index()
+    popup_dataframe.columns = ["Field", "Value"]
+    html = popup_dataframe.to_html(
+        index=False,
+        classes="table table-striped table-hover table-condensed table-responsive"
+    )
+    folium.Marker(
+        location=[row.geometry.y, row.geometry.x],
+        popup=folium.Popup(html, max_width=500),
+        icon=folium.Icon(color="blue")
+    ).add_to(sfi_csam1_group)
+
+#HRW1 option_code layer
+sfi_hrw1 = sfi[(sfi["option_code"] == "HRW1")]
+sfi_hrw1_group=folium.FeatureGroup("SFI HRW1 (Assess and record hedgerow condition) - 993 data points",show=False).add_to(m)
+for _, row in sfi_hrw1.iterrows():
+    popup_dataframe = pd.DataFrame({
+        "Application ID": [row["app_id"]],
+        "Reference Year": [row["ref_year"]],
+        "Contract Start": [row["contract_start"]],
+        "Contract End": [row["contract_end"]],
+        "Scheme": [row["scheme"]],
+        "Application Type": [row["application_type"]],
+        "Option Code": [row["option_code"]],
+        "Area": [row["area"]],
+        "MTL": [row["mtl"]],
+        "Units": [row["units"]],
+        "Unit of Measure": [row["uom_desc"]],
+        "Option Year": [row["opt_year"]],
+        "Scheme Module": [row["schememodule"]],
+    }).T.reset_index()
+    popup_dataframe.columns = ["Field", "Value"]
+    html = popup_dataframe.to_html(
+        index=False,
+        classes="table table-striped table-hover table-condensed table-responsive"
+    )
+    folium.Marker(
+        location=[row.geometry.y, row.geometry.x],
+        popup=folium.Popup(html, max_width=500),
+        icon=folium.Icon(color="blue")
+    ).add_to(sfi_hrw1_group)
 
 folium.LayerControl().add_to(m)
 m.save("output_data/map.html")
