@@ -89,17 +89,16 @@ for _, row in joined.iterrows():
         classes="table table-striped table-hover table-condensed table-responsive"
     )
     if row["SAMPLING_POINT_PASS_STATUS"] == True:
-        folium.Marker(
-            location=[row["samplingPoint.latitude"], row["samplingPoint.longitude"]],
-            popup=folium.Popup(html),
-            icon=folium.Icon(color="green")
-        ).add_to(sampling_point_group)
+        pass_fail_colour = "green"
     else:
-        folium.Marker(
+        pass_fail_colour = "red"
+
+    folium.Marker(
             location=[row["samplingPoint.latitude"], row["samplingPoint.longitude"]],
             popup=folium.Popup(html),
-            icon=folium.Icon(color="red")
+            icon=folium.Icon(icon="square", prefix="fa",icon_color="white",color=pass_fail_colour)
         ).add_to(sampling_point_group)
+
 
 # Sustainable Farming Initiatives
 # Load the GeoJSON
@@ -170,6 +169,69 @@ for category in top10.index:
             icon=folium.Icon(color="blue"),
         ).add_to(cluster)
 
+
+#SSSI (Sites of Special Scientific Interest)
+sssi = gpd.read_file("raw_datasets/Sites_of_Special_Scientific_Interest_England.geojson")
+sssi = gpd.sjoin(sssi, geojson_data_dissolved, how="inner", predicate="within")
+#sssi.to_csv("test.csv", index=False)
+
+folium.GeoJson(
+    sssi,
+    name="SSSI (Sites of Special Scientific Interest)",
+    show=False,
+    style_function=lambda feature: {
+        "fillColor": "green",
+        "color": "darkgreen",
+        "weight": 1,
+        "fillOpacity": 0.5,
+    },
+    popup=folium.GeoJsonPopup(
+    fields=["name_left"],  
+    aliases=["Name:"]
+    ),
+).add_to(m)
+
+#SPA (Special Protection Areas)
+spa = gpd.read_file("raw_datasets/Special_Protection_Areas_England.geojson")
+spa = gpd.sjoin(spa, geojson_data_dissolved, how="inner", predicate="within")
+#spa.to_csv("test2.csv", index=False)
+
+folium.GeoJson(
+    spa,
+    name="SPA (Special Protection Areas)",
+    show=False,
+    style_function=lambda feature: {
+        "fillColor": "green",
+        "color": "darkgreen",
+        "weight": 1,
+        "fillOpacity": 0.5,
+    },
+    popup=folium.GeoJsonPopup(
+    fields=["spa_name"],  
+    aliases=["Name:"]
+    ),
+).add_to(m)
+
+#SAC (Special Areas of Conservation)
+sac = gpd.read_file("raw_datasets/Special_Areas_of_Conservation_England.geojson")
+sac = gpd.sjoin(sac, geojson_data_dissolved, how="inner", predicate="within")
+#sac.to_csv("test3.csv", index=False)
+
+folium.GeoJson(
+    sac,
+    name="SAC (Special Areas of Conservation)",
+    show=False,
+    style_function=lambda feature: {
+        "fillColor": "green",
+        "color": "darkgreen",
+        "weight": 1,
+        "fillOpacity": 0.5,
+    },
+    popup=folium.GeoJsonPopup(
+    fields=["sac_name"],  
+    aliases=["Name:"]
+    ),
+).add_to(m)
 
 folium.LayerControl().add_to(m)
 m.save("output_data/map.html")
