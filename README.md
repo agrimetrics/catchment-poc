@@ -12,14 +12,19 @@
     - Obtained from https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367
 - Sustainable Farming Initiatives GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson`
     - Obtained from https://environment.data.gov.uk/explore/58cc85ab-a955-4b37-9c42-eee8532cbd01
+- Sites of Special Scientific Interest England: `raw_datasets/Sites_of_Special_Scientific_Interest_England.geojson`
+    - Obtained from https://environment.data.gov.uk/dataset/ba8dc201-66ef-4983-9d46-7378af21027e
+- Special Protection Areas England: `raw_datasets/Special_Protection_Areas_England.geojson`
+    - Obtained from https://environment.data.gov.uk/dataset/4c660eee-887e-4c8b-91e5-d84b4c1078ac
+- Special Areas of Conservation England: `raw_datasets/Special_Areas_of_Conservation_England.geojson`
+    - Obtained from https://environment.data.gov.uk/dataset/6ecea2a1-5d2e-4f53-ba1f-690f4046ed1c
 
 # Demo
 `cd` into the `output_data` directory and run `python -m http.server 8000` then navigate to `http://localhost:8000/map.html` to view the interactive map
 
 # Running the code
-- `python -m venv .venv`
-- `source .venv/bin/activate`
-- `pip install -r requirements.txt`
+- `poetry install --no-root`
+- `eval $(poetry env activate)`
 - Run `python link_data.py` which links the data together and saves the output data in the `output_data` folder. The final dataframe which stores observations, their permits and evaluates the observation against the min/max permit rules is the `output_data/observations_with_permits_and_rules.csv` file.
 - Run `python generate_map.py` which generates a map using the `output_data/observations_with_permits_and_rules.csv` dataset, this saves the map as a html file in `output_data/map.html`. It can take a minute or so to generate this map due to how many data points are on the map.
 
