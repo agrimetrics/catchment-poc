@@ -33,3 +33,12 @@
 **Notes on the `output_data/observations_with_permits_and_rules.csv` dataset**
 - The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
 - The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to values.
+
+# License
+Unless stated otherwise, the codebase in this repository is released under the MIT License.
+
+Copyright (c) 2026 Crown Copyright (Government Digital Service)
+
+The documentation and any other non-code content in this repository is licensed under the Open Government Licence v3.0, except where otherwise stated.
+
+Contains public sector information licensed under the Open Government Licence v3.0.
