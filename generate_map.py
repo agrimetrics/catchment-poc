@@ -3,10 +3,10 @@ from folium.plugins import MarkerCluster
 import pandas as pd
 import geopandas as gpd
 
-geojson_data = gpd.read_file("raw_datasets/poole_harbour_rivers_operational_catchment.geojson")
-
+# ======================================================================
+# Map initialisation
+# ======================================================================
 m = folium.Map(location=[50.7536, -2.3543], zoom_start=11)  # Approximate centre of dorset
-
 folium.TileLayer(
     tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     attr="© OpenStreetMap contributors",
@@ -15,9 +15,12 @@ folium.TileLayer(
     referrerPolicy="no-referrer-when-downgrade"
 ).add_to(m)
 
-# Add GeoJSON layer for operational catchment
+# ======================================================================
+# Operational Catchment
+# ======================================================================
+operational_catchment = gpd.read_file("raw_datasets/poole_harbour_rivers_operational_catchment.geojson")
 folium.GeoJson(
-    geojson_data,
+    operational_catchment,
     name="Poole Harbour Rivers (Operational Catchment) - All",
     show=False,
     style_function=lambda feature: {
@@ -28,11 +31,10 @@ folium.GeoJson(
     },
 ).add_to(m)
 
-geojson_data_dissolved = geojson_data.dissolve()
-
-# Add GeoJSON layer for operational catchment
+# Add GeoJSON layer for boundary operational catchment
+operational_catchment_dissolved = operational_catchment.dissolve()
 folium.GeoJson(
-    geojson_data_dissolved,
+    operational_catchment_dissolved,
     name="Poole Harbour Rivers (Operational Catchment) - Boundary",
     style_function=lambda feature: {
         "fillColor": "blue",
@@ -42,7 +44,9 @@ folium.GeoJson(
     },
 ).add_to(m)
 
-# Add water quality sampling points 
+# ======================================================================
+# WQE Sampling Points
+# ======================================================================
 sampling_points = pd.read_csv("output_data/observations_with_permits_and_rules.csv")
 # True only if all observations for a sampling point passed
 sampling_points["SAMPLING_POINT_PASS_STATUS"] = (
@@ -61,7 +65,7 @@ points_gdf = gpd.GeoDataFrame(
 )
 joined = gpd.sjoin(
     points_gdf,
-    geojson_data_dissolved,
+    operational_catchment_dissolved,
     how="inner",
     predicate="within"
 )
@@ -70,7 +74,7 @@ sampling_point_group=folium.FeatureGroup("Water quality sampling points from obs
 
 for _, row in joined.iterrows():
 
-    popup_dataframe = pd.DataFrame({
+    sampling_point_popup_dataframe = pd.DataFrame({
     "samplingPoint.notation": [row["samplingPoint.notation"]],
     "samplingPoint.prefLabel": [row["samplingPoint.prefLabel"]],
     "samplingPoint.latitude": [row["samplingPoint.latitude"]],
@@ -82,9 +86,9 @@ for _, row in joined.iterrows():
     "samplingPoint.samplingPointType": [row["samplingPoint.samplingPointType"]]
 }).T.reset_index()
     
-    popup_dataframe.columns = ["Field", "Value"]
+    sampling_point_popup_dataframe.columns = ["Field", "Value"]
     
-    html = popup_dataframe.to_html(
+    sampling_point_html = sampling_point_popup_dataframe.to_html(
         index=False,
         classes="table table-striped table-hover table-condensed table-responsive"
     )
@@ -95,15 +99,60 @@ for _, row in joined.iterrows():
 
     folium.Marker(
             location=[row["samplingPoint.latitude"], row["samplingPoint.longitude"]],
-            popup=folium.Popup(html),
+            popup=folium.Popup(sampling_point_html),
             icon=folium.Icon(icon="square", prefix="fa",icon_color="white",color=pass_fail_colour)
         ).add_to(sampling_point_group)
+    
+# ======================================================================
+# WINEP Actions
+# ======================================================================
+winep = pd.read_excel("raw_datasets/PR24 WINEP National Dataset.xlsx", sheet_name="PR24 WINEP National Data")
+# Remove rows where either easting or northing is missing
+winep = winep.dropna(subset=["Easting", "Northing"])
+
+winep_gdf = gpd.GeoDataFrame(
+    winep,
+    geometry=gpd.points_from_xy(winep["Easting"], winep["Northing"]),
+    crs="EPSG:27700"  
+)
+winep_gdf = winep_gdf.to_crs(epsg=4326)
+winep_for_poole = gpd.sjoin(winep_gdf, operational_catchment_dissolved, how="inner", predicate="within")
+winep_group=folium.FeatureGroup("WINEP Actions (PR24)",show=False).add_to(m)
+for _, row in winep_for_poole.iterrows():
+
+    winep_popup_dataframe = pd.DataFrame({
+    "Water_Company": [row["Water_Company"]],
+    "Action_Name":[row["Action_Name"]],
+    "Unique_ID": [row["Unique_ID"]],
+    "AMP_Period":[row["AMP_Period"]],
+    "Action_Description":[row["Action_Description"]],
+    "Completion_Date": [row["Completion_Date"]],
+    "Driver_Code_Primary":[row["Driver_Code_Primary"]],
+    "Action_Categorisation_Aim":[row["Action_Categorisation_Aim"]],
+    "Action_Categorisation_Group":[row["Action_Categorisation_Group"]],
+    "Action_Categorisation_Type":[row["Action_Categorisation_Type"]]
+}).T.reset_index()
+    
+    winep_popup_dataframe.columns = ["Field", "Value"]
+    
+    winep_html = winep_popup_dataframe.to_html(
+        index=False,
+        classes="table table-striped table-hover table-condensed table-responsive"
+    )
+    
+    folium.Marker(
+            location=[row.geometry.y, row.geometry.x],
+            popup=folium.Popup(winep_html),
+            icon=folium.Icon(icon="fa-play fa-rotate-270", prefix="fa",icon_color="white",color="blue")
+        ).add_to(winep_group)
 
 
-# Sustainable Farming Initiatives
-# Load the GeoJSON
+
+# ======================================================================
+# SFI (Sustainable Farming Initiatives) - Clustered Markers
+# ======================================================================
 sfi = gpd.read_file("raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson")
-sfi = gpd.sjoin(sfi, geojson_data_dissolved, how="inner", predicate="within")
+sfi = gpd.sjoin(sfi, operational_catchment_dissolved, how="inner", predicate="within")
 sfi["option_code_category"] = (
     sfi["option_code"]
     .astype(str)
@@ -140,7 +189,7 @@ for category in top10.index:
     cluster = MarkerCluster().add_to(group)
 
     for _, row in sfi_category.iterrows():
-        popup_dataframe = pd.DataFrame({
+        sfi_popup_dataframe = pd.DataFrame({
             "Application ID": [row["app_id"]],
             "Reference Year": [row["ref_year"]],
             "Contract Start": [row["contract_start"]],
@@ -156,24 +205,25 @@ for category in top10.index:
             "Scheme Module": [row["schememodule"]],
         }).T.reset_index()
 
-        popup_dataframe.columns = ["Field", "Value"]
+        sfi_popup_dataframe.columns = ["Field", "Value"]
 
-        html = popup_dataframe.to_html(
+        sfi_html = sfi_popup_dataframe.to_html(
             index=False,
             classes="table table-striped table-hover table-condensed table-responsive"
         )
 
         folium.Marker(
             location=[row.geometry.y, row.geometry.x],
-            popup=folium.Popup(html, max_width=500),
+            popup=folium.Popup(sfi_html, max_width=500),
             icon=folium.Icon(color="blue"),
         ).add_to(cluster)
 
+# ======================================================================
+# SSSI (Sites of Special Scientific Interest)
+# ======================================================================
 
-#SSSI (Sites of Special Scientific Interest)
 sssi = gpd.read_file("raw_datasets/Sites_of_Special_Scientific_Interest_England.geojson")
-sssi = gpd.sjoin(sssi, geojson_data_dissolved, how="inner", predicate="within")
-#sssi.to_csv("test.csv", index=False)
+sssi = gpd.sjoin(sssi, operational_catchment_dissolved, how="inner", predicate="within")
 
 folium.GeoJson(
     sssi,
@@ -191,10 +241,11 @@ folium.GeoJson(
     ),
 ).add_to(m)
 
-#SPA (Special Protection Areas)
+# ======================================================================
+# SPA (Special Protection Areas)
+# ======================================================================
 spa = gpd.read_file("raw_datasets/Special_Protection_Areas_England.geojson")
-spa = gpd.sjoin(spa, geojson_data_dissolved, how="inner", predicate="within")
-#spa.to_csv("test2.csv", index=False)
+spa = gpd.sjoin(spa, operational_catchment_dissolved, how="inner", predicate="within")
 
 folium.GeoJson(
     spa,
@@ -212,10 +263,11 @@ folium.GeoJson(
     ),
 ).add_to(m)
 
-#SAC (Special Areas of Conservation)
+# ======================================================================
+# SAC (Special Areas of Conservation)
+# ======================================================================
 sac = gpd.read_file("raw_datasets/Special_Areas_of_Conservation_England.geojson")
-sac = gpd.sjoin(sac, geojson_data_dissolved, how="inner", predicate="within")
-#sac.to_csv("test3.csv", index=False)
+sac = gpd.sjoin(sac, operational_catchment_dissolved, how="inner", predicate="within")
 
 folium.GeoJson(
     sac,
@@ -233,5 +285,8 @@ folium.GeoJson(
     ),
 ).add_to(m)
 
+# ======================================================================
+# This should always be last
+# ======================================================================
 folium.LayerControl().add_to(m)
 m.save("output_data/map.html")

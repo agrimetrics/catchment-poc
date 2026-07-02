@@ -1,6 +1,8 @@
 # demonstrator-poc
 
 ## Data sources:
+- Operational Catchment GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_operational_catchment.geojson`
+    - Obtained from https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367
 - WQE Observational Data for Poole Harbour Rivers between 2020-2026: `poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv`
     - Obtained from https://environment.data.gov.uk/water-quality/downloads and merged multi-year data together with `raw_datasets/merge_observational_data.py`
 - Consented Discharges to Controlled Waters with Conditions
@@ -8,8 +10,8 @@
         - Discharge and Permit Data: `raw_datasets/access_database_csv_files/consents_active.csv`
         - Permit rules: `raw_datasets/access_database_csv_files/determinands.csv`
         - Effluents: `raw_datasets/access_database_csv_files/effluents.csv`
-- Operational Catchment GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_operational_catchment.geojson`
-    - Obtained from https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367
+- PR24 Water Industry National Environment Programme (WINEP Actions/Drivers): `raw_datasets/PR24 WINEP National Dataset.xlsx`
+    - Obtained from https://environment.data.gov.uk/dataset/39b11ea0-3cfa-4cbb-b3a1-b5950019f169
 - Sustainable Farming Initiatives GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson`
     - Obtained from https://environment.data.gov.uk/explore/58cc85ab-a955-4b37-9c42-eee8532cbd01
 - Sites of Special Scientific Interest England: `raw_datasets/Sites_of_Special_Scientific_Interest_England.geojson`
