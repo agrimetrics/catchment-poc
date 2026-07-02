@@ -1,4 +1,4 @@
-# demonstrator-poc
+# catchment-poc
 
 ## Data sources:
 - Operational Catchment GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_operational_catchment.geojson`
