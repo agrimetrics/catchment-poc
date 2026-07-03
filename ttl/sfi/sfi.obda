@@ -1,10 +1,12 @@
 [PrefixDeclaration]
 :               http://example.com/sfi/
+ex:             http://example.com/
 xsd:            http://www.w3.org/2001/XMLSchema#
 rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
 defra-farming:  http://environment.data.gov.uk/ontology/farming/
 defra-core:     http://environment.data.gov.uk/ontology/core/ 
 skos:           http://www.w3.org/2004/02/skos/core#
+geo:            http://www.opengis.net/ont/geosparql#
 
 [MappingDeclaration] @collection [[
 
@@ -21,6 +23,13 @@ target      :Application/{app_id} defra-core:hasApplicability :Applicability/{ap
             :ApplicabilityPeriod/{app_id} defra-core:applicableFrom {contract_start}^^xsd:dateTime ;
                                                     defra-core:applicableTo {contract_end}^^xsd:dateTime .
 
+mappingId   ExtraApplicationProperties
+source      SELECT * FROM result
+target      :Application/{app_id} skos:notation {app_id} .
+            :Application/{app_id} ex:refYear {ref_year} .
+            :Application/{app_id} ex:scheme {scheme} .
+            :Application/{app_id} ex:applicationType {application_type} .
+
 mappingId   RelationshipBetweenApplicationAndOption
 source      SELECT app_id, option_code FROM result
 target      :Option/{app_id}/{option_code} rdf:type defra-core:Option.
@@ -28,6 +37,16 @@ target      :Option/{app_id}/{option_code} rdf:type defra-core:Option.
             :Option/{app_id}/{option_code} defra-core:partOf :Application/{app_id} .
             :Option/{app_id}/{option_code} defra-core:hasClassification :Option/Concept/{option_code} .
 
+mappingId   ExtraOptionProperties
+source      SELECT * FROM result
+target      :Option/{app_id}/{option_code} ex:area {area} .
+            :Option/{app_id}/{option_code} ex:mtl {mtl} .
+            :Option/{app_id}/{option_code} ex:units {units} .
+            :Option/{app_id}/{option_code} ex:uom_desc {uom_desc} .
+            :Option/{app_id}/{option_code} ex:opt_year {opt_year} .
+            :Option/{app_id}/{option_code} ex:schememodule {schememodule} .
+            :Option/{app_id}/{option_code} geo:hasGeometry :Option/{app_id}/{option_code}#geometry .
+            :Option/{app_id}/{option_code}#geometry geo:asWKT "{geom}"^^geo:wktLiteral .
 
 mappingId   SFIConcepts
 source      SELECT * FROM concepts
