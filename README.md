@@ -45,9 +45,9 @@ From the root folder of this repo you can run the following command which genera
 ./ontop/ontop materialize \
   --mapping ttl/sfi/sfi.obda \
   --properties ontop/duckdb.properties \
-  --output ttl/sfi.ttl \
+  --output ttl/sfi/sfi_raw.ttl \
   --format turtle && \
-rdfpipe -i turtle -o turtle ttl/sfi.ttl > ttl/sfi_pretty.ttl
+rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
 ```
 # License
 Unless stated otherwise, the codebase in this repository is released under the MIT License.
