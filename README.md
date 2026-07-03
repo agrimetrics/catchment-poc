@@ -37,6 +37,18 @@ You can run the interactive map without running the code, to do this `cd` into t
 - The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
 - The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to values.
 
+# Ontop
+Ontop is used to map our datasets into RDF.
+### SFI dataset into RDF
+From the root folder of this repo you can run the following command which generates RDF data. The `sfi.ttl` and `sfi_pretty.ttl` are the same data but the `sfi_pretty.ttl` file is easier to read.
+```
+./ontop/ontop materialize \
+  --mapping ttl/sfi/sfi.obda \
+  --properties ontop/duckdb.properties \
+  --output ttl/sfi.ttl \
+  --format turtle && \
+rdfpipe -i turtle -o turtle ttl/sfi.ttl > ttl/sfi_pretty.ttl
+```
 # License
 Unless stated otherwise, the codebase in this repository is released under the MIT License.
 

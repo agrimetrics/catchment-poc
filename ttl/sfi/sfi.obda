@@ -1,0 +1,43 @@
+[PrefixDeclaration]
+:               http://example.com/sfi/
+xsd:            http://www.w3.org/2001/XMLSchema#
+rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
+defra-farming:  http://environment.data.gov.uk/ontology/farming/
+defra-core:     http://environment.data.gov.uk/ontology/core/ 
+skos:           http://www.w3.org/2004/02/skos/core#
+
+[MappingDeclaration] @collection [[
+
+mappingId   ApplicationClassInstances
+source      SELECT app_id FROM result
+target      :Application/{app_id} rdf:type defra-farming:Application .
+
+mappingId   ApplicationDates
+source      SELECT app_id, contract_start, contract_end FROM result
+target      :Application/{app_id} defra-core:hasApplicability :Applicability/{app_id} .
+            :Applicability/{app_id} rdf:type defra-core:Applicability .
+            :Applicability/{app_id} defra-core:applicabilityPeriod :ApplicabilityPeriod/{app_id} .
+            :ApplicabilityPeriod/{app_id} rdf:type defra-core:ApplicabilityPeriod .
+            :ApplicabilityPeriod/{app_id} defra-core:applicableFrom {contract_start}^^xsd:dateTime ;
+                                                    defra-core:applicableTo {contract_end}^^xsd:dateTime .
+
+mappingId   RelationshipBetweenApplicationAndOption
+source      SELECT app_id, option_code FROM result
+target      :Option/{app_id}/{option_code} rdf:type defra-core:Option.
+            :Application/{app_id} defra-core:hasPart :Option/{app_id}/{option_code}.
+            :Option/{app_id}/{option_code} defra-core:partOf :Application/{app_id} .
+            :Option/{app_id}/{option_code} defra-core:hasClassification :Option/Concept/{option_code} .
+
+
+mappingId   SFIConcepts
+source      SELECT * FROM concepts
+target      :Option/Concept/{notation} rdf:type skos:Concept .
+            :Option/Concept/{notation} skos:notation {notation} .
+            :Option/Concept/{notation} skos:definition {description} .
+            :Option/Concept/{notation} skos:inScheme :Option .
+            :Option rdf:type skos:ConceptScheme .
+            :Option/Concept/{notation} skos:broader :Option/Concept/{broader} .
+            :Option/Concept/{broader} rdf:type skos:Concept .
+            :Option/Concept/{broader} skos:inScheme :Option .
+]]
+

@@ -1,0 +1,458 @@
+notation,description,broader
+AB1,Nectar Flower Mix,AB
+AB2,Basic Overwinter stubble,AB
+AB3,Beetle banks,AB
+AB4,Skylark Plots,AB
+AB5,Nesting Plots for Lapwing,AB
+AB6,Enhanced overwinter stubble,AB
+AB7,Wholecrop cereals,AB
+AB8,Flower rich margins and plots,AB
+AB9,Winter bird food,AB
+AB10,Unharvested cereal headland,AB
+AB11,Cultivated areas for arable plants,AB
+AB12,Supplementary winter feeding for farmland birds,AB
+AB13,Brassica fodder crop,AB
+AB14,Harvested low input cereal,AB
+AB15,Two year sown legume fallow,AB
+AB16,Autumn Sown BumbleBird Mix,AB
+AC1,Access Capital Items,AC
+AC2,Countryside Educational Visits Accreditation Scheme (CEVAS),AC
+AF1,Plant an agro-forestry woodland tree,AF
+AF2,Plant an agro-forestry fruit tree,AF
+AF3,Supplement: Species Diversity Bonus,AF
+AGF1,Maintain very low density in-field agroforestry on less sensitive land,AGF
+AGF2,Maintain low density (20-50 trees per ha) in field agroforestry,AGF
+AGF2,Maintain low density in-field agroforestry on less sensitive land,AGF
+AHL1,Pollen and nectar flower mix,AHL
+AHL2,Winter bird food on arable and horticultural land,AHL
+AHL3,Grassy field corners or blocks,AHL
+AHL4,4m to 12m grass buffer strip on arable and horticultural land,AHL
+AHW1,Bumblebird mix,AHW
+AHW2,Supplementary winter bird food,AHW
+AHW3,Beetle banks,AHW
+AHW4,Skylark plots,AHW
+AHW5,Nesting plots for lapwing,AHW
+AHW6,Basic overwinter stubble,AHW
+AHW7,Enhanced overwinter stubble,AHW
+AHW8,Harvest whole crop spring cereals and maintain overwinter stubble,AHW
+AHW9,Unharvested cereal headland,AHW
+AHW10,Low input harvested cereal crop,AHW
+AHW11,Cultivated areas for arable plants,AHW
+AHW12,Manage woodland edges on arable land,AHW
+AL1A,Arable and Horticultural Land,AL
+AL1B,Additional Payment,AL
+AL2A,Arable and Horticultural Land,AL
+AL3A,Arable and Horticultural Land,AL
+AL3B,Additional Payment,AL
+APO,Additional Parcel Option,APO
+AQ1,Automatic slurry scraper,AQ
+AQ2,Low ammonia emission flooring for livestock buildings,AQ
+BC4,Tree guard (wood post and wire),BC
+BE1,Protection of in-field trees on arable land,BE
+BE2,Protection of in-field trees on intensive grassland,BE
+BE3,Management of hedgerows,BE
+BE4,Management of traditional orchards,BE
+BE5,Creation of traditional orchards,BE
+BE6,Veteran Tree Surgery,BE
+BE7,Supplement for restorative pruning of fruit trees,BE
+BFS1,12m to 24m watercourse buffer strip on cultivated land,BFS
+BFS2,Buffer in-field ponds on arable land,BFS
+BFS3,Buffer in-field ponds and ditches on improved grassland,BFS
+BFS3,Buffer in-field ponds on improved grassland,BFS
+BFS4,Protect in-field trees on arable land,BFS
+BFS5,Protect in-field trees on intensive grassland,BFS
+BFS6,Habitat strip next to watercourses,BFS
+BN1,Stone-faced bank repair,BN
+BN2,Stone faced bank restoration,BN
+BN3,Earth bank creation,BN
+BN4,Earth Bank Restoration,BN
+BN4,Earth Bank Restoration,BN
+BN5,Hedgerow laying,BN
+BN6,Hedgerow Coppicing,BN
+BN7,Hedgerow Gapping,BN
+BN8,Hedgerow Supplement - Casting Up,BN
+BN9,Hedgerow Supplement - substantial Pre-Work,BN
+BN10,Hedgerow Supplement - Top Binding and Staking,BN
+BN11,Planting new hedges,BN
+BN12,Stone Wall Restoration,BN
+BN13,Stone Wall - Top Wiring,BN
+BN13,Stone wall supplement - Top wiring,BN
+BN14,Stone wall supplement - Stone from quarry,BN
+BN15,Stone wall supplement - difficult sites,BN
+BND1,Maintain dry stone walls,BND
+BND2,Maintain earth banks or stone-faced hedgebanks,BND
+CAHL1,Pollen and nectar flower mix,AHL
+CAHL2,Winter bird food on arable and horticultural land,AHL
+CAHL3,Grassy field corners and blocks,AHL
+CAHL4,4m to 12m grass buffer strip on arable and horticultural land,AHL
+CGS16,Supplement: Rush control,GS
+CHRW2,Manage hedgerows,HRW
+CHRW3,Maintain or establish hedgerow trees,HRW
+CIGL1,Take improved grassland field corners or blocks out of management,IGL
+CIGL2,Winter bird food on improved grassland,IGL
+CIGL3,4m to 12m grass buffer strip on improved grassland,IGL
+CIPM1,Assess integrated pest management and produce a plan,IPM
+CIPM2,"Flower-rich grass margins, blocks, or in-field strips",IPM
+CIPM2,"Flower-rich grass margins, blocks, or in-field strips (on arable land or permanent crops)",IPM
+CIPM3,Companion crop on arable and horticultural land,IPM
+CIPM4,No use of insecticide on arable crops and permanent crops,IPM
+CLIG3,Manage grassland with very low nutrient inputs - outside SDAs or within SDAs,LIG
+CMOR1,Assess moorland and produce a written record,MOR
+CMOR1A,Assess moorland and produce a written record,MOR
+CNUM1,Assess nutrient management and produce a review report,NUM
+CNUM2,Legumes on improved grassland,NUM
+CNUM3,Legume fallow,NUM
+CSAM1,"Assess soil, test soil organic matter and produce a soil management plan",SAM
+CSAM1A,"Assess soil, test soil organic matter and produce a soil management plan",SAM
+CSAM2,Multi-species winter cover crops,SAM
+CSAM3,Herbal leys,SAM
+CSP6,Supplement: Cattle grazing (non-moorland),SP
+CT1,Management of coastal sand dunes and vegetated shingle,T
+CT2,Creation of coastal sand dunes and vegetated shingle on arable land improved grassland,T
+CT3,Management of coastal saltmarsh,T
+CT4,Creation of inter-tidal and saline habitat on arable land,T
+CT5,Creation of inter-tidal and saline habitat by non-intervention,T
+CT6,Coastal vegetation management supplement,T
+CT7,Creation of inter-tidal and saline habitat on intensive grassland,T
+CUP10,Limited livestock grazing on moorland,UP
+CUP2,Management of rough grazing for birds,UP
+CWD1,Woodland creation maintenance,WD
+CWD2,Woodland improvement,WD
+ED1,Educational Access,ED
+FG1,Fencing,FG
+FG2,Sheep netting,FG
+FG3,Permanent electric fencing,FG
+FG4,Rabbit fencing supplement,FG
+FG5,Fencing supplement - difficult sites,FG
+FG6,Invisible fencing system,FG
+FG7,Anti-predator combination fencing for vulnerable ground-nesting birds.,FG
+FG8,Anti-predator temporary electric fencing,FG
+FG9,Woodland Fencing - Deer,FG
+FG11,Deer exclosure plot/unit,FG
+FG12,Wooden Field Gate,FG
+FG13,Stone Gate Post,FG
+FG14,Badger Gates,FG
+FG15,Water Gates,FG
+FG16,Deer Pedestrian Gate,FG
+FG17,Deer Vehicle Gate,FG
+FM1,Management of geodiversity features,FM
+FM2,Major preparatory work for Priority Habitats (creation and restoration) and Priority Species,FM
+FW1A,On Farm Woodland,FW
+FW1B,Woodland Condition Assessment,FW
+FW1C,Woodland Threat Awareness,FW
+FW1D,Maintenance of New Tree Planting,FW
+FY1,Deer high seat / unit,FY
+FY2,Capital investments to improve access infrastructure to woodlands.,FY
+FY2A,Capital investments to improve access infrastructure to woodlands.,FY
+FY3,Squirrel Traps and Maintenance,FY
+GRH6,Manage priority habitat species-rich grassland,GRH
+GRH6,Manage priority habitat species-rich grassland,GRH
+GRH7,Supplement: Haymaking,GRH
+GRH8,Supplement: Haymaking (late cut),GRH
+GRH1,Manage rough grazing for birds,GRH
+GRH10,Supplement: Lenient grazing,GRH
+GRH11,Supplement: Cattle grazing (non-moorland),GRH
+GS1,Take field corners and small areas out of management,GS
+GS1,Take field corners out of management,GS
+GS1A,Improved Grassland Soils,GS
+GS2,Permanent grassland with very low inputs (outside SDAs),GS
+GS2A,Improved Grassland Soils,GS
+GS3,Ryegrass seed-set as winter food for birds,GS
+GS3A,Improved Grassland Soils,GS
+GS3B,Additional Payment,GS
+GS3C,Additional Payment,GS
+GS4,Legume and herb-rich swards,GS
+GS5,Permanent grassland with very low inputs in SDA,GS
+GS6,Management of species-rich grassland,GS
+GS7,Restoration towards species-rich grassland,GS
+GS8,Creation of species-rich grassland,GS
+GS9,Management of wet grassland for breeding waders,GS
+GS10,Management of wet grassland for wintering waders and wildfowl,GS
+GS11,Creation of wet grassland for breeding waders,GS
+GS12,Creation of wet grassland for wintering waders and wildfowl,GS
+GS13,Management of grassland for target features,GS
+GS14,Creation of grassland for target features,GS
+GS16,Rush infestation control supplement,GS
+GS17,Lenient Grazing Supplement,GS
+HE1,Historic and archaeological feature protection.,HE
+HE2,Historic building restoration,HE
+HE3,Removal of eyesore,HE
+HEF1,Maintain weatherproof traditional farm or forestry buildings,HEF
+HEF2,Maintain weatherproof traditional farm or forestry buildings in remote areas,HEF
+HEF5,Control scrub on historic and archaeological features,HEF
+HEF6,Manage historic and archaeological features on grassland,HEF
+HEF8,Maintain designed or engineered waterbodies,HEF
+HRW1,Assess and record hedgerow condition,HRW
+HRW2,Manage hedgerows,HRW
+HRW3,"Maintain existing hedgerow trees, or establish new hedgerow trees",HRW
+HS1,Maintenance of Weatherproof Traditional Farm Buildings,HS
+HS1A,Hedgerow,HS
+HS2,Take historic and archaeological features currently on cultivated land out of cultivation.,HS
+HS2A,Hedgerow,HS
+HS3,"Reduced depth, non-inversion cultivation on historic and archaeological features",HS
+HS3A,Hedgerow,HS
+HS4,Scrub control on historic and archaeological features,HS
+HS5,Management of historic and archaeological features on grassland,HS
+HS6,Maintenance of designed/engineered water-bodies,HS
+HS7,Management of historic water meadows through traditional irrigation,HS
+HS8,Maintenance of Weatherproof Traditional Farm Buildings in Remote Areas,HS
+HS9,Restricted depth crop establishment to protect archaeology under and arable rotation,HS
+IG1A,Improved Grassland,IG
+IG1B,Additional Payment,IG
+IG2A,Improved Grassland,IG
+IG2B,Additional Payment,IG
+IG3A,Improved Grassland,IG
+IG3B,Additional Payment,IG
+IGL1,Take grassland field corners or blocks out of management,IGL
+IGL2,Winter bird food on improved grassland,IGL
+IGL3,4m to 12m grass buffer strip on improved grassland,IGL
+IPM1,Assess integrated pest management and produce a plan,IPM
+IPM2,"Flower-rich grass margins, blocks, or in-field strips",IPM
+IPM3,Companion crop on arable and horticultural land,IPM
+IPM4,"No use of insecticide, nematicide or acaricide on arable crops and permanent crops",IPM
+LH1,Management of lowland heathland,LH
+LH2,Restoration of forestry and woodland to lowland heathland,LH
+LH3,Creation of heathland from arable or improved grassland,LH
+LIG2,Manage grassland with very low nutrient inputs (SDAs),LIG
+LV1,Cattle Grid,LV
+LV2,Livestock handling facilities,LV
+LV3,Hard bases for livestock drinkers,LV
+LV4,Hard bases for livestock feeders,LV
+LV5,Pasture pumps and associated pipework/unit,LV
+LV6,Ram pumps and pipework/unit,LV
+LV7,Livestock troughs,LV
+LV8,Pipework for livestock troughs,LV
+MOR1,Assess moorland and produce a written record,MOR
+MOR1A,Assess moorland and produce a written record,MOR
+MPA1,SFI Management Payment,MPA
+MPAY1,SFI Management Payment,MPAY
+NUM1,Assess nutrient management and produce a review report,NUM
+NUM2,Legumes on improved grassland,NUM
+NUM3,Legume fallow,NUM
+OFA1,Overwinter stubble (organic land),OFA
+OFA3,Supplementary winter bird food (organic land),OFA
+OFA6,Undersown cereals (organic land),OFA
+OFC1,Organic conversion - improved permanent grassland,OFC
+OFC2,Organic conversion - unimproved permanent grassland,OFC
+OFC3,Organic conversion - rotational land,OFC
+OFC4,Organic conversion - horticultural land,OFC
+OFC5,Organic conversion - top fruit,OFC
+OFM1,Organic land management - improved permanent grassland,OFM
+OFM2,Organic land management - unimproved permanent grassland,OFM
+OFM3,Organic land management - enclosed rough grazing,OFM
+OFM4,Organic land management - rotational land,OFM
+OFM5,Organic land management - horticultural land,OFM
+OFM6,Organic land management - top fruit,OFM
+OP1,Overwintered stubble,OP
+OP2,Wild bird seed mixture,OP
+OP3,Supplementary feeding for farmland birds,OP
+OP4,Multi species ley,OP
+OP5,Undersown cereal,OP
+OR1,Organic conversion - improved permanent grassland,OR
+OR2,Organic conversion - unimproved permanent grassland,OR
+OR3,Organic conversion - rotational land,OR
+OR4,Organic Conversion - Horticulture,OR
+OR5,Organic Conversion - Top Fruit,OR
+OT1,Organic land management - improved permanent grassland,OT
+OT2,Organic Land Management - unimproved permanent grassland,OT
+OT3,Organic Land Management - rotational land,OT
+OT4,Organic Land Management - Horticulture,OT
+OT6,Organic Land Management - Enclosed Rough Grazing,OT
+PA1,Implementation Plan/Unit,PA
+PA2,Feasibility Study,PA
+PA3,Woodland Management plan/per ha,PA
+PA4,Agro-forestry Plan,PA
+PA5,Moorland Mapping,PA
+PA7,Species Management Plan,PA
+PRF1,Variable rate application of nutrients,PRF
+PRF2,Camera or remote sensor guided herbicide spraying,PRF
+PRF3,Non-mechanical robotic weeding,PRF
+PRF4,Mechanical robotic weeding,PRF
+RP1,Resurfacing of gateways,RP
+RP2,Gateway relocation,RP
+RP3,Watercourse crossing/unit,RP
+RP4,Livestock and machinery hardcore tracks,RP
+RP5,Cross drains/unit,RP
+RP6,Installation of piped culverts and ditches,RP
+RP7,Sediment ponds and traps/sq. m,RP
+RP8,Constructed wetlands for the treatment of pollution,RP
+RP9,Earth banks and soil bunds/unit,RP
+RP10,Silt filtration dams or seepage barriers,RP
+RP11,Swales,RP
+RP12,Check dams and woody debris dams,RP
+RP13,Yard - underground drainage pipework,RP
+RP14,Yard inspection pit,RP
+RP15,Concrete yard renewal,RP
+RP16,Rainwater goods,RP
+RP17,Storage tanks underground,RP
+RP18,Above ground tanks,RP
+RP19,First-flush rainwater diverters/downpipe filters,RP
+RP20,Relocation of sheep dips and pens,RP
+RP21,Relocation of sheep pens only,RP
+RP22,Sheep dip drainage aprons and sumps,RP
+RP23,Installation of livestock drinking troughs (in draining pens for freshly dipped sheep),RP
+RP24,Lined biobed plus pesticide loading and washdown area,RP
+RP25,Lined biobed with existing washdown area,RP
+RP26,Biofilters,RP
+RP27,Sprayer or applicator load and washdown area/sq. m,RP
+RP28,"Roofing (sprayer washdown area, manure storage area, ...)",RP
+RP29,Self-supporting covers for slurry stores/sq. m,RP
+RP30,Floating covers for slurry stores and lagoons,RP
+RP31,Equipment to disrupt tramlines in arable areas,RP
+RP32,Small Leaky Woody Dam,RP
+SAM1,"Assess soil, produce a soil management plan, and test soil organic matter",SAM
+SAM1A,"Assess soil, produce a soil management plan, and test soil organic matter",SAM
+SAM2,Multi-species winter cover crops,SAM
+SAM3,Establish and maintain Herbal leys,SAM
+SB1A,Scrub Control and Felling Diseased Trees,SB
+SB1B,Scrub Control and Felling Diseased Trees,SB
+SB1C,Scrub Control and Felling Diseased Trees,SB
+SB1D,Scrub Control and Felling Diseased Trees,SB
+SB1E,Scrub Control and Felling Diseased Trees,SB
+SB1F,Scrub Control and Felling Diseased Trees,SB
+SB2,Scrub control - difficult sites,SB
+SB3,Tree removal,SB
+SB4,Chemical Bracken Control,SB
+SB5,Mechanical bracken control,SB
+SB6A,Rhododendron control,SB
+SB6B,Rhododendron control,SB
+SB6C,Rhododendron control,SB
+SB7,Plant Health Supplement,SB
+SCR1,Create scrub and open habitat mosaics,SCR
+SCR2,Manage scrub and open habitat mosaics,SCR
+SI1A,Low/no input Grassland,SI
+SI2A,Low/no input Grassland,SI
+SI3A,Low/no input Grassland,SI
+SI3B,Additional Payment,SI
+SOH1,No-till farming,SOH
+SOH2,Multi-species spring-sown cover crop,SOH
+SOH3,Multi-species summer-sown cover crop,SOH
+SOH4,Manage maize crops to protect soil,SOH
+SOH4,Winter cover following maize crops,SOH
+SP1,Difficult sites supplement,SP
+SP10,Administration of group managed agreements supplement,SP
+SP2,Raised water level supplement,SP
+SP3,Bracken control supplement,SP
+SP4,Control of invasive plant species supplement,SP
+SP5,Shepherding supplement,SP
+SP6,Cattle grazing supplement,SP
+SP7,Introduction of cattle grazing on the Scilly Isles,SP
+SP8,Native breeds at risk supplement,SP
+SP9,Threatened species supplement,SP
+SPM2,Supplement: Keep native breeds on grazed habitats (50-80%),SPM
+SPM3,Supplement: Keep native breeds on grazed habitats supplement (more than 80%),SPM
+SPM4,Supplement: Keep native breeds on extensively managed habitats (50- 80%),SPM
+SS1A,Arable & Horticultural Soils,SS
+SS1B,Additional Payment,SS
+SS2A,Arable & Horticultural Soils,SS
+SS3A,Arable & Horticultural Soils,SS
+SS3B,Additional Payment,SS
+SS3C,Additional Payment,SS
+SW1,4-6m buffer strip on cultivated land,SW
+SW2,4-6m buffer strip on intensive grassland,SW
+SW3,In-field grass strips,SW
+SW4,12-24m watercourse buffer strip on cultivated land,SW
+SW5,Enhanced management of maize crops,SW
+SW6,Winter cover crops,SW
+SW7,Arable reversion to grassland with low fertiliser inputs,SW
+SW8,Management of intensive grassland adjacent to a watercourse,SW
+SW9,Seasonal livestock removal on intensive grassland,SW
+SW10,Seasonal livestock removal on intensive grassland,SW
+SW11,Riparian management strip,SW
+SW12,Making space for water,SW
+SW13,Very low nitrogen inputs to groundwaters,SW
+SW14,Nil fertiliser supplement,SW
+SW15,Flood mitigation on arable reversion to grassland,SW
+SW16,Flood mitigation on permanent grassland,SW
+SW17,Raised water levels on cropped or arable on peat soils,SW
+SW18,Raised water levels on grassland on peat soils,SW
+TE1,Planting Standard Hedgerow Tree,TE
+TE2,Planting Standard Parkland Tree,TE
+TE3,Planting Fruit Trees,TE
+TE4A,Woodland Tree Planting - Biodiversity,TE
+TE4B,Woodland Tree Planting - Improving water quality or reducing flood risk,TE
+TE4C,Woodland Tree Planting - Restock after a tree health issue,TE
+TE4D,Woodland Tree Planting - Hedges and clumps,TE
+TE5,Woodland Tree Planting - Tree shelter Supplement,TE
+TE6,Tree guard (tube and mesh),TE
+TE7,Tree guard (Wood post and rail),TE
+TE8,Tree Guard (wood post and wire),TE
+TE9,Parkland Tree Guard - welded steel,TE
+TE10,Coppicing Bank-side Trees,TE
+TE11A,Tree surgery,TE
+TE11B,Tree surgery,TE
+TE12,Stump Grinding,TE
+TE13,Creation of dead wood habitat on trees,TE
+TE14,Identification of orchard fruit tree varieties,TE
+UP1,Enclosed rough grazing,UP
+UP3,Management of Moorland,UP
+UP4,Management of moorland vegetation supplement,UP
+UP5,Moorland re-wetting supplement,UP
+UP6,Upland livestock exclusion supplement,UP
+UPL1,Moderate livestock grazing on moorland,UPL
+UPL2,Low livestock grazing on moorland,UPL
+UPL3,Limited livestock grazing on moorland,UPL
+UPL4,Supplement: Keep cattle and ponies on moorland (minimum 30% GLU),UPL
+UPL5,Supplement: Keep cattle and ponies on moorland (minimum 70% GLU),UPL
+UPL6,Supplement: Keep cattle and ponies on moorland (100% GLU),UPL
+UPL7,Shepherding livestock on moorland (no required stock removal period),UPL
+UPL8,Shepherding livestock on moorland (remove stock for at least 4 months),UPL
+UPL9,Shepherding livestock on moorland (remove stock for at least 6 months),UPL
+UPL10,Shepherding livestock on moorland (remove stock for at least 8 months),UPL
+WB1,Small Wildlife Box,WB
+WB1B,Waterbody buffering,WB
+WB1C,In Field Buffer Strip,WB
+WB2,Medium Wildlife Box,WB
+WB2B,Waterbody buffering,WB
+WB2C,In Field Buffer Strip,WB
+WB3,Large Wildlife Box,WB
+WB3B,Waterbody buffering,WB
+WB3C,In Field Buffer Strip,WB
+WBD1,Manage ponds,WBD
+WBD2,Manage ditches,WBD
+WBD3,In-field grass strips,WBD
+WBD4,Arable reversion to grassland with low fertiliser input,WBD
+WBD5,Manage intensive grassland adjacent to a watercourse,WBD
+WBD6,Remove livestock from intensive grassland during the autumn and winter (outside SDAs),WBD
+WBD7,Remove livestock from grassland during the autumn and winter (SDAs),WBD
+WBD8,Manage grassland to reduce nutrient levels in groundwater,WBD
+WBD9,Supplement: Nil fertiliser,WBD
+WD1,Woodland creation - maintenance payments,WD
+WD2,Woodland improvement,WD
+WD3,Woodland edges on arable land,WD
+WD4,Management of wood pasture and parkland,WD
+WD5,Restoration of wood pasture and parkland,WD
+WD6,Creation of wood pasture,WD
+WD7,Management of successional areas and scrub,WD
+WD8,Creation of successional areas and scrub,WD
+WD9,Livestock exclusion supplement - scrub and successional areas,WD
+WD10,Management of upland wood pasture and parkland,WD
+WD11,Restoration of upland wood pasture and parkland,WD
+WN1,Blocking Grips or Drainage Channels,WN
+WN2,Creation of scrapes and gutters,WN
+WN3,"Ditch, Dyke and Rhine Restoration",WN
+WN4,"Ditch, Dyke and Rhine Creation",WN
+WN5A,Pond Management - creation (first 100 sq. m),WN
+WN5B,Pond Management - restoration - first 100 sq. m,WN
+WN6A,Pond Management - creation - (areas more than 100 sq. m),WN
+WN6B,Pond Management - restoration - (areas more than 100 sq. m),WN
+WN7,Restoration of large water bodies,WN
+WN8,Timber sluice/unit,WN
+WN9,"Brick, Stone, or Concrete Sluice",WN
+WN10,Construction of water penning structures,WN
+WS1,Deer Control and Management,WS
+WS2,Restore and maintain plantations on ancient woodlands sites,WS
+WS3,Squirrel control and management,WS
+WS4,Enable permissive access (by foot) across the whole woodland,WS
+WT1,Buffering in field ponds and ditches in improved grassland,WT
+WT2,Buffering in-field ponds and ditches on arable land,WT
+WT3,Management of ditches of high environmental value,WT
+WT4,Management of ponds of High Wildlife value (100 sq. m or less),WT
+WT5,Management of ponds of High Wildlife value (more than 100 sq. m),WT
+WT6,Management of reedbed,WT
+WT7,Creation of reedbed,WT
+WT8,Management of fen,WT
+WT9,Creation of fen,WT
+WT10,Management of lowland raised bog,WT
+WT11,Wetland cutting supplement,WT
+WT12,Wetland grazing supplement,WT
