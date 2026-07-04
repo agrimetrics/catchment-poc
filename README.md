@@ -39,8 +39,9 @@ You can run the interactive map without running the code, to do this `cd` into t
 
 # Ontop
 Ontop is used to map our datasets into RDF.
-### SFI dataset into RDF
-From the root folder of this repo you can run the following command which generates RDF data. The `sfi.ttl` and `sfi_pretty.ttl` are the same data but the `sfi_pretty.ttl` file is easier to read.
+
+### SFI (Sustainable Farming Incentives) dataset into RDF
+From the root folder of this repository you can run the following command which generates RDF data for the Sustainable Farming Incentives dataset for Poole Harbour. The output turtle data is stored in `ttl/sfi.ttl`.The duckdb file is stored in `ttl/sfi/sfi.duckdb`, this duckdb file is generated using `ttl/sfi/sfi_to_db.py`.
 ```
 ./ontop/ontop materialize \
   --mapping ttl/sfi/sfi.obda \
