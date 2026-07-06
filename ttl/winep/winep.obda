@@ -67,17 +67,17 @@ source      SELECT action_id, limit_key, substance FROM proposed_limits WHERE ki
 target      wr:action/{action_id}/limit/{limit_key} rdf:type reg:ProposedLimit .
             wr:action/{action_id}/limit/{limit_key} reg:regulatedProperty wr:substance/{substance} .
             wr:action/{action_id}/limit/{limit_key} core:hasApplicability wr:action/{action_id}#applicability .
-            wr:action/{action_id}/limit/{limit_key} reg:upperBound wr:action/{action_id}/limit/{limit_key}#bound .
-            wr:action/{action_id}/limit/{limit_key}#bound rdf:type qudt:QuantityValue .
 
-mappingId   StructuredLimitValues
-source      SELECT action_id, limit_key, CAST(value AS DECIMAL(18,6)) AS value, unit_slug FROM proposed_limits WHERE kind = 'structured'
-target      wr:action/{action_id}/limit/{limit_key}#bound qudt:numericValue {value}^^xsd:decimal .
-            wr:action/{action_id}/limit/{limit_key}#bound qudt:unit wr:unit/{unit_slug} .
+mappingId   StructuredLimitBounds
+source      SELECT action_id, limit_key, bound_key, value, unit_slug FROM proposed_bounds
+target      wr:action/{action_id}/limit/{limit_key} reg:upperBound wr:action/{action_id}/limit/{limit_key}#bound-{bound_key} .
+            wr:action/{action_id}/limit/{limit_key}#bound-{bound_key} rdf:type qudt:QuantityValue .
+            wr:action/{action_id}/limit/{limit_key}#bound-{bound_key} qudt:numericValue {value}^^xsd:decimal .
+            wr:action/{action_id}/limit/{limit_key}#bound-{bound_key} qudt:unit wr:unit/{unit_slug} .
 
-mappingId   StructuredLimitStatistics
-source      SELECT action_id, limit_key, statistic FROM proposed_limits WHERE kind = 'structured' AND statistic IS NOT NULL
-target      wr:action/{action_id}/limit/{limit_key}#bound iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
+mappingId   StructuredBoundStatistics
+source      SELECT action_id, limit_key, bound_key, statistic FROM proposed_bounds WHERE statistic IS NOT NULL
+target      wr:action/{action_id}/limit/{limit_key}#bound-{bound_key} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
 
 mappingId   CarriedOverLimits
 source      SELECT action_id, limit_key FROM proposed_limits WHERE kind = 'carried_over'
