@@ -647,8 +647,7 @@ function render() {
     const limitCount = conditions.length, workCount = actionIdsWithSub.size;
     document.getElementById("lede").innerHTML = LEDE.substance({ limits: limitCount, works: workCount }, subLbl);
     tables.append(
-      currentLimitsTable(conditions, dpByPermit),
-      futureWorksTable(proposedForSub, limByAction),
+      substanceStoryTable(conditions, proposedForSub, dpByPermit),
       breachTable(breaches),
     );
   } else if (currentView === "wessex") {
@@ -812,30 +811,59 @@ function permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit
     (nVer > 1 ? `<div style="padding:12px 0 8px"><b style="color:#93a4b3">Limit history — ${nVer} versions</b></div>${histTbl}` : "");
 }
 
-function currentLimitsTable(conditions, dpByPermit) {
-  if (!conditions.length) return card("Current limits", "0", emptyBody("No current limits for this substance."));
-  const rows = [...conditions].sort((a, b) => (Number(b.upper || 0) - Number(a.upper || 0))).map((c) => {
-    const sp = (dpByPermit[c.permit] || []).map((d) => d.sp).filter(Boolean)[0] || null;
-    return `<tr><td>${permitLink(c.permit)}</td><td>${subLink(c.subLabel, c.subNotation, sp, c.permit)}</td>
-      <td class="num">${c.upper ? "≤ " + fmtNum(c.upper) : ""}${c.lower ? " ≥ " + fmtNum(c.lower) : ""}</td>
-      <td>${prettyUnit(c.unit)}</td><td>${wqeLink(sp)}</td></tr>`;
-  }).join("");
-  return card("Current limits <span class=\"count\">— click a substance for its time-series chart</span>",
-    conditions.length, tableEl(["Permit", "Substance", "Limit", "Unit", "Monitored at"], rows));
-}
-
-function futureWorksTable(proposed, limByAction) {
-  if (!proposed.length) return card("Future works", "0", emptyBody("No proposed works for this substance."));
-  const rows = [...proposed].sort((a, b) => (a.action < b.action ? -1 : 1)).map((l) => {
+// One table keyed by (permit, substance): the current in-force limit on the left, and any WINEP
+// action proposing a future limit for that SAME permit AND substance on the right (a proposed
+// phosphorus limit must not land on a pH row). A permit+substance with both is a single row.
+function substanceStoryTable(conditions, proposed, dpByPermit) {
+  const key = (permit, sub) => `${permit} ${sub}`;
+  const curByKey = {};
+  for (const c of conditions) curByKey[key(c.permit, c.subNotation)] = c;
+  const futByKey = {};
+  for (const l of proposed) {
     const a = DB.actions.find((x) => x.iri === l.action);
+    if (a && a.permit) (futByKey[key(a.permit, l.subNotation)] ||= []).push({ a, l });
+  }
+  const keys = [...new Set([...Object.keys(curByKey), ...Object.keys(futByKey)])];
+  if (!keys.length) return card("Current limits &amp; future works", "0", emptyBody("Nothing for this substance."));
+
+  const rows = [];
+  for (const k of keys) {
+    const [permit] = k.split(" ");
+    const cur = curByKey[k] || null;
+    const sp = (dpByPermit[permit] || []).map((d) => d.sp).filter(Boolean)[0] || null;
+    const ver = cur ? cur.version : DB.currentVersion[permit];
+    const futs = futByKey[k] || [null];
+    for (const f of futs) rows.push({ p: permit, cur, sp, ver, f });
+  }
+  // current-bearing rows first (tightest first), then future-only
+  rows.sort((a, b) => (!!b.cur - !!a.cur)
+    || (Number((b.cur || {}).upper || 0) - Number((a.cur || {}).upper || 0))
+    || (a.p < b.p ? -1 : 1));
+
+  const isContinued = (l) => l.carried || (l.continues && !l.bounds.length);
+  const body = rows.map(({ p, cur, sp, ver, f }) => {
+    const subNotation = cur ? cur.subNotation : (f ? f.l.subNotation : "");
+    const subLabel = cur ? cur.subLabel : (f ? f.l.subLabel : "");
+    const limit = cur ? `${cur.upper ? "≤ " + fmtNum(cur.upper) : ""}${cur.lower ? " ≥ " + fmtNum(cur.lower) : ""}` : "—";
+    const proposedCell = !f ? "—"
+      : isContinued(f.l) ? '<span class="pill carried">continued</span>'
+      : limitText(f.l);
     return `<tr>
-      <td class="mono">${a ? esc(a.id) : last(l.action)}</td>
-      <td>${a ? esc(a.label) : "—"}</td>
-      <td>${fmtDate(a?.completion) || "TBC"}</td>
-      <td>${l.carried ? '<span class="pill carried">continued</span> ' : '<span class="pill proposed">proposed</span> '}${limitText(l)}</td>
+      <td>${permitLink(p)}${ver != null ? ` <span style="color:#777">v${ver}</span>` : ""}</td>
+      <td>${subLink(subLabel, subNotation, sp, p)}</td>
+      <td class="num">${limit}</td>
+      <td>${cur ? prettyUnit(cur.unit) : ""}</td>
+      <td>${wqeLink(sp)}</td>
+      <td class="mono">${f ? esc(f.a.id) : "—"}</td>
+      <td>${f ? esc(f.a.label) : "—"}</td>
+      <td>${f ? (fmtDate(f.a.completion) || "TBC") : "—"}</td>
+      <td>${proposedCell}</td>
     </tr>`;
   }).join("");
-  return card("Future works (proposed limits)", proposed.length, tableEl(["Action", "Name", "Completion", "Proposed limit"], rows));
+
+  return card('Current limits &amp; future works <span class="count">— click a substance for its time-series chart</span>',
+    `${conditions.length} current · ${proposed.length} proposed`,
+    tableEl(["Permit", "Substance", "Limit", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body));
 }
 
 function actionTable(actions, limByAction) {
