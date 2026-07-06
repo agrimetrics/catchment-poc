@@ -238,7 +238,14 @@ async function openChart(subNotation, sp, permit) {
   document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
   const body = document.getElementById("chart-body");
   chart.classList.remove("hidden");
-  setTimeout(() => map.invalidateSize(), 60);
+  // resize the (now narrower) map and zoom it to the charted sampling point's discharge point
+  const target = DB.dischargePoints.find((d) => d.permit === permit && d.sp === sp && d.lat != null)
+    || DB.dischargePoints.find((d) => d.permit === permit && d.lat != null);
+  document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "start" });
+  setTimeout(() => {
+    map.invalidateSize();
+    if (target) map.setView([target.lat, target.lon], 13);
+  }, 80);
   body.innerHTML = `<p class="chart-note">Loading observations…</p>`;
   try {
     const res = await fetch(`/observations?samplingPoint=${encodeURIComponent(sp)}&determinand=${encodeURIComponent(subNotation)}`);
