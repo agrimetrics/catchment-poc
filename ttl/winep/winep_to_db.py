@@ -3,8 +3,10 @@ import json
 import re
 
 import duckdb
+import geopandas as gpd
 import openpyxl
 import pandas as pd
+from shapely.geometry import Point
 
 # =============================================================================
 # WINEP -> RDF shredder (Wessex Water + Water Quality, actions with proposed limits)
@@ -39,6 +41,7 @@ ROOT = HERE.parents[1]
 XLSX = ROOT / "raw_datasets" / "PR24 WINEP National Dataset.xlsx"
 CODELIST = ROOT / "output_data" / "determinand_codelist.json"
 REG_DB = ROOT / "ttl" / "regulation" / "regulation.duckdb"
+CATCHMENT = ROOT / "raw_datasets" / "poole_harbour_rivers_operational_catchment.geojson"
 WR = "http://example.com/water-regulation/"
 
 
@@ -189,11 +192,18 @@ labels = {m["notation"]: m["prefLabel"] for m in json.load(open(CODELIST))}
 labels[CHEMICAL] = "Priority chemical substance (unspecified)"
 
 cond_versions = {}
+reg_permits = set()
 regcon = duckdb.connect(str(REG_DB), read_only=True)
 for ref, sub, ver in regcon.execute(
         "SELECT permit_ref, substance, MAX(version) FROM conditions GROUP BY 1, 2").fetchall():
     cond_versions[(ref, sub)] = ver
+for (ref,) in regcon.execute("SELECT DISTINCT permit_ref FROM permits").fetchall():
+    reg_permits.add(ref)                            # the catchment's regulation permits
 regcon.close()
+
+# Poole Harbour operational catchment as a single polygon, reprojected to British National Grid
+# (EPSG:27700) to match the WINEP action Easting/Northing.
+catchment_27700 = gpd.read_file(CATCHMENT).to_crs(27700).union_all()
 
 # --- Read + filter -----------------------------------------------------------------
 wb = openpyxl.load_workbook(XLSX, read_only=True, data_only=True)
@@ -208,6 +218,22 @@ for r in it:
         continue
     action_id = r[idx["Action_ID"]]
     permit_ref = canon_permit(r[idx["Licence_Permit_Obstruction_ID"]])
+    easting, northing = r[idx["Easting"]], r[idx["Northing"]]
+
+    # --- Catchment scope (UNION): keep an action only if it belongs to the Poole Harbour catchment ---
+    # An action is in scope if EITHER of these holds; anything satisfying neither is dropped here:
+    #   (a) its site falls within the catchment boundary, OR
+    #   (b) its target permit is one of the catchment's regulation permits.
+    # Both clauses are needed: WINEP sites are rounded to 1 km, so a boundary works can land just
+    # outside the polygon (kept by (b)); conversely a site can be inside the catchment for a permit
+    # we hold no regulation data on (kept by (a)).
+    try:
+        site_in_catchment = catchment_27700.contains(Point(float(easting), float(northing)))
+    except (TypeError, ValueError):        # missing / blank Easting or Northing
+        site_in_catchment = False
+    permit_in_catchment = permit_ref in reg_permits
+    if not (site_in_catchment or permit_in_catchment):
+        continue
 
     emitted = []
     for col, meta in COLS.items():
@@ -221,7 +247,7 @@ for r in it:
     actions.setdefault(action_id, dict(
         action_id=action_id, label=r[idx["Action_Name"]], description=r[idx["Action_Description"]],
         completion_date=cd.date().isoformat() if cd else None, permit_ref=permit_ref,
-        easting=r[idx["Easting"]], northing=r[idx["Northing"]], waterbody_id=r[idx["Waterbody_ID"]]))
+        easting=easting, northing=northing, waterbody_id=r[idx["Waterbody_ID"]]))
 
     for l in emitted:
         limits.append(dict(action_id=action_id, limit_key=l["key"], kind=l["kind"],

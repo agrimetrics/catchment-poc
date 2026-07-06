@@ -21,18 +21,20 @@ This demonstrator keeps only what tells the "solving for a substance" story arou
   the operator for Poole Harbour; everything under WINEP here is therefore Wessex Water.)
 - **Only actions that propose a limit.** An action is emitted only if at least one of its 8
   `Proposed_*` limit cells parses to something (a structured limit, a carried-over continuance, or
-  a verbatim statement). Actions with no proposed limit — e.g. monitoring-only actions — are
-  skipped. → **138 actions**, **268 proposed limits**.
+  a verbatim statement). Actions with no proposed limit — e.g. monitoring-only actions — are skipped.
+- **Clipped to the catchment (union rule).** This is the last filter, and it's a distinct,
+  commented `if` in `winep_to_db.py`. An action is kept only if **either** its site falls within the
+  Poole Harbour catchment boundary (`shapely` point-in-polygon, WINEP Easting/Northing tested against
+  the catchment reprojected to EPSG:27700) **or** its `targetPermit` is one of the catchment's
+  regulation permits. Both clauses are needed: WINEP sites are rounded to 1 km, so a boundary works
+  can land just outside the polygon (kept by the permit clause, e.g. 401336, 401354); conversely a
+  site can sit inside the catchment for a permit we hold no regulation data on (kept by the site
+  clause, e.g. 042116). → **11 actions**, **27 proposed limits** across 7 permits.
 - **Only the columns needed.** Reference tables (substances, units, statistics) are built from just
   the values actually used by the emitted limits.
 - **Permit refs canonicalised.** `Licence_Permit_Obstruction_ID` is zero-padded to 6 digits so a
   WINEP `targetPermit` (e.g. `42451`) resolves to the regulation permit (`042451`) instead of
-  dangling.
-
-**Wider than the catchment, on purpose.** Unlike the regulation and SFI graphs, WINEP is **not**
-clipped to Poole Harbour — it is Wessex-wide, so most `targetPermit`s (≈107 of 113) are permits
-outside the regulation graph. Only ~6 overlap the 52 Poole permits. This is intentional: the map
-reprojects the action sites (British National Grid) across the whole region.
+  dangling — this also lets the catchment permit clause match.
 
 ## Proposed-limit interpretation
 
