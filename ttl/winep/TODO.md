@@ -36,6 +36,37 @@ The parser makes deterministic but *interpretive* choices — confirm these are 
 - **Seasonality dropped.** `S=Summer/W=Winter` markers are ignored, consistent with the
   regulation pipeline (which abstracted `MONTH_FROM..MONTH_TO = 1..12`).
 
+## Multiple proposed limits per (permit, substance) — competing drivers
+
+A permit can be the target of several actions, and more than one may propose a limit for the
+**same substance**. This is faithful to source, **not** a shredder bug: the values come from
+different regulatory **drivers**, each proposing independently. The permit ends up carrying the
+**most stringent**, not all of them.
+
+Worked example — permit **401050** (Dorchester WRC), from the raw dataset:
+
+| Action | Driver | Phosphorus | Nitrogen | Completion |
+| ------ | ------ | ---------- | -------- | ---------- |
+| 08WW102104 P & N Removal | `HD_IMP_NN` (Habitats Directive – nutrient neutrality) | 0.25 mg/l | 10 mg/l | 2030-03-31 |
+| 08WW102201 P Permit (UWWTR) | `U_IMP2` (Urban Waste Water Treatment Regs) | 2 mg/l | — | 2030-05-13 |
+| 08WW102200 N Permit (UWWTR) | `U_IMP1` (UWWTR) | — | 15 mg/l | 2030-03-31 |
+
+The Habitats Directive values (0.25 P / 10 N) are tighter **and** complete earlier, so the UWWTR
+backstop (2 P / 15 N) is already superseded — they are alternatives, not a phased sequence.
+
+**Scope:** 12 (permit, substance) pairs have >1 proposed limit, but **7 are the generic
+`wr:substance/chemical` placeholder** (several real analytes lumped as one "chemical" — the
+unresolved-analyte gap above, so multiples there are expected). The genuine competing-driver
+cases are only **401050 (N, P, Fe)** and **401747 (P, Fe)** — the Poole permits hit by both a
+Habitats Directive and a UWWTR driver.
+
+**Interpretation to add:** capture each proposed limit's **driver** (`Driver_Code_Primary`, not
+currently shredded) so alternatives are distinguishable, and derive an **effective** proposed
+limit per (permit, substance) = the most stringent (min value at a comparable statistic; cross-
+statistic comparison — e.g. annual-average vs 95%ile — needs a rule). The app currently lists all
+proposals, which reads as concurrent limits and is misleading. Options weighed in-app: collapse to
+the effective limit, or show all with a Driver column.
+
 ## Upgrade path for edge cases
 
 The determinism principle still holds: any future refinement that needs human judgement
