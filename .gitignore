@@ -6,3 +6,9 @@
 # (piped through rdfpipe into ttl/sfi.ttl), so neither needs to be committed.
 ttl/sfi/sfi.duckdb
 ttl/sfi/sfi_raw.ttl
+
+# Regenerable regulation artifacts - the database is shredded from the observations
+# CSV by ttl/regulation/regulation_to_db.py and regulation_raw.ttl is the ontop
+# materialisation intermediate (piped through rdfpipe into ttl/regulation.ttl).
+ttl/regulation/regulation.duckdb
+ttl/regulation/regulation_raw.ttl

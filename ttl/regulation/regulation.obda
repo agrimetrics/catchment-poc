@@ -1,0 +1,88 @@
+[PrefixDeclaration]
+wr:             http://example.com/water-regulation/
+defra-reg:      http://environment.data.gov.uk/ontology/regulation/
+defra-water:    http://environment.data.gov.uk/ontology/water/
+defra-core:     http://environment.data.gov.uk/ontology/core/
+qudt:           http://qudt.org/schema/qudt/
+sosa:           http://www.w3.org/ns/sosa/
+skos:           http://www.w3.org/2004/02/skos/core#
+owl:            http://www.w3.org/2002/07/owl#
+rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
+xsd:            http://www.w3.org/2001/XMLSchema#
+
+[MappingDeclaration] @collection [[
+
+mappingId   Permits
+source      SELECT permit_ref FROM permits
+target      wr:permit/{permit_ref} rdf:type defra-water:WaterDischargePermit .
+            wr:permit/{permit_ref} defra-core:hasIdentifier wr:permit/{permit_ref}#id .
+            wr:permit/{permit_ref}#id rdf:type defra-core:Identifier .
+            wr:permit/{permit_ref}#id defra-core:identifierValue {permit_ref} .
+
+mappingId   PermitVersions
+source      SELECT permit_ref, version FROM permit_versions
+target      wr:permit/{permit_ref}/version/{version} rdf:type defra-reg:PermitDocument .
+            wr:permit/{permit_ref}/version/{version} defra-reg:documentsPermit wr:permit/{permit_ref} .
+
+mappingId   DischargePoints
+source      SELECT permit_ref, outlet, effluent FROM discharge_points
+target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} rdf:type defra-reg:DischargePoint .
+            wr:permit/{permit_ref} defra-reg:permitSite wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} .
+
+mappingId   Substances
+source      SELECT notation, pref_label FROM substances
+target      wr:substance/{notation} rdf:type skos:Concept, sosa:ObservableProperty .
+            wr:substance/{notation} skos:notation {notation} .
+            wr:substance/{notation} skos:prefLabel {pref_label} .
+            wr:substance/{notation} skos:inScheme wr:substance .
+            wr:substance rdf:type skos:ConceptScheme .
+
+mappingId   Units
+source      SELECT unit_slug, unit_label FROM units
+target      wr:unit/{unit_slug} rdf:type qudt:Unit .
+            wr:unit/{unit_slug} skos:prefLabel {unit_label} .
+
+mappingId   UnitQudtLinks
+source      SELECT unit_slug, qudt_iri FROM units WHERE qudt_iri IS NOT NULL
+target      wr:unit/{unit_slug} owl:sameAs <{qudt_iri}> .
+
+mappingId   Conditions
+source      SELECT permit_ref, version, substance FROM conditions
+target      wr:permit/{permit_ref}/version/{version}/condition/{substance} rdf:type defra-reg:Condition .
+            wr:permit/{permit_ref} defra-reg:hasCondition wr:permit/{permit_ref}/version/{version}/condition/{substance} .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance} defra-reg:regulatedProperty wr:substance/{substance} .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance} defra-reg:hasLimit wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit rdf:type defra-reg:Limit .
+
+mappingId   ConditionUpperBound
+source      SELECT permit_ref, version, substance, max_value, unit_slug FROM conditions WHERE max_value IS NOT NULL
+target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:upperBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max rdf:type qudt:QuantityValue .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max qudt:numericValue {max_value}^^xsd:decimal .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max qudt:unit wr:unit/{unit_slug} .
+
+mappingId   ConditionLowerBound
+source      SELECT permit_ref, version, substance, min_value, unit_slug FROM conditions WHERE min_value IS NOT NULL
+target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:lowerBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min rdf:type qudt:QuantityValue .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min qudt:numericValue {min_value}^^xsd:decimal .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min qudt:unit wr:unit/{unit_slug} .
+
+mappingId   ConditionBreaches
+source      SELECT breach_id, permit_ref, version, substance, applicable_from, observation_id FROM breaches
+target      wr:breach/{breach_id} defra-reg:breachesCondition wr:permit/{permit_ref}/version/{version}/condition/{substance} .
+            wr:breach/{breach_id} defra-reg:evidencedByObservation <{observation_id}> .
+            wr:breach/{breach_id} defra-core:hasApplicability wr:breach/{breach_id}#applicability .
+            wr:breach/{breach_id}#applicability rdf:type defra-core:Applicability .
+            wr:breach/{breach_id}#applicability defra-core:applicabilityPeriod wr:breach/{breach_id}#period .
+            wr:breach/{breach_id}#period rdf:type defra-core:ApplicabilityPeriod .
+            wr:breach/{breach_id}#period defra-core:applicableFrom {applicable_from}^^xsd:dateTime .
+
+mappingId   ExceedanceBreachTypes
+source      SELECT breach_id FROM breaches WHERE breach_class = 'ExceedanceBreach'
+target      wr:breach/{breach_id} rdf:type defra-reg:ExceedanceBreach .
+
+mappingId   ShortfallBreachTypes
+source      SELECT breach_id FROM breaches WHERE breach_class = 'ShortfallBreach'
+target      wr:breach/{breach_id} rdf:type defra-reg:ShortfallBreach .
+]]
