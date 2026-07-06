@@ -55,6 +55,18 @@ SELECT DISTINCT PERMIT_REF AS permit_ref, OUTLET_NUMBER AS outlet, EFFLUENT_NUMB
 FROM raw;
 """)
 
+# --- Discharge point -> sampling point monitoring link (one sampling point per discharge point) ---
+con.execute("""
+CREATE OR REPLACE TABLE discharge_point_monitoring AS
+SELECT DISTINCT
+    PERMIT_REF AS permit_ref,
+    OUTLET_NUMBER AS outlet,
+    EFFLUENT_NUMBER AS effluent,
+    "samplingPoint.notation" AS sp_notation
+FROM raw
+WHERE "samplingPoint.notation" IS NOT NULL AND "samplingPoint.notation" <> '';
+""")
+
 # --- Substances / parameters (the determinand concept scheme) -> skos:Concept + sosa:ObservableProperty ---
 con.execute("""
 CREATE OR REPLACE TABLE substances AS
@@ -119,7 +131,7 @@ SELECT
     VERSION AS version,
     lpad("determinand.notation", 4, '0') AS substance,
     strftime(CAST(phenomenonTime AS TIMESTAMP), '%Y-%m-%dT%H:%M:%S') AS applicable_from,
-    ANY_VALUE(id) AS observation_id,
+    ANY_VALUE(replace(id, 'https://', 'http://')) AS observation_id,
     CASE
         WHEN BOOL_OR(ROW_PASS_STATUS = 'False' AND RULE_TYPE = 'MAXIMUM VALUE') THEN 'ExceedanceBreach'
         WHEN BOOL_OR(ROW_PASS_STATUS = 'False' AND RULE_TYPE = 'MINIMUM VALUE') THEN 'ShortfallBreach'
@@ -130,8 +142,8 @@ GROUP BY PERMIT_REF, VERSION, "determinand.notation", phenomenonTime;
 """)
 
 # Summary + a couple of integrity checks for the operator
-for tbl in ["permits", "permit_versions", "discharge_points", "substances",
-            "units", "conditions", "breaches"]:
+for tbl in ["permits", "permit_versions", "discharge_points", "discharge_point_monitoring",
+            "substances", "units", "conditions", "breaches"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>16}: {n}")
 

@@ -12,3 +12,15 @@ ttl/sfi/sfi_raw.ttl
 # materialisation intermediate (piped through rdfpipe into ttl/regulation.ttl).
 ttl/regulation/regulation.duckdb
 ttl/regulation/regulation_raw.ttl
+
+# Regenerable WINEP artifacts - the database is shredded from the PR24 WINEP xlsx by
+# ttl/winep/winep_to_db.py and winep_raw.ttl is the ontop materialisation intermediate
+# (piped through rdfpipe into ttl/winep.ttl).
+ttl/winep/winep.duckdb
+ttl/winep/winep_raw.ttl
+
+# Excel
+\~*.xlsx
+
+# Outing the MacOS users
+.DS_Store

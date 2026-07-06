@@ -5,9 +5,11 @@ defra-water:    http://environment.data.gov.uk/ontology/water/
 defra-core:     http://environment.data.gov.uk/ontology/core/
 qudt:           http://qudt.org/schema/qudt/
 sosa:           http://www.w3.org/ns/sosa/
+geo:            http://www.opengis.net/ont/geosparql#
 skos:           http://www.w3.org/2004/02/skos/core#
 owl:            http://www.w3.org/2002/07/owl#
 rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
+rdfs:           http://www.w3.org/2000/01/rdf-schema#
 xsd:            http://www.w3.org/2001/XMLSchema#
 
 [MappingDeclaration] @collection [[
@@ -28,6 +30,11 @@ mappingId   DischargePoints
 source      SELECT permit_ref, outlet, effluent FROM discharge_points
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} rdf:type defra-reg:DischargePoint .
             wr:permit/{permit_ref} defra-reg:permitSite wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} .
+
+mappingId   DischargePointMonitoring
+source      SELECT permit_ref, outlet, effluent, sp_notation FROM discharge_point_monitoring
+target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest, geo:Feature .
 
 mappingId   Substances
 source      SELECT notation, pref_label FROM substances

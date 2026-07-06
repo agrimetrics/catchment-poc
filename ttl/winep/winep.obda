@@ -1,0 +1,108 @@
+[PrefixDeclaration]
+wr:             http://example.com/water-regulation/
+reg:            http://environment.data.gov.uk/ontology/regulation/
+wat:            http://environment.data.gov.uk/ontology/water/
+core:           http://environment.data.gov.uk/ontology/core/
+qudt:           http://qudt.org/schema/qudt/
+unit:           http://qudt.org/vocab/unit/
+iop:            http://w3id.org/iadopt/ont/
+geo:            http://www.opengis.net/ont/geosparql#
+sosa:           http://www.w3.org/ns/sosa/
+skos:           http://www.w3.org/2004/02/skos/core#
+dcterms:        http://purl.org/dc/terms/
+owl:            http://www.w3.org/2002/07/owl#
+rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
+rdfs:           http://www.w3.org/2000/01/rdf-schema#
+xsd:            http://www.w3.org/2001/XMLSchema#
+
+[MappingDeclaration] @collection [[
+
+mappingId   Actions
+source      SELECT action_id, label, description, permit_ref FROM actions
+target      wr:action/{action_id} rdf:type reg:Action .
+            wr:action/{action_id} rdfs:label {label} .
+            wr:action/{action_id} dcterms:description {description} .
+            wr:action/{action_id} reg:targetPermit wr:permit/{permit_ref} .
+            wr:action/{action_id} reg:actionSite wr:action/{action_id}#site .
+            wr:action/{action_id}#site rdf:type core:Site .
+
+mappingId   ActionApplicability
+source      SELECT action_id, completion_date FROM actions WHERE completion_date IS NOT NULL
+target      wr:action/{action_id}#applicability rdf:type core:Applicability .
+            wr:action/{action_id}#applicability core:applicabilityPeriod wr:action/{action_id}#period .
+            wr:action/{action_id}#period rdf:type core:ApplicabilityPeriod .
+            wr:action/{action_id}#period core:applicableFrom {completion_date}^^xsd:date .
+
+mappingId   ActionGeometry
+source      SELECT action_id, easting, northing FROM actions WHERE easting IS NOT NULL AND northing IS NOT NULL
+target      wr:action/{action_id}#site geo:hasGeometry wr:action/{action_id}#geography .
+            wr:action/{action_id}#geography rdf:type geo:Geometry .
+            wr:action/{action_id}#geography geo:asWKT "POINT({easting} {northing}) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+
+mappingId   ActionWaterbody
+source      SELECT action_id, waterbody_id FROM actions WHERE waterbody_id IS NOT NULL
+target      wr:action/{action_id}#site geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/{waterbody_id}> .
+            <http://environment.data.gov.uk/catchment-planning/WaterBody/{waterbody_id}> rdf:type wat:WaterBody .
+
+mappingId   Substances
+source      SELECT notation, pref_label FROM substances
+target      wr:substance/{notation} rdf:type skos:Concept, sosa:ObservableProperty .
+            wr:substance/{notation} skos:notation {notation} .
+            wr:substance/{notation} skos:prefLabel {pref_label} .
+            wr:substance/{notation} skos:inScheme wr:substance .
+
+mappingId   Units
+source      SELECT unit_slug, unit_label, qudt_iri FROM units
+target      wr:unit/{unit_slug} rdf:type qudt:Unit .
+            wr:unit/{unit_slug} skos:prefLabel {unit_label} .
+            wr:unit/{unit_slug} owl:sameAs <{qudt_iri}> .
+
+mappingId   StatisticalModifiers
+source      SELECT slug, label FROM statistics
+target      wr:statistical-modifier/{slug} rdf:type skos:Concept, iop:StatisticalModifier .
+            wr:statistical-modifier/{slug} skos:prefLabel {label} .
+
+mappingId   StructuredLimits
+source      SELECT action_id, limit_key, substance FROM proposed_limits WHERE kind = 'structured'
+target      wr:action/{action_id}/limit/{limit_key} rdf:type reg:ProposedLimit .
+            wr:action/{action_id}/limit/{limit_key} reg:regulatedProperty wr:substance/{substance} .
+            wr:action/{action_id}/limit/{limit_key} core:hasApplicability wr:action/{action_id}#applicability .
+            wr:action/{action_id}/limit/{limit_key} reg:upperBound wr:action/{action_id}/limit/{limit_key}#bound .
+            wr:action/{action_id}/limit/{limit_key}#bound rdf:type qudt:QuantityValue .
+
+mappingId   StructuredLimitValues
+source      SELECT action_id, limit_key, CAST(value AS DECIMAL(18,6)) AS value, unit_slug FROM proposed_limits WHERE kind = 'structured'
+target      wr:action/{action_id}/limit/{limit_key}#bound qudt:numericValue {value}^^xsd:decimal .
+            wr:action/{action_id}/limit/{limit_key}#bound qudt:unit wr:unit/{unit_slug} .
+
+mappingId   StructuredLimitStatistics
+source      SELECT action_id, limit_key, statistic FROM proposed_limits WHERE kind = 'structured' AND statistic IS NOT NULL
+target      wr:action/{action_id}/limit/{limit_key}#bound iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
+
+mappingId   CarriedOverLimits
+source      SELECT action_id, limit_key FROM proposed_limits WHERE kind = 'carried_over'
+target      wr:action/{action_id}/limit/{limit_key} rdf:type reg:ProposedLimit, reg:CarriedOverLimit .
+            wr:action/{action_id}/limit/{limit_key} core:hasApplicability wr:action/{action_id}#applicability .
+
+mappingId   CarriedOverProperty
+source      SELECT action_id, limit_key, substance FROM proposed_limits WHERE kind = 'carried_over' AND substance IS NOT NULL
+target      wr:action/{action_id}/limit/{limit_key} reg:regulatedProperty wr:substance/{substance} .
+
+mappingId   CarriedOverContinuance
+source      SELECT action_id, limit_key, continues_iri FROM proposed_limits WHERE kind = 'carried_over' AND continues_iri IS NOT NULL
+target      wr:action/{action_id}/limit/{limit_key} reg:continuesCondition <{continues_iri}> .
+
+mappingId   CarriedOverStatement
+source      SELECT action_id, limit_key, statement FROM proposed_limits WHERE kind = 'carried_over' AND statement IS NOT NULL
+target      wr:action/{action_id}/limit/{limit_key} reg:limitStatement {statement} .
+
+mappingId   UninterpretedLimits
+source      SELECT action_id, limit_key, statement FROM proposed_limits WHERE kind = 'uninterpreted'
+target      wr:action/{action_id}/limit/{limit_key} rdf:type reg:ProposedLimit .
+            wr:action/{action_id}/limit/{limit_key} reg:limitStatement {statement} .
+            wr:action/{action_id}/limit/{limit_key} core:hasApplicability wr:action/{action_id}#applicability .
+
+mappingId   UninterpretedProperty
+source      SELECT action_id, limit_key, substance FROM proposed_limits WHERE kind = 'uninterpreted' AND substance IS NOT NULL
+target      wr:action/{action_id}/limit/{limit_key} reg:regulatedProperty wr:substance/{substance} .
+]]
