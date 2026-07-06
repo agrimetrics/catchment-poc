@@ -36,6 +36,12 @@ source      SELECT permit_ref, outlet, effluent, sp_notation FROM discharge_poin
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest, geo:Feature .
 
+mappingId   DischargePointGeometry
+source      SELECT permit_ref, outlet, effluent, lon, lat FROM discharge_point_geometry
+target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography rdf:type geo:Geometry .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography geo:asWKT "POINT({lon} {lat})"^^geo:wktLiteral .
+
 mappingId   Substances
 source      SELECT notation, pref_label FROM substances
 target      wr:substance/{notation} rdf:type skos:Concept, sosa:ObservableProperty .

@@ -24,3 +24,6 @@ ttl/winep/winep_raw.ttl
 
 # Outing the MacOS users
 .DS_Store
+
+# Firefox/Marionette screenshot driver artifact
+gecko.log

@@ -67,6 +67,23 @@ FROM raw
 WHERE "samplingPoint.notation" IS NOT NULL AND "samplingPoint.notation" <> '';
 """)
 
+# --- Discharge point geometry. One geometry per discharge point, transcribed onto the discharge
+#     point we own (a #geography fragment) from the coordinates of the sampling point it is
+#     monitoredAt. The sampling point itself stays a bare geo:Feature - its geometry is owned by
+#     environment.data.gov.uk. WKT is POINT(lon lat), CRS84/WGS84 (EPSG:4326), no CRS URI. ---
+con.execute("""
+CREATE OR REPLACE TABLE discharge_point_geometry AS
+SELECT
+    PERMIT_REF AS permit_ref,
+    OUTLET_NUMBER AS outlet,
+    EFFLUENT_NUMBER AS effluent,
+    ANY_VALUE("samplingPoint.longitude") AS lon,
+    ANY_VALUE("samplingPoint.latitude")  AS lat
+FROM raw
+WHERE "samplingPoint.longitude" IS NOT NULL AND "samplingPoint.latitude" IS NOT NULL
+GROUP BY PERMIT_REF, OUTLET_NUMBER, EFFLUENT_NUMBER;
+""")
+
 # --- Substances / parameters (the determinand concept scheme) -> skos:Concept + sosa:ObservableProperty ---
 con.execute("""
 CREATE OR REPLACE TABLE substances AS
@@ -143,7 +160,7 @@ GROUP BY PERMIT_REF, VERSION, "determinand.notation", phenomenonTime;
 
 # Summary + a couple of integrity checks for the operator
 for tbl in ["permits", "permit_versions", "discharge_points", "discharge_point_monitoring",
-            "substances", "units", "conditions", "breaches"]:
+            "discharge_point_geometry", "substances", "units", "conditions", "breaches"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>16}: {n}")
 

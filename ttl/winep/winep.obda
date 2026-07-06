@@ -62,6 +62,10 @@ source      SELECT slug, label FROM statistics
 target      wr:statistical-modifier/{slug} rdf:type skos:Concept, iop:StatisticalModifier .
             wr:statistical-modifier/{slug} skos:prefLabel {label} .
 
+mappingId   ProposesLimit
+source      SELECT action_id, limit_key FROM proposed_limits
+target      wr:action/{action_id} reg:proposesLimit wr:action/{action_id}/limit/{limit_key} .
+
 mappingId   StructuredLimits
 source      SELECT action_id, limit_key, substance FROM proposed_limits WHERE kind = 'structured'
 target      wr:action/{action_id}/limit/{limit_key} rdf:type reg:ProposedLimit .

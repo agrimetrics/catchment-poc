@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Poole Harbour — Three Ways</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>Poole Harbour Rivers</h1>
+      <span class="subtitle">Regulation · WINEP · Farming — one catchment, three ways</span>
+    </div>
+    <div class="controls">
+      <label class="substance-picker">
+        Substance
+        <select id="substance"></select>
+      </label>
+    </div>
+  </header>
+
+  <nav id="views">
+    <button data-view="breaches" class="active">
+      <span class="v-title">Show me the breaches</span>
+      <span class="v-desc">Current &amp; past permit breaches on the map</span>
+    </button>
+    <button data-view="substance">
+      <span class="v-title">Solving for a substance</span>
+      <span class="v-desc">Current limits &amp; future works for the selected substance</span>
+    </button>
+    <button data-view="wessex">
+      <span class="v-title">What Wessex Water is up to</span>
+      <span class="v-desc">Proposed investments, completion dates &amp; new limits</span>
+    </button>
+    <button data-view="overall">
+      <span class="v-title">Overall</span>
+      <span class="v-desc">Everything, including the farming layer</span>
+    </button>
+  </nav>
+
+  <p id="lede"></p>
+
+  <div id="map"></div>
+
+  <div id="legend" class="legend"></div>
+
+  <section id="tables"></section>
+
+  <footer>
+    <span id="status">Loading…</span>
+    <span class="src">SPARQL over Oxigraph · <code>/sparql</code></span>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

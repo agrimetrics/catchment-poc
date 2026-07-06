@@ -50,6 +50,39 @@ From the root folder of this repository you can run the following command which 
   --format turtle && \
 rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
 ```
+# Three-Ways app (map + tables over a triplestore)
+
+`app/` is a static web app that reads the RDF via SPARQL — the same "federated data
+layer" pattern of loading the Turtle graphs into an Oxigraph store and querying it.
+`app/server.py` loads `ttl/regulation.ttl`, `ttl/winep.ttl` and `ttl/sfi.ttl` into an
+in-memory [pyoxigraph](https://pyoxigraph.readthedocs.io/) store and serves, from one
+origin, both a SPARQL endpoint at `/sparql` and the static frontend (Leaflet map +
+tables).
+
+```
+poetry install --no-root
+eval $(poetry env activate)
+python app/server.py          # then open http://localhost:8000
+```
+
+The page always shows the catchment map with tables beneath it, and offers four views:
+
+- **Show me the breaches** — current (most recent per site) and past condition breaches,
+  each linking out to the Water Quality Explorer sampling point.
+- **Solving for a substance** — pick a substance (defaults to Ammoniacal Nitrogen, `0111`);
+  the map and tables show its in-force permit limits and the WINEP actions proposing future
+  limits.
+- **What Wessex Water is up to** — the WINEP actions (all `08WW…` = Wessex Water) with
+  completion dates and their proposed / continued limits.
+- **Overall** — everything, plus the SFI farming layer (an annotation layer that does not
+  respond to substance filtering).
+
+Geometry notes: regulation discharge points carry WGS84 lon/lat, SFI options carry WGS84,
+and WINEP action sites carry EPSG:27700 (British National Grid) which the frontend reprojects
+with proj4. The discharge-point geometry is asserted on the discharge point we own (a
+`#geography` fragment), sourced from the coordinates of the sampling point it is `monitoredAt`;
+the `environment.data.gov.uk` sampling point itself is left as a bare `geo:Feature`.
+
 # License
 Unless stated otherwise, the codebase in this repository is released under the MIT License.
 
