@@ -41,6 +41,14 @@ CODELIST = ROOT / "output_data" / "determinand_codelist.json"
 REG_DB = ROOT / "ttl" / "regulation" / "regulation.duckdb"
 WR = "http://example.com/water-regulation/"
 
+
+def canon_permit(ref):
+    """Normalise a permit ref to the regulation graph's form so targetPermit / continuesCondition
+    IRIs resolve to the real permit. WINEP stores numeric refs unpadded (e.g. '42451') whereas
+    regulation permits are all 6-digit zero-padded ('042451'); non-numeric (EPR) refs pass through."""
+    ref = str(ref).strip()
+    return ref.zfill(6) if ref.isdigit() else ref
+
 # column -> (substances it can carry, its unit, its statistic). [] substances = generic chemical.
 COLS = {
     "Proposed_BOD_permit_95%ile(mg/l)(S=Summer;W=Winter)_plus_Upper_Tiers_where_applicable":
@@ -199,7 +207,7 @@ for r in it:
     if r[idx["EA_Function"]] != "Water Quality" or r[idx["Water_Company"]] != "Wessex Water Service Ltd":
         continue
     action_id = r[idx["Action_ID"]]
-    permit_ref = str(r[idx["Licence_Permit_Obstruction_ID"]]).strip()
+    permit_ref = canon_permit(r[idx["Licence_Permit_Obstruction_ID"]])
 
     emitted = []
     for col, meta in COLS.items():
