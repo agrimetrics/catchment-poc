@@ -84,7 +84,35 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 }
 #lede b { color: var(--text); }
 
-#map { height: 56vh; min-height: 360px; width: 100%; background: #0a1017; }
+#stage { display: flex; align-items: stretch; height: 56vh; min-height: 360px; }
+#map { flex: 1 1 auto; height: 100%; background: #0a1017; }
+
+#chart {
+  flex: 0 0 44%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+#chart.hidden { display: none; }
+.chart-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; border-bottom: 1px solid var(--line);
+}
+#chart-title { font-weight: 600; font-size: 13.5px; }
+#chart-close {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; cursor: pointer; padding: 3px 10px; font-size: 13px; line-height: 1;
+}
+#chart-close:hover { border-color: var(--accent); }
+#chart-body { flex: 1; overflow: auto; padding: 8px 6px 12px; }
+#chart-body svg { width: 100%; height: auto; display: block; }
+.chart-note { color: var(--muted); font-size: 11.5px; padding: 4px 12px 0; }
+.chart-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 12px 2px; font-size: 12px; color: var(--muted); }
+.chart-legend .item { display: flex; align-items: center; gap: 6px; }
+.sub-link { cursor: pointer; border-bottom: 1px dotted currentColor; }
+.sub-link:hover { color: var(--accent); }
 
 .legend {
   display: flex;

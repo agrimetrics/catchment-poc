@@ -45,7 +45,16 @@
 
   <p id="lede"></p>
 
-  <div id="map"></div>
+  <div id="stage">
+    <div id="map"></div>
+    <aside id="chart" class="hidden">
+      <div class="chart-head">
+        <span id="chart-title"></span>
+        <button id="chart-close" title="Close chart (full-screen map)">✕</button>
+      </div>
+      <div id="chart-body"></div>
+    </aside>
+  </div>
 
   <div id="legend" class="legend"></div>
 

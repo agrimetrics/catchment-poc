@@ -19,6 +19,8 @@ start, so the graphs are always exactly what is on disk.
 from __future__ import annotations
 
 import json
+import re
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -31,6 +33,49 @@ TTL = ROOT / "ttl"
 PORT = 8000
 
 GRAPHS = ["regulation.ttl", "winep.ttl", "sfi.ttl"]
+
+# Environment Agency Water Quality Archive — live observation time series. We proxy it
+# server-side so the browser stays same-origin and we can follow the Link-header pagination.
+EA_BASE = "https://environment.data.gov.uk/water-quality/sampling-point"
+_NEXT_RE = re.compile(r"<([^>]+)>;\s*rel=\"next\"")
+
+
+def fetch_observations(sampling_point: str, determinand: str, cap: int = 3000) -> list[dict]:
+    """All observations for a sampling point + determinand, following rel=next pagination."""
+    url = (f"{EA_BASE}/{sampling_point}/observation"
+           f"?skip=0&limit=200&determinand={determinand}&complianceOnly=false")
+    seen_urls: set[str] = set()
+    out: list[dict] = []
+    while url and url not in seen_urls and len(out) < cap:
+        seen_urls.add(url)
+        req = urllib.request.Request(url, headers={
+            "accept": "application/x-jsonlines",
+            "CSV-Header": "present",
+            "API-Version": "1",
+        })
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode("utf-8")
+            link = resp.headers.get("link", "")
+        n_before = len(out)
+        for line in body.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                o = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            out.append({
+                "time": o.get("phenomenonTime"),
+                "result": o.get("result"),
+                "unit": o.get("unit"),
+                "determinand": (o.get("determinand") or {}).get("notation"),
+            })
+        if len(out) == n_before:  # empty page → stop
+            break
+        m = _NEXT_RE.search(link)
+        url = m.group(1) if m else None
+    return out
 
 
 def build_store() -> ox.Store:
@@ -107,6 +152,28 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(400, "missing ?query")
                 return
             self._run_query(query)
+            return
+        if parsed.path == "/observations":
+            params = parse_qs(parsed.query)
+            sp = (params.get("samplingPoint") or [None])[0]
+            det = (params.get("determinand") or [None])[0]
+            if not sp or not det:
+                self.send_error(400, "need ?samplingPoint and ?determinand")
+                return
+            try:
+                obs = fetch_observations(sp, det)
+                payload = json.dumps({"samplingPoint": sp, "determinand": det,
+                                      "count": len(obs), "observations": obs}).encode("utf-8")
+            except Exception as exc:
+                self.send_response(502)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"upstream error: {exc}".encode("utf-8"))
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(payload)
             return
         self._serve_static(parsed.path)
 

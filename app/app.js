@@ -78,6 +78,19 @@ const Q = {
       OPTIONAL { ?cond reg:hasLimit/reg:lowerBound/qudt:numericValue ?lower }
     }`,
 
+  limitHistory: `${PREFIXES}
+    SELECT ?permit ?subNotation ?from ?to ?upper ?lower WHERE {
+      ?permit a water:WaterDischargePermit ; reg:hasCondition ?cond .
+      ?cond reg:regulatedProperty ?sub .
+      ?sub skos:notation ?subNotation .
+      BIND(IRI(REPLACE(STR(?cond), "/condition/.*", "")) AS ?doc)
+      ?doc core:hasApplicability/core:applicabilityPeriod ?p .
+      ?p core:applicableFrom ?from .
+      OPTIONAL { ?p core:applicableTo ?to }
+      OPTIONAL { ?cond reg:hasLimit/reg:upperBound/qudt:numericValue ?upper }
+      OPTIONAL { ?cond reg:hasLimit/reg:lowerBound/qudt:numericValue ?lower }
+    }`,
+
   actions: `${PREFIXES}
     SELECT ?action ?label ?desc ?completion ?permit (SAMPLE(?w) AS ?wkt) WHERE {
       ?action a reg:Action ; rdfs:label ?label ; reg:actionSite ?site .
@@ -177,6 +190,173 @@ const fmtDate = (d) => (d ? d.slice(0, 10) : "");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------------------
+// Substance time-series chart (opens to the right of the map)
+// ---------------------------------------------------------------------------
+const parseResult = (r) => {
+  if (r == null) return null;
+  const m = /-?\d+\.?\d*/.exec(String(r)); // handles "<0.5", ">10", "1.2"
+  return m ? parseFloat(m[0]) : null;
+};
+
+// Current + proposed limits for (permit, substance), and the monitored unit.
+function chartContext(subNotation, permit) {
+  const sub = DB.substances.find((s) => s.notation === subNotation);
+  const cond = DB.conditionsCurrent.find((c) => c.permit === permit && c.subNotation === subNotation);
+  const proposed = [];
+  for (const l of DB.proposed) {
+    if (l.subNotation !== subNotation) continue;
+    const act = DB.actions.find((a) => a.iri === l.action);
+    if (act && act.permit === permit) for (const b of l.bounds) proposed.push(b);
+  }
+  return {
+    label: sub ? sub.label : subNotation,
+    unit: (cond && cond.unit) || (proposed[0] && proposed[0].unit) || "",
+    upper: cond && cond.upper != null ? Number(cond.upper) : null,
+    lower: cond && cond.lower != null ? Number(cond.lower) : null,
+    steps: (DB.limitHistory[`${permit}|${subNotation}`] || []), // dated version windows for the step line
+    proposed,
+  };
+}
+
+// The upper/lower limit in force at time t (the version whose window covers t; in a gap, the most
+// recent version that had started). Falls back to the current limit before any dated version.
+function limitAt(steps, t, fbU, fbL) {
+  let best = null;
+  for (const s of steps) if (s.from <= t) best = s;
+  return best ? { upper: best.upper, lower: best.lower } : { upper: fbU, lower: fbL };
+}
+
+async function openChart(subNotation, sp, permit) {
+  const chart = document.getElementById("chart");
+  const ctx = chartContext(subNotation, permit);
+  document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
+  const body = document.getElementById("chart-body");
+  chart.classList.remove("hidden");
+  setTimeout(() => map.invalidateSize(), 60);
+  body.innerHTML = `<p class="chart-note">Loading observations…</p>`;
+  try {
+    const res = await fetch(`/observations?samplingPoint=${encodeURIComponent(sp)}&determinand=${encodeURIComponent(subNotation)}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    const obs = (data.observations || [])
+      .map((o) => ({ t: Date.parse(o.time), v: parseResult(o.result) }))
+      .filter((o) => Number.isFinite(o.t) && o.v != null)
+      .sort((a, b) => a.t - b.t);
+    body.innerHTML = renderChart(ctx, obs);
+  } catch (err) {
+    body.innerHTML = `<p class="chart-note">Could not load observations: ${esc(err.message)}</p>`;
+  }
+}
+
+function closeChart() {
+  document.getElementById("chart").classList.add("hidden");
+  setTimeout(() => map.invalidateSize(), 60);
+}
+
+function renderChart(ctx, obs) {
+  if (!obs.length) return `<p class="chart-note">No observations for this substance at this sampling point.</p>`;
+  const W = 640, H = 380, m = { l: 52, r: 16, t: 14, b: 38 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
+  const tMin = obs[0].t, tMax = obs[obs.length - 1].t;
+  const propVals = ctx.proposed.map((b) => Number(b.val)).filter(Number.isFinite);
+  const stepUppers = ctx.steps.map((s) => s.upper).filter(Number.isFinite);
+  const yMax = (Math.max(ctx.upper || 0, ...stepUppers, ...obs.map((o) => o.v), ...propVals) || 1) * 1.1;
+  const x = (t) => m.l + (iw * (t - tMin)) / (tMax - tMin || 1);
+  const y = (v) => m.t + ih - (ih * v) / yMax;
+  // miss = value outside the limit that was IN FORCE at that observation's time (per version)
+  const missAt = (o) => {
+    const { upper, lower } = limitAt(ctx.steps, o.t, ctx.upper, ctx.lower);
+    return (upper != null && o.v > upper) || (lower != null && o.v < lower);
+  };
+
+  let grid = "";
+  for (let i = 0; i <= 5; i++) {
+    const val = (yMax * i) / 5, yy = y(val);
+    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#2b3a49"/>` +
+      `<text x="${m.l - 6}" y="${yy + 3}" fill="#93a4b3" font-size="10" text-anchor="end">${val.toFixed(val < 10 ? 1 : 0)}</text>`;
+  }
+  const yr1 = new Date(tMin).getFullYear(), yr2 = new Date(tMax).getFullYear();
+  const step = Math.max(1, Math.ceil((yr2 - yr1) / 8));
+  for (let yr = yr1; yr <= yr2; yr += step) {
+    const xx = x(Date.parse(`${yr}-01-01`));
+    if (xx < m.l - 1 || xx > W - m.r + 1) continue;
+    grid += `<line x1="${xx}" y1="${m.t}" x2="${xx}" y2="${y0}" stroke="#212e3b"/>` +
+      `<text x="${xx}" y="${y0 + 14}" fill="#93a4b3" font-size="10" text-anchor="middle">${yr}</text>`;
+  }
+
+  // Limit line. If we have dated version windows, draw the limit as a STEP line following the
+  // versions (red dashed segment per window, vertical connector at each change); else a flat line.
+  let lines = "";
+  const hasSteps = ctx.steps.some((s) => s.upper != null || s.lower != null);
+  const stepLine = (pick, width) => {
+    let svg = "";
+    for (const s of ctx.steps) {
+      const v = pick(s);
+      if (!Number.isFinite(v)) continue;
+      const from = Math.max(s.from, tMin), to = Math.min(s.to == null ? tMax : s.to, tMax);
+      if (to < tMin || from > tMax) continue;
+      const yy = y(v);
+      svg += `<line x1="${x(from)}" y1="${yy}" x2="${x(to)}" y2="${yy}" stroke="#e5484d" stroke-width="${width}" stroke-dasharray="6 4"/>`;
+    }
+    return svg;
+  };
+  if (hasSteps) {
+    lines += stepLine((s) => s.upper, 1.75) + stepLine((s) => s.lower, 1.5);
+    if (ctx.upper != null)
+      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#e5484d" font-size="10" text-anchor="end">current ${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
+  } else {
+    if (ctx.upper != null) {
+      const yy = y(ctx.upper);
+      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>` +
+        `<text x="${W - m.r}" y="${yy - 4}" fill="#e5484d" font-size="10" text-anchor="end">current ${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
+    }
+    if (ctx.lower != null) {
+      const yy = y(ctx.lower);
+      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+    }
+  }
+  const seen = new Set();
+  for (const b of ctx.proposed) {
+    const v = Number(b.val);
+    if (!Number.isFinite(v) || seen.has(v)) continue;
+    seen.add(v);
+    const yy = y(v);
+    lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#a06bff" stroke-width="1.75" stroke-dasharray="6 4"/>` +
+      `<text x="${m.l}" y="${yy - 4}" fill="#a06bff" font-size="10">proposed ${fmtNum(v)}${b.stat ? " (" + esc(b.stat) + ")" : ""}</text>`;
+  }
+
+  let pts = "", nMiss = 0;
+  for (const o of obs) {
+    const px = x(o.t), py = y(o.v);
+    if (missAt(o)) {
+      nMiss++;
+      const s = 3.5;
+      pts += `<path d="M${px - s} ${py - s}L${px + s} ${py + s}M${px - s} ${py + s}L${px + s} ${py - s}" stroke="#e5484d" stroke-width="1.7"/>`;
+    } else {
+      pts += `<circle cx="${px}" cy="${py}" r="3" fill="none" stroke="#3aa0ff" stroke-width="1.5"/>`;
+    }
+  }
+  const legend = `<div class="chart-legend">
+    <span class="item" style="color:#e5484d">✕ miss (${nMiss})</span>
+    <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss})</span>
+    <span class="item" style="color:#e5484d">– – current limit${hasSteps ? " (by version)" : ""}</span>
+    ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
+  </div>`;
+  return `${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${grid}
+    <text transform="translate(13 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="11" text-anchor="middle">${esc(prettyUnit(ctx.unit) || "value")}</text>
+    ${lines}${pts}
+    <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
+    <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
+  </svg><p class="chart-note">${obs.length} observations · live from the EA Water Quality Archive</p>`;
+}
+
+// clickable substance name that opens the chart (needs a sampling point)
+const subLink = (label, subNotation, sp, permit) =>
+  sp ? `<span class="sub-link" onclick="openChart('${subNotation}','${esc(sp)}','${permit}')">${esc(label)}</span>` : esc(label);
+window.openChart = openChart;
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 const DB = {};       // raw + derived caches
@@ -189,10 +369,23 @@ let currentSubstance = ""; // notation or ""
 // Load everything once
 // ---------------------------------------------------------------------------
 async function loadAll() {
-  const [substances, breaches, dps, conditions, actions, proposed, sfi] = await Promise.all([
+  const [substances, breaches, dps, conditions, actions, proposed, sfi, limitHistory] = await Promise.all([
     sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
-    sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed), sparql(Q.sfi),
+    sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed), sparql(Q.sfi), sparql(Q.limitHistory),
   ]);
+
+  // Dated limit history per (permit, substance): each permit version's bound(s) over its
+  // effective window [from, to] (from the public register). Powers the chart's stepped limit line.
+  DB.limitHistory = {};
+  for (const r of limitHistory) {
+    const key = `${r.permit}|${r.subNotation}`;
+    (DB.limitHistory[key] ||= []).push({
+      from: Date.parse(r.from), to: r.to ? Date.parse(r.to) : null,
+      upper: r.upper != null ? Number(r.upper) : null,
+      lower: r.lower != null ? Number(r.lower) : null,
+    });
+  }
+  for (const k in DB.limitHistory) DB.limitHistory[k].sort((a, b) => a.from - b.from);
 
   // Breaches are periods. current = the period is still open (no applicableTo) i.e. nothing has
   // passed since it started; past = closed with a from/to. A lone failure has from == to.
@@ -360,7 +553,7 @@ function dischargePopup(dp, currentConds, cur, past) {
   }
   const limits = currentConds.length
     ? currentConds.slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel))
-        .map((c) => `${esc(c.subLabel)}: ${limitRange(c)}`).join("<br>")
+        .map((c) => `${subLink(c.subLabel, c.subNotation, dp.sp, dp.permit)}: ${limitRange(c)}`).join("<br>")
     : "—";
   return `<h3>Discharge point</h3>
     <div class="kv"><b>Permit:</b> ${permitRef(dp.permit)}<br>
@@ -540,7 +733,7 @@ function breachTable(breaches) {
   const rows = [...breaches].sort((a, b) => (b.current - a.current) || (a.from < b.from ? 1 : -1)).map((b) => `
     <tr>
       <td>${breachPeriod(b)}</td>
-      <td>${esc(b.subLabel)}</td>
+      <td>${subLink(b.subLabel, b.subNotation, b.sp, b.permit)}</td>
       <td class="mono">${permitRef(b.permit)}</td>
       <td>${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
       <td>${b.sp ? `<a href="${WQE}${b.sp}" target="_blank" rel="noopener">${esc(b.sp)} ↗</a>` : "—"}</td>
@@ -593,12 +786,13 @@ function permitDetail(p, condByPermit, condHistByPermit, breachedKey) {
 function currentLimitsTable(conditions, dpByPermit) {
   if (!conditions.length) return card("Current limits", "0", emptyBody("No current limits for this substance."));
   const rows = [...conditions].sort((a, b) => (Number(b.upper || 0) - Number(a.upper || 0))).map((c) => {
-    const sp = (dpByPermit[c.permit] || []).map((d) => d.sp).filter(Boolean)[0] || "—";
-    return `<tr><td class="mono">${permitRef(c.permit)}</td><td>${esc(c.subLabel)}</td>
+    const sp = (dpByPermit[c.permit] || []).map((d) => d.sp).filter(Boolean)[0] || null;
+    return `<tr><td class="mono">${permitRef(c.permit)}</td><td>${subLink(c.subLabel, c.subNotation, sp, c.permit)}</td>
       <td class="num">${c.upper ? "≤ " + fmtNum(c.upper) : ""}${c.lower ? " ≥ " + fmtNum(c.lower) : ""}</td>
-      <td>${prettyUnit(c.unit)}</td><td>${esc(sp)}</td></tr>`;
+      <td>${prettyUnit(c.unit)}</td><td>${esc(sp || "—")}</td></tr>`;
   }).join("");
-  return card("Current limits", conditions.length, tableEl(["Permit", "Substance", "Limit", "Unit", "Monitored at"], rows));
+  return card("Current limits <span class=\"count\">— click a substance for its time-series chart</span>",
+    conditions.length, tableEl(["Permit", "Substance", "Limit", "Unit", "Monitored at"], rows));
 }
 
 function futureWorksTable(proposed, limByAction) {
@@ -685,6 +879,7 @@ async function main() {
   }
   document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   document.getElementById("substance").addEventListener("change", (e) => { currentSubstance = e.target.value; render(); });
+  document.getElementById("chart-close").addEventListener("click", closeChart);
 
   // Deep-link support: ?view=breaches|substance|wessex|overall & ?sub=<notation>
   const params = new URLSearchParams(location.search);

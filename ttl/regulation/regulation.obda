@@ -26,6 +26,18 @@ source      SELECT permit_ref, version FROM permit_versions
 target      wr:permit/{permit_ref}/version/{version} rdf:type defra-reg:PermitDocument .
             wr:permit/{permit_ref}/version/{version} defra-reg:documentsPermit wr:permit/{permit_ref} .
 
+mappingId   PermitVersionEffectiveFrom
+source      SELECT permit_ref, version, effective_date FROM permit_version_dates
+target      wr:permit/{permit_ref}/version/{version} defra-core:hasApplicability wr:permit/{permit_ref}/version/{version}#applicability .
+            wr:permit/{permit_ref}/version/{version}#applicability rdf:type defra-core:Applicability .
+            wr:permit/{permit_ref}/version/{version}#applicability defra-core:applicabilityPeriod wr:permit/{permit_ref}/version/{version}#period .
+            wr:permit/{permit_ref}/version/{version}#period rdf:type defra-core:ApplicabilityPeriod .
+            wr:permit/{permit_ref}/version/{version}#period defra-core:applicableFrom {effective_date}^^xsd:date .
+
+mappingId   PermitVersionRevoked
+source      SELECT permit_ref, version, revocation_date FROM permit_version_dates WHERE revocation_date <> ''
+target      wr:permit/{permit_ref}/version/{version}#period defra-core:applicableTo {revocation_date}^^xsd:date .
+
 mappingId   DischargePoints
 source      SELECT permit_ref, outlet, effluent FROM discharge_points
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} rdf:type defra-reg:DischargePoint .

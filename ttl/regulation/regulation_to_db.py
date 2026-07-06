@@ -84,6 +84,26 @@ WHERE "samplingPoint.longitude" IS NOT NULL AND "samplingPoint.latitude" IS NOT 
 GROUP BY PERMIT_REF, OUTLET_NUMBER, EFFLUENT_NUMBER;
 """)
 
+# --- Permit version effective/revocation dates, fetched from the public register by
+#     fetch_version_dates.py (cached in the committed permit_version_dates.csv). These date each
+#     PermitDocument so the app can draw a limit as a step line following the versions. ---
+DATES_CSV = HERE / "permit_version_dates.csv"
+if DATES_CSV.exists():
+    con.execute(f"""
+    CREATE OR REPLACE TABLE permit_version_dates AS
+    SELECT permit_ref, version, effective_date, revocation_date
+    FROM read_csv('{DATES_CSV}', header=true,
+        types={{'permit_ref': 'VARCHAR', 'version': 'VARCHAR',
+                'effective_date': 'VARCHAR', 'revocation_date': 'VARCHAR'}})
+    WHERE effective_date IS NOT NULL AND effective_date <> '';
+    """)
+else:
+    print("NOTE: permit_version_dates.csv missing - run fetch_version_dates.py for the step line.")
+    con.execute("""
+    CREATE OR REPLACE TABLE permit_version_dates
+        (permit_ref VARCHAR, version VARCHAR, effective_date VARCHAR, revocation_date VARCHAR);
+    """)
+
 # --- Substances / parameters (the determinand concept scheme) -> skos:Concept + sosa:ObservableProperty ---
 con.execute("""
 CREATE OR REPLACE TABLE substances AS
@@ -207,9 +227,9 @@ JOIN breaches b
 """)
 
 # Summary + a couple of integrity checks for the operator
-for tbl in ["permits", "permit_versions", "discharge_points", "discharge_point_monitoring",
-            "discharge_point_geometry", "substances", "units", "conditions",
-            "breaches", "breach_observations"]:
+for tbl in ["permits", "permit_versions", "permit_version_dates", "discharge_points",
+            "discharge_point_monitoring", "discharge_point_geometry", "substances", "units",
+            "conditions", "breaches", "breach_observations"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>20}: {n}")
 
