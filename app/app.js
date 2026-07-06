@@ -356,6 +356,26 @@ const subLink = (label, subNotation, sp, permit) =>
   sp ? `<span class="sub-link" onclick="openChart('${subNotation}','${esc(sp)}','${permit}')">${esc(label)}</span>` : esc(label);
 window.openChart = openChart;
 
+// clickable permit id that zooms the map to that permit's discharge point(s)
+const permitLink = (iri) =>
+  `<span class="mono sub-link" onclick="event.stopPropagation();zoomPermit('${iri}')">${permitRef(iri)}</span>`;
+// sampling point that links out to the Water Quality Explorer
+const wqeLink = (sp) =>
+  sp ? `<a href="${WQE}${esc(sp)}" target="_blank" rel="noopener">${esc(sp)} ↗</a>` : "—";
+
+const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
+function zoomPermit(permit) {
+  const dps = DB.dischargePoints.filter((d) => d.permit === permit && d.lat != null);
+  if (!dps.length) return;
+  const lls = dps.map((d) => [d.lat, d.lon]);
+  if (lls.length === 1) map.setView(lls[0], 14);
+  else map.fitBounds(L.latLngBounds(lls).pad(0.3), { maxZoom: 14 });
+  const mk = (permitMarkers[permit] || [])[0];
+  document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (mk) setTimeout(() => mk.openPopup(), 350);
+}
+window.zoomPermit = zoomPermit;
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -582,6 +602,7 @@ const drawnBounds = [];
 function render() {
   clearLayers();
   drawnBounds.length = 0;
+  for (const k in permitMarkers) delete permitMarkers[k];
   const sub = DB.substances.find((s) => s.notation === currentSubstance);
   const subLbl = sub ? sub.label : "all substances";
   const tables = document.getElementById("tables");
@@ -666,8 +687,9 @@ function render() {
       const r = x.status === "current" ? 8 : x.status === "past" ? 7 : 6;
       const cur = x.allBr.filter((b) => b.current);
       const past = x.allBr.filter((b) => !b.current);
-      circle(x.dp.lat, x.dp.lon, dot(col, r, 0.9), dischargePopup(x.dp, x.allConds, cur, past))
-        .addTo(layers.dischargePoints);
+      const mk = circle(x.dp.lat, x.dp.lon, dot(col, r, 0.9), dischargePopup(x.dp, x.allConds, cur, past));
+      mk.addTo(layers.dischargePoints);
+      (permitMarkers[x.dp.permit] ||= []).push(mk);
       drawnBounds.push([x.dp.lat, x.dp.lon]);
     }
     layers.dischargePoints.addTo(map);
@@ -734,9 +756,9 @@ function breachTable(breaches) {
     <tr>
       <td>${breachPeriod(b)}</td>
       <td>${subLink(b.subLabel, b.subNotation, b.sp, b.permit)}</td>
-      <td class="mono">${permitRef(b.permit)}</td>
+      <td>${permitLink(b.permit)}</td>
       <td>${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
-      <td>${b.sp ? `<a href="${WQE}${b.sp}" target="_blank" rel="noopener">${esc(b.sp)} ↗</a>` : "—"}</td>
+      <td>${wqeLink(b.sp)}</td>
     </tr>`).join("");
   return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status", "Sampling point (WQE)"], rows));
 }
@@ -747,27 +769,28 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
   const rows = permits.map((p, i) => {
     const cur = (condByPermit[p] || []); // current-version conditions only
     const dps = dpByPermit[p] || [];
-    const sp = dps.map((d) => d.sp).filter(Boolean)[0] || "—";
+    const sp = dps.map((d) => d.sp).filter(Boolean)[0] || null;
     const nB = (breachesByPermit[p] || []).length;
-    return `<tr class="expandable" data-row="${i}"><td><span class="caret">▸</span> <span class="mono">${permitRef(p)}</span>
+    return `<tr class="expandable" data-row="${i}"><td><span class="caret">▸</span> ${permitLink(p)}
           <span style="color:#777"> v${DB.currentVersion[p] ?? "?"}</span></td>
         <td>${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
-        <td>${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${esc(sp)}</td></tr>
+        <td>${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${wqeLink(sp)}</td></tr>
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
   }).join("");
   const c = card("Permits &amp; limits", permits.length,
     tableEl(["Permit", "Current limits", "Discharge points", "Breaches", "Monitored at"], rows));
-  wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey));
+  wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit));
   return c;
 }
 
 // Expandable detail: current limits, then the full version history with breached rows flagged.
-function permitDetail(p, condByPermit, condHistByPermit, breachedKey) {
+function permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit) {
+  const sp = ((dpByPermit || {})[p] || []).map((d) => d.sp).filter(Boolean)[0] || null;
   const cur = (condByPermit[p] || []).slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel));
   const hist = (condHistByPermit[p] || []).slice().sort((a, b) =>
     (Number(b.version) - Number(a.version)) || a.subLabel.localeCompare(b.subLabel));
   const curTbl = tableEl(["Substance", "Upper", "Lower", "Unit"],
-    cur.map((c) => `<tr><td>${esc(c.subLabel)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
+    cur.map((c) => `<tr><td>${subLink(c.subLabel, c.subNotation, sp, p)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
       <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td></tr>`).join("")).outerHTML;
   const histTbl = tableEl(["Version", "Substance", "Upper", "Lower", "Unit", ""],
     hist.map((c) => {
@@ -787,9 +810,9 @@ function currentLimitsTable(conditions, dpByPermit) {
   if (!conditions.length) return card("Current limits", "0", emptyBody("No current limits for this substance."));
   const rows = [...conditions].sort((a, b) => (Number(b.upper || 0) - Number(a.upper || 0))).map((c) => {
     const sp = (dpByPermit[c.permit] || []).map((d) => d.sp).filter(Boolean)[0] || null;
-    return `<tr><td class="mono">${permitRef(c.permit)}</td><td>${subLink(c.subLabel, c.subNotation, sp, c.permit)}</td>
+    return `<tr><td>${permitLink(c.permit)}</td><td>${subLink(c.subLabel, c.subNotation, sp, c.permit)}</td>
       <td class="num">${c.upper ? "≤ " + fmtNum(c.upper) : ""}${c.lower ? " ≥ " + fmtNum(c.lower) : ""}</td>
-      <td>${prettyUnit(c.unit)}</td><td>${esc(sp || "—")}</td></tr>`;
+      <td>${prettyUnit(c.unit)}</td><td>${wqeLink(sp)}</td></tr>`;
   }).join("");
   return card("Current limits <span class=\"count\">— click a substance for its time-series chart</span>",
     conditions.length, tableEl(["Permit", "Substance", "Limit", "Unit", "Monitored at"], rows));
