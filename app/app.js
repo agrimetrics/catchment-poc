@@ -218,12 +218,18 @@ function chartContext(subNotation, permit) {
   };
 }
 
-// The upper/lower limit in force at time t (the version whose window covers t; in a gap, the most
-// recent version that had started). Falls back to the current limit before any dated version.
+// The upper/lower limit IN FORCE at time t: the version whose [from, to] window contains t. If t
+// falls outside every dated window there was no limit then (before the first version, or in a gap)
+// -> null, so the observation is not a miss. Two fallbacks to the current limit: when the permit has
+// no dated versions at all, and for times after the last dated window (an undated current version).
 function limitAt(steps, t, fbU, fbL) {
-  let best = null;
-  for (const s of steps) if (s.from <= t) best = s;
-  return best ? { upper: best.upper, lower: best.lower } : { upper: fbU, lower: fbL };
+  if (!steps.length) return { upper: fbU, lower: fbL };
+  for (const s of steps) {
+    if (s.from <= t && (s.to == null || t <= s.to)) return { upper: s.upper, lower: s.lower };
+  }
+  const lastEnd = Math.max(...steps.map((s) => (s.to == null ? Infinity : s.to)));
+  if (t > lastEnd) return { upper: fbU, lower: fbL }; // beyond the last dated window
+  return { upper: null, lower: null };                // before the first version, or in a gap
 }
 
 async function openChart(subNotation, sp, permit) {
