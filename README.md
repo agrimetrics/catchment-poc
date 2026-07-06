@@ -67,8 +67,11 @@ python app/server.py          # then open http://localhost:8000
 
 The page always shows the catchment map with tables beneath it, and offers four views:
 
-- **Show me the breaches** — current (most recent per site) and past condition breaches,
-  each linking out to the Water Quality Explorer sampling point.
+- **Show me the breaches** — condition breaches as *periods* (a run of consecutive failing
+  observations with no passing result in between). A breach is **current** when its period is
+  still open — nothing has passed since it began — otherwise it is a **past** breach with a
+  start and end; a lone failure is a period whose start and end are the same day. Each links out
+  to the Water Quality Explorer sampling point.
 - **Solving for a substance** — pick a substance (defaults to Ammoniacal Nitrogen, `0111`);
   the map and tables show its in-force permit limits and the WINEP actions proposing future
   limits.

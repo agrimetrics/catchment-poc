@@ -82,14 +82,21 @@ target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit
             wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min qudt:unit wr:unit/{unit_slug} .
 
 mappingId   ConditionBreaches
-source      SELECT breach_id, permit_ref, version, substance, applicable_from, observation_id FROM breaches
+source      SELECT breach_id, permit_ref, version, substance, applicable_from FROM breaches
 target      wr:breach/{breach_id} defra-reg:breachesCondition wr:permit/{permit_ref}/version/{version}/condition/{substance} .
-            wr:breach/{breach_id} defra-reg:evidencedByObservation <{observation_id}> .
             wr:breach/{breach_id} defra-core:hasApplicability wr:breach/{breach_id}#applicability .
             wr:breach/{breach_id}#applicability rdf:type defra-core:Applicability .
             wr:breach/{breach_id}#applicability defra-core:applicabilityPeriod wr:breach/{breach_id}#period .
             wr:breach/{breach_id}#period rdf:type defra-core:ApplicabilityPeriod .
             wr:breach/{breach_id}#period defra-core:applicableFrom {applicable_from}^^xsd:dateTime .
+
+mappingId   BreachApplicableTo
+source      SELECT breach_id, applicable_to FROM breaches WHERE applicable_to IS NOT NULL
+target      wr:breach/{breach_id}#period defra-core:applicableTo {applicable_to}^^xsd:dateTime .
+
+mappingId   BreachEvidence
+source      SELECT breach_id, observation_id FROM breach_observations
+target      wr:breach/{breach_id} defra-reg:evidencedByObservation <{observation_id}> .
 
 mappingId   ExceedanceBreachTypes
 source      SELECT breach_id FROM breaches WHERE breach_class = 'ExceedanceBreach'

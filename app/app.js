@@ -46,17 +46,20 @@ const Q = {
     } ORDER BY ?label`,
 
   breaches: `${PREFIXES}
-    SELECT ?breach ?type ?date ?subLabel ?subNotation ?permit ?obs (SAMPLE(?w) AS ?wkt) WHERE {
+    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond
+           (SAMPLE(?sp) AS ?sp) (SAMPLE(?w) AS ?wkt) WHERE {
       ?breach reg:breachesCondition ?cond ;
-              reg:evidencedByObservation ?obs ;
-              core:hasApplicability/core:applicabilityPeriod/core:applicableFrom ?date .
+              core:hasApplicability/core:applicabilityPeriod ?period .
+      ?period core:applicableFrom ?from .
+      OPTIONAL { ?period core:applicableTo ?to }
       OPTIONAL { ?breach a ?type . FILTER(?type IN (reg:ExceedanceBreach, reg:ShortfallBreach)) }
       ?cond reg:regulatedProperty ?sub .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
       ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
       ?dp water:monitoredAt ?sp ; geo:hasGeometry/geo:asWKT ?w .
+      ?breach reg:evidencedByObservation ?obs .
       FILTER(STRSTARTS(STR(?obs), STR(?sp)))
-    } GROUP BY ?breach ?type ?date ?subLabel ?subNotation ?permit ?obs`,
+    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond`,
 
   dischargePoints: `${PREFIXES}
     SELECT ?dp ?permit (SAMPLE(?w) AS ?wkt) ?sp WHERE {
@@ -149,6 +152,13 @@ function parseWkt(wkt) {
 // ---------------------------------------------------------------------------
 const last = (iri) => iri.split("/").pop();
 const permitRef = (iri) => (iri ? last(iri) : "—");
+// version number embedded in a condition/permit-document IRI: .../version/{v}/...
+const verOf = (iri) => {
+  const m = /\/version\/([^/#]+)/.exec(iri || "");
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : m[1];
+};
 const spOf = (obsOrSp) => {
   const m = /sampling-point\/([^/]+)/.exec(obsOrSp || "");
   return m ? m[1] : null;
@@ -184,22 +194,18 @@ async function loadAll() {
     sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed), sparql(Q.sfi),
   ]);
 
-  // Breaches: attach geometry + current/past (latest per permit+substance = current)
+  // Breaches are periods. current = the period is still open (no applicableTo) i.e. nothing has
+  // passed since it started; past = closed with a from/to. A lone failure has from == to.
   DB.breaches = breaches.map((b) => {
     const p = parseWkt(b.wkt).points[0] || null;
     return {
-      iri: b.breach, date: b.date, subLabel: b.subLabel, subNotation: b.subNotation,
-      permit: b.permit, obs: b.obs, sp: spOf(b.obs),
-      type: b.type ? last(b.type) : "ConditionBreach",
-      lat: p ? p[0] : null, lon: p ? p[1] : null, current: false,
+      iri: b.breach, from: b.from, to: b.to || null, current: !b.to,
+      subLabel: b.subLabel, subNotation: b.subNotation, permit: b.permit,
+      version: verOf(b.cond), // the permit version whose limit was breached
+      sp: spOf(b.sp), type: b.type ? last(b.type) : "ConditionBreach",
+      lat: p ? p[0] : null, lon: p ? p[1] : null,
     };
   });
-  const byKey = {};
-  for (const b of DB.breaches) (byKey[b.permit + "|" + b.subNotation] ||= []).push(b);
-  for (const k in byKey) {
-    byKey[k].sort((a, c) => (a.date < c.date ? 1 : -1));
-    byKey[k][0].current = true;
-  }
 
   // Discharge points
   DB.dischargePoints = dps.map((d) => {
@@ -207,19 +213,25 @@ async function loadAll() {
     return { iri: d.dp, permit: d.permit, sp: spOf(d.sp), lat: p ? p[0] : null, lon: p ? p[1] : null };
   });
 
-  // Conditions grouped per (permit, condition)
+  // Conditions grouped per (permit, condition). Each condition belongs to a permit VERSION;
+  // a permit's in-force limits are those of its latest (max) version, so mark current vs superseded.
   const condMap = {};
   for (const c of conditions) {
     const key = c.cond;
     (condMap[key] ||= {
-      permit: c.permit, cond: c.cond, subLabel: c.subLabel, subNotation: c.subNotation,
-      upper: null, lower: null, unit: null,
+      permit: c.permit, cond: c.cond, version: verOf(c.cond),
+      subLabel: c.subLabel, subNotation: c.subNotation, upper: null, lower: null, unit: null,
     });
     if (c.upper != null) condMap[key].upper = c.upper;
     if (c.lower != null) condMap[key].lower = c.lower;
     if (c.unitLabel) condMap[key].unit = c.unitLabel;
   }
   DB.conditions = Object.values(condMap);
+  DB.currentVersion = {};
+  for (const c of DB.conditions)
+    DB.currentVersion[c.permit] = Math.max(DB.currentVersion[c.permit] ?? -Infinity, Number(c.version) || 0);
+  for (const c of DB.conditions) c.current = Number(c.version) === DB.currentVersion[c.permit];
+  DB.conditionsCurrent = DB.conditions.filter((c) => c.current);
 
   DB.actions = actions.map((a) => {
     const p = parseWkt(a.wkt).points[0] || null;
@@ -300,7 +312,7 @@ const matchSub = (n) => !currentSubstance || n === currentSubstance;
 // View rendering
 // ---------------------------------------------------------------------------
 const LEDE = {
-  breaches: (n) => `<b>${n} condition breaches</b> where an observed value crossed a permit limit. The most recent breach at each site is shown as <b>current</b>; earlier ones as <b>past</b>. Click a marker to open the sampling point in the Water Quality Explorer.`,
+  breaches: (n, cur) => `<b>${n} condition breaches</b> — each a run of failing observations with no passing result in between. <b>${cur} current</b> (open: nothing has passed since the breach began); the rest are <b>past</b> (closed, with a start and end). Click a marker to open the sampling point in the Water Quality Explorer.`,
   substance: (n, lbl) => `Solving for <b>${esc(lbl)}</b>: <b>${n.limits} current permit limits</b> in force and <b>${n.works} improvement actions</b> proposing future limits across the catchment.`,
   wessex: (n) => `<b>Wessex Water</b> has <b>${n} WINEP actions</b> in this catchment — investments with a completion date and the new (or continued) permit limits they will bring.`,
   overall: () => `The whole picture: permit limits and their breaches, Wessex Water's planned works, and the farming (SFI) options that reduce diffuse pollution at source.`,
@@ -321,18 +333,40 @@ function setLegend(items) {
     .join("");
 }
 
-function breachPopup(b) {
-  return `<h3>Breach — ${esc(b.subLabel)}</h3>
-    <div class="kv"><b>Permit:</b> ${permitRef(b.permit)}<br>
-    <b>Date:</b> ${fmtDate(b.date)}<br>
-    <b>Status:</b> ${b.current ? "Current" : "Past"}<br>
-    <b>Sampling point:</b> ${esc(b.sp || "—")}</div>
-    ${b.sp ? `<p><a href="${WQE}${b.sp}" target="_blank" rel="noopener">Open in Water Quality Explorer ↗</a></p>` : ""}`;
+function breachPeriod(b) {
+  if (b.current) return `since ${fmtDate(b.from)} (ongoing)`;
+  if (b.from === b.to) return `${fmtDate(b.from)} (single observation)`;
+  return `${fmtDate(b.from)} → ${fmtDate(b.to)}`;
 }
-function dpPopup(dp, conds) {
-  const rows = conds.map((c) => `${esc(c.subLabel)}: ${c.upper ? "≤ " + fmtNum(c.upper) + " " + prettyUnit(c.unit) : ""}${c.lower ? " ≥ " + fmtNum(c.lower) : ""}`).join("<br>");
-  return `<h3>Discharge point</h3><div class="kv"><b>Permit:</b> ${permitRef(dp.permit)}<br>
-    <b>Monitored at:</b> ${esc(dp.sp || "—")}</div>${rows ? `<hr><div class="kv">${rows}</div>` : ""}`;
+// Format a condition's bound(s) as "≤ X ≥ Y unit".
+function limitRange(c) {
+  const parts = [];
+  if (c.upper != null) parts.push("≤ " + fmtNum(c.upper));
+  if (c.lower != null) parts.push("≥ " + fmtNum(c.lower));
+  return (parts.join(" ") || "—") + (c.unit ? " " + prettyUnit(c.unit) : "");
+}
+// One unified popup per discharge point: identity + WQE link, its breaches (current/past), and
+// the in-force (current-version) limits. Shown whether or not the point has any breaches.
+function dischargePopup(dp, currentConds, cur, past) {
+  const wqe = dp.sp
+    ? `<a href="${WQE}${dp.sp}" target="_blank" rel="noopener">${esc(dp.sp)} ↗</a>`
+    : "—";
+  let breaches = "";
+  if (cur.length || past.length) {
+    const line = (b) => `${esc(b.subLabel)} — ${breachPeriod(b)}`;
+    breaches = `<hr><div class="kv"><b>Breaches</b><br>
+      <b>Current:</b> ${cur.length ? cur.map(line).join("<br>") : "none"}<br>
+      <b>Past:</b> ${past.length ? past.map(line).join("<br>") : "none"}</div>`;
+  }
+  const limits = currentConds.length
+    ? currentConds.slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel))
+        .map((c) => `${esc(c.subLabel)}: ${limitRange(c)}`).join("<br>")
+    : "—";
+  return `<h3>Discharge point</h3>
+    <div class="kv"><b>Permit:</b> ${permitRef(dp.permit)}<br>
+    <b>Monitored at:</b> ${wqe}</div>
+    ${breaches}
+    <hr><div class="kv"><b>Current limits</b> <span style="color:#777">(v${DB.currentVersion[dp.permit] ?? "?"})</span><br>${limits}</div>`;
 }
 function actionPopup(a, limits) {
   const l = limits.map((x) => `${esc(x.subLabel || "—")}: ${limitText(x)}`).join("<br>");
@@ -360,13 +394,21 @@ function render() {
   const tables = document.getElementById("tables");
   tables.innerHTML = "";
 
-  // Data slices with substance filter applied where relevant
+  // Data slices with substance filter applied where relevant. "Current limits" are the latest
+  // permit version's conditions only; the full history stays available for the expandable views.
   const breaches = DB.breaches.filter((b) => matchSub(b.subNotation));
-  const conditions = DB.conditions.filter((c) => matchSub(c.subNotation));
+  const conditions = DB.conditionsCurrent.filter((c) => matchSub(c.subNotation));
   const proposedForSub = DB.proposed.filter((l) => matchSub(l.subNotation));
-  const condByPermit = groupBy(DB.conditions, "permit");
+  const condByPermit = groupBy(DB.conditionsCurrent, "permit"); // current limits per permit
+  const condHistByPermit = groupBy(DB.conditions, "permit");    // all versions per permit
+  const breachesByPermit = groupBy(DB.breaches, "permit");
+  // breaches grouped by the discharge point they occurred at (permit + monitored sampling point)
+  const breachAtDp = {};
+  for (const b of DB.breaches) (breachAtDp[`${b.permit}|${b.sp}`] ||= []).push(b);
   const dpByPermit = groupBy(DB.dischargePoints, "permit");
   const limByAction = groupBy(DB.proposed, "action");
+  // (permit|version|substance) tuples that were actually breached, to flag them in the history
+  const breachedKey = new Set(DB.breaches.map((b) => `${b.permit}|${b.version}|${b.subNotation}`));
 
   // Which permits/actions are relevant to the substance
   const permitsWithSub = new Set(conditions.map((c) => c.permit));
@@ -376,12 +418,12 @@ function render() {
 
   if (currentView === "breaches") {
     show.breach = show.discharge = true;
-    setLegend([{ c: "#e5484d", t: "Current breach" }, { c: "#f5a623", t: "Past breach" }, { c: "#3aa0ff", t: "Discharge point (permit limit)" }]);
-    document.getElementById("lede").innerHTML = LEDE.breaches(breaches.length);
-    tables.append(breachTable(breaches), permitTable(conditions, dpByPermit, condByPermit));
+    setLegend([{ c: "#e5484d", t: "Discharge point — current breach" }, { c: "#f5a623", t: "past breach" }, { c: "#3aa0ff", t: "no breach" }]);
+    document.getElementById("lede").innerHTML = LEDE.breaches(breaches.length, breaches.filter((b) => b.current).length);
+    tables.append(breachTable(breaches), permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit));
   } else if (currentView === "substance") {
     show.breach = show.discharge = show.action = true;
-    setLegend([{ c: "#3aa0ff", t: "Current limit" }, { c: "#a06bff", t: "Future works (action)" }, { c: "#e5484d", t: "Breach" }]);
+    setLegend([{ c: "#3aa0ff", t: "Current limit (no breach)" }, { c: "#e5484d", t: "current breach" }, { c: "#f5a623", t: "past breach" }, { c: "#a06bff", t: "Future works (action)" }]);
     const limitCount = conditions.length, workCount = actionIdsWithSub.size;
     document.getElementById("lede").innerHTML = LEDE.substance({ limits: limitCount, works: workCount }, subLbl);
     tables.append(
@@ -403,32 +445,39 @@ function render() {
     document.getElementById("lede").innerHTML = LEDE.overall();
     tables.append(
       breachTable(breaches),
-      permitTable(conditions, dpByPermit, condByPermit),
+      permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit),
       actionTable(DB.actions, limByAction),
       sfiTable(DB.sfi),
     );
   }
 
-  // Draw layers
+  // Draw layers. Breaches live AT their discharge point, so a discharge point is a single marker
+  // coloured by its worst breach status; its popup carries permit + WQE + breaches + current limits.
   if (show.discharge) {
-    for (const dp of DB.dischargePoints) {
-      if (dp.lat == null) continue;
-      const conds = (condByPermit[dp.permit] || []).filter((c) => matchSub(c.subNotation));
-      if (currentSubstance && conds.length === 0) continue;
-      circle(dp.lat, dp.lon, dot("#3aa0ff", 6, 0.85), dpPopup(dp, conds)).addTo(layers.dischargePoints);
-      drawnBounds.push([dp.lat, dp.lon]);
+    const order = { none: 0, past: 1, current: 2 }; // draw current breaches on top
+    const items = DB.dischargePoints
+      .filter((dp) => dp.lat != null)
+      .map((dp) => {
+        const allConds = condByPermit[dp.permit] || [];              // all current limits (unfiltered)
+        const allBr = breachAtDp[`${dp.permit}|${dp.sp}`] || [];      // all breaches here (unfiltered)
+        const fConds = allConds.filter((c) => matchSub(c.subNotation));
+        const fBr = allBr.filter((b) => matchSub(b.subNotation));
+        const status = fBr.some((b) => b.current) ? "current" : fBr.length ? "past" : "none";
+        return { dp, allConds, allBr, fConds, fBr, status };
+      })
+      // in a substance view, only show discharge points relevant to the substance
+      .filter((x) => !currentSubstance || x.fConds.length || x.fBr.length)
+      .sort((a, b) => order[a.status] - order[b.status]);
+    for (const x of items) {
+      const col = x.status === "current" ? "#e5484d" : x.status === "past" ? "#f5a623" : "#3aa0ff";
+      const r = x.status === "current" ? 8 : x.status === "past" ? 7 : 6;
+      const cur = x.allBr.filter((b) => b.current);
+      const past = x.allBr.filter((b) => !b.current);
+      circle(x.dp.lat, x.dp.lon, dot(col, r, 0.9), dischargePopup(x.dp, x.allConds, cur, past))
+        .addTo(layers.dischargePoints);
+      drawnBounds.push([x.dp.lat, x.dp.lon]);
     }
     layers.dischargePoints.addTo(map);
-  }
-  if (show.breach) {
-    for (const b of breaches) {
-      if (b.lat == null) continue;
-      const grp = b.current ? layers.breachCurrent : layers.breachPast;
-      circle(b.lat, b.lon, dot(b.current ? "#e5484d" : "#f5a623", b.current ? 8 : 6, 0.9), breachPopup(b)).addTo(grp);
-      drawnBounds.push([b.lat, b.lon]);
-    }
-    layers.breachPast.addTo(map);
-    layers.breachCurrent.addTo(map);
   }
   if (show.action) {
     for (const a of DB.actions) {
@@ -487,40 +536,58 @@ function tableEl(head, rowsHtml) {
 
 function breachTable(breaches) {
   if (!breaches.length) return card("Breaches", "0", emptyBody("No breaches for this selection."));
-  const rows = [...breaches].sort((a, b) => (a.date < b.date ? 1 : -1)).map((b) => `
+  // current first, then most-recently-started
+  const rows = [...breaches].sort((a, b) => (b.current - a.current) || (a.from < b.from ? 1 : -1)).map((b) => `
     <tr>
-      <td>${fmtDate(b.date)}</td>
+      <td>${breachPeriod(b)}</td>
       <td>${esc(b.subLabel)}</td>
       <td class="mono">${permitRef(b.permit)}</td>
       <td>${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
       <td>${b.sp ? `<a href="${WQE}${b.sp}" target="_blank" rel="noopener">${esc(b.sp)} ↗</a>` : "—"}</td>
     </tr>`).join("");
-  return card("Breaches", breaches.length, tableEl(["Date", "Substance", "Permit", "Status", "Sampling point (WQE)"], rows));
+  return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status", "Sampling point (WQE)"], rows));
 }
 
-function permitTable(conditions, dpByPermit, condByPermit) {
+function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit) {
   const permits = [...new Set(conditions.map((c) => c.permit))].sort();
   if (!permits.length) return card("Permits &amp; limits", "0", emptyBody("No permits for this selection."));
   const rows = permits.map((p, i) => {
-    const conds = (condByPermit[p] || []).filter((c) => !currentSubstance || matchSub(c.subNotation));
+    const cur = (condByPermit[p] || []); // current-version conditions only
     const dps = dpByPermit[p] || [];
     const sp = dps.map((d) => d.sp).filter(Boolean)[0] || "—";
-    const inner = tableEl(["Substance", "Upper", "Lower", "Unit"],
-      conds.map((c) => `<tr><td>${esc(c.subLabel)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
-        <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td></tr>`).join(""));
-    return `<tr class="expandable" data-row="${i}"><td><span class="caret">▸</span> <span class="mono">${permitRef(p)}</span></td>
-        <td>${conds.length} condition${conds.length === 1 ? "" : "s"}</td><td>${dps.length}</td><td>${esc(sp)}</td></tr>
-      <tr class="expand-row hidden" data-exp="${i}"><td colspan="4"><div class="expand-inner"></div></td></tr>`;
+    const nB = (breachesByPermit[p] || []).length;
+    return `<tr class="expandable" data-row="${i}"><td><span class="caret">▸</span> <span class="mono">${permitRef(p)}</span>
+          <span style="color:#777"> v${DB.currentVersion[p] ?? "?"}</span></td>
+        <td>${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
+        <td>${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${esc(sp)}</td></tr>
+      <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
   }).join("");
-  const c = card("Permits &amp; limits", permits.length, tableEl(["Permit", "Conditions", "Discharge points", "Monitored at"], rows));
-  // attach expand data
-  wireExpand(c, permits, (p) => {
-    const conds = (condByPermit[p] || []).filter((x) => !currentSubstance || matchSub(x.subNotation));
-    return tableEl(["Substance", "Upper", "Lower", "Unit"],
-      conds.map((x) => `<tr><td>${esc(x.subLabel)}</td><td class="num">${x.upper ? fmtNum(x.upper) : "—"}</td>
-        <td class="num">${x.lower ? fmtNum(x.lower) : "—"}</td><td>${prettyUnit(x.unit)}</td></tr>`).join("")).outerHTML;
-  });
+  const c = card("Permits &amp; limits", permits.length,
+    tableEl(["Permit", "Current limits", "Discharge points", "Breaches", "Monitored at"], rows));
+  wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey));
   return c;
+}
+
+// Expandable detail: current limits, then the full version history with breached rows flagged.
+function permitDetail(p, condByPermit, condHistByPermit, breachedKey) {
+  const cur = (condByPermit[p] || []).slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel));
+  const hist = (condHistByPermit[p] || []).slice().sort((a, b) =>
+    (Number(b.version) - Number(a.version)) || a.subLabel.localeCompare(b.subLabel));
+  const curTbl = tableEl(["Substance", "Upper", "Lower", "Unit"],
+    cur.map((c) => `<tr><td>${esc(c.subLabel)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
+      <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td></tr>`).join("")).outerHTML;
+  const histTbl = tableEl(["Version", "Substance", "Upper", "Lower", "Unit", ""],
+    hist.map((c) => {
+      const breached = breachedKey.has(`${p}|${c.version}|${c.subNotation}`);
+      return `<tr${c.current ? ' style="font-weight:600"' : ""}>
+        <td class="mono">v${c.version}${c.current ? " (current)" : ""}</td>
+        <td>${esc(c.subLabel)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
+        <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td>
+        <td>${breached ? '<span class="pill current">breached</span>' : ""}</td></tr>`;
+    }).join("")).outerHTML;
+  const nVer = new Set(hist.map((c) => c.version)).size;
+  return `<div style="padding:2px 0 8px"><b style="color:#93a4b3">Current limits</b></div>${curTbl}` +
+    (nVer > 1 ? `<div style="padding:12px 0 8px"><b style="color:#93a4b3">Limit history — ${nVer} versions</b></div>${histTbl}` : "");
 }
 
 function currentLimitsTable(conditions, dpByPermit) {
