@@ -39,14 +39,17 @@ target      :Option/{app_id}/{option_code} rdf:type defra-core:Option.
 
 mappingId   ExtraOptionProperties
 source      SELECT * FROM result
-target      :Option/{app_id}/{option_code} ex:area {area} .
-            :Option/{app_id}/{option_code} ex:mtl {mtl} .
-            :Option/{app_id}/{option_code} ex:units {units} .
-            :Option/{app_id}/{option_code} ex:uom_desc {uom_desc} .
+target      :Option/{app_id}/{option_code} ex:uom_desc {uom_desc} .
             :Option/{app_id}/{option_code} ex:opt_year {opt_year} .
             :Option/{app_id}/{option_code} ex:schememodule {schememodule} .
+
+mappingId   OptionAreaAndGeometry
+source      SELECT app_id, option_code, total_area, total_mtl, total_units, geom_wkt FROM option_geometry
+target      :Option/{app_id}/{option_code} ex:area {total_area}^^xsd:decimal .
+            :Option/{app_id}/{option_code} ex:mtl {total_mtl}^^xsd:integer .
+            :Option/{app_id}/{option_code} ex:units {total_units}^^xsd:integer .
             :Option/{app_id}/{option_code} geo:hasGeometry :Option/{app_id}/{option_code}#geometry .
-            :Option/{app_id}/{option_code}#geometry geo:asWKT "{geom}"^^geo:wktLiteral .
+            :Option/{app_id}/{option_code}#geometry geo:asWKT "{geom_wkt}"^^geo:wktLiteral .
 
 mappingId   SFIConcepts
 source      SELECT * FROM concepts

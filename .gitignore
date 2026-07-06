@@ -1,2 +1,8 @@
 /.venv
 /venv
+
+# Regenerable SFI artifacts - the database is rebuilt from raw_datasets by
+# ttl/sfi/sfi_to_db.py and sfi_raw.ttl is the ontop materialisation intermediate
+# (piped through rdfpipe into ttl/sfi.ttl), so neither needs to be committed.
+ttl/sfi/sfi.duckdb
+ttl/sfi/sfi_raw.ttl
