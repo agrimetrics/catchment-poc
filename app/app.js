@@ -79,11 +79,12 @@ const Q = {
     }`,
 
   limitHistory: `${PREFIXES}
-    SELECT ?permit ?subNotation ?from ?to ?upper ?lower WHERE {
+    SELECT ?permit ?subNotation ?version ?from ?to ?upper ?lower WHERE {
       ?permit a water:WaterDischargePermit ; reg:hasCondition ?cond .
       ?cond reg:regulatedProperty ?sub .
       ?sub skos:notation ?subNotation .
       BIND(IRI(REPLACE(STR(?cond), "/condition/.*", "")) AS ?doc)
+      BIND(REPLACE(STR(?doc), ".*/version/", "") AS ?version)
       ?doc core:hasApplicability/core:applicabilityPeriod ?p .
       ?p core:applicableFrom ?from .
       OPTIONAL { ?p core:applicableTo ?to }
@@ -213,6 +214,7 @@ function chartContext(subNotation, permit) {
     unit: (cond && cond.unit) || (proposed[0] && proposed[0].unit) || "",
     upper: cond && cond.upper != null ? Number(cond.upper) : null,
     lower: cond && cond.lower != null ? Number(cond.lower) : null,
+    version: DB.currentVersion[permit], // current (latest) version number
     steps: (DB.limitHistory[`${permit}|${subNotation}`] || []), // dated version windows for the step line
     proposed,
   };
@@ -301,6 +303,7 @@ function renderChart(ctx, obs) {
   // versions (red dashed segment per window, vertical connector at each change); else a flat line.
   let lines = "";
   const hasSteps = ctx.steps.some((s) => s.upper != null || s.lower != null);
+  // plain stepped segments (used for the lower bound; no per-segment labels)
   const stepLine = (pick, width) => {
     let svg = "";
     for (const s of ctx.steps) {
@@ -313,15 +316,44 @@ function renderChart(ctx, obs) {
     }
     return svg;
   };
+  // upper (enforced) step line: each run of consecutive versions at the SAME value is one segment,
+  // labelled on the LEFT with its version range (e.g. "v2-v8", or just "v3" for a single version).
+  const stepUpperLine = () => {
+    let svg = "", run = null;
+    const emit = () => {
+      if (!run || !run.versions.length) return;
+      const first = run.versions[0], last = run.versions[run.versions.length - 1];
+      const label = first === last ? `v${first}` : `v${first}-v${last}`;
+      svg += `<text x="${run.xLeft + 3}" y="${run.yy - 4}" fill="#e5484d" font-size="10">${esc(label)}</text>`;
+    };
+    for (const s of ctx.steps) {
+      if (!Number.isFinite(s.upper)) continue;
+      const from = Math.max(s.from, tMin), to = Math.min(s.to == null ? tMax : s.to, tMax);
+      if (to < tMin || from > tMax) continue;
+      const yy = y(s.upper);
+      svg += `<line x1="${x(from)}" y1="${yy}" x2="${x(to)}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>`;
+      if (run && run.upper === s.upper) {
+        if (s.version != null) run.versions.push(s.version);         // extend the current run
+      } else {
+        emit();                                                       // close the previous run
+        run = { upper: s.upper, yy, xLeft: x(from), versions: s.version != null ? [s.version] : [] };
+      }
+    }
+    emit();
+    return svg;
+  };
   if (hasSteps) {
-    lines += stepLine((s) => s.upper, 1.75) + stepLine((s) => s.lower, 1.5);
+    lines += stepUpperLine() + stepLine((s) => s.lower, 1.5);
+    // value + unit on the RIGHT, for the latest (current) enforced limit only
     if (ctx.upper != null)
-      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#e5484d" font-size="10" text-anchor="end">current ${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
+      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
   } else {
+    // undated permit: one flat enforced line — version on the left, value + unit on the right
     if (ctx.upper != null) {
       const yy = y(ctx.upper);
-      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>` +
-        `<text x="${W - m.r}" y="${yy - 4}" fill="#e5484d" font-size="10" text-anchor="end">current ${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
+      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>`
+        + (ctx.version != null ? `<text x="${m.l + 3}" y="${yy - 4}" fill="#e5484d" font-size="10">v${esc(ctx.version)}</text>` : "")
+        + `<text x="${W - m.r}" y="${yy - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
     }
     if (ctx.lower != null) {
       const yy = y(ctx.lower);
@@ -334,8 +366,10 @@ function renderChart(ctx, obs) {
     if (!Number.isFinite(v) || seen.has(v)) continue;
     seen.add(v);
     const yy = y(v);
-    lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#a06bff" stroke-width="1.75" stroke-dasharray="6 4"/>` +
-      `<text x="${m.l}" y="${yy - 4}" fill="#a06bff" font-size="10">proposed ${fmtNum(v)}${b.stat ? " (" + esc(b.stat) + ")" : ""}</text>`;
+    // "proposed" on the LEFT of the line; value + unit + method on the RIGHT
+    lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#a06bff" stroke-width="1.75" stroke-dasharray="6 4"/>`
+      + `<text x="${m.l + 3}" y="${yy - 4}" fill="#a06bff" font-size="10">proposed</text>`
+      + `<text x="${W - m.r}" y="${yy - 4}" fill="#a06bff" font-size="10" text-anchor="end">${fmtNum(v)} ${prettyUnit(b.unit)}${b.stat ? " (" + esc(b.stat) + ")" : ""}</text>`;
   }
 
   let pts = "", nMiss = 0;
@@ -352,7 +386,7 @@ function renderChart(ctx, obs) {
   const legend = `<div class="chart-legend">
     <span class="item" style="color:#e5484d">✕ miss (${nMiss})</span>
     <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss})</span>
-    <span class="item" style="color:#e5484d">– – current limit${hasSteps ? " (by version)" : ""}</span>
+    <span class="item" style="color:#e5484d">– – enforced limit${hasSteps ? " (by version)" : ""}</span>
     ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
   </div>`;
   return `${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
@@ -413,7 +447,7 @@ async function loadAll() {
   for (const r of limitHistory) {
     const key = `${r.permit}|${r.subNotation}`;
     (DB.limitHistory[key] ||= []).push({
-      from: Date.parse(r.from), to: r.to ? Date.parse(r.to) : null,
+      version: r.version, from: Date.parse(r.from), to: r.to ? Date.parse(r.to) : null,
       upper: r.upper != null ? Number(r.upper) : null,
       lower: r.lower != null ? Number(r.lower) : null,
     });

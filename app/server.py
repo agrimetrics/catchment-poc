@@ -209,6 +209,7 @@ class Handler(BaseHTTPRequestHandler):
         data = target.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-cache")  # always revalidate; the app files change often
         self.end_headers()
         self.wfile.write(data)
 
