@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import duckdb
@@ -51,32 +52,122 @@ GROUP BY app_id, option_code;
 """)
 
 
-# Add a duckdb table for the concepts in the sfi concept scheme
-all_rows = []
+# --- SFI concept scheme -------------------------------------------------------
+# Two sources are unioned into one `concepts` table:
+#   1. The "SFI Option details.xlsx" workbook is the richer, canonical source for the expanded
+#      (C-prefixed) SFI offer: code, description, the payment rate + pay unit, duration, and the
+#      long human-authored guidance (aim / purpose / where / what / when / evidence / advice) which
+#      we roll up verbatim into a single formatted rdfs:comment rather than modelling as related
+#      concept schemes.
+#   2. The data-notes PDF still supplies definition + broader grouping for the older SFI 2023 /
+#      pilot codes that appear in the catchment but are absent from the workbook.
+# The workbook wins on any code present in both.
 
+# Windows-1252 punctuation mangled into UTF-8 in the source workbook (e.g. "action€™s" -> "action's").
+_MOJIBAKE = {
+    "€™": "’", "€˜": "‘", "€œ": "“", "€\x9d": "”",
+    "€“": "–", "€”": "—", "€¦": "…", "Â": "",
+}
+
+
+def clean_text(v) -> str | None:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    s = str(v)
+    for bad, good in _MOJIBAKE.items():
+        s = s.replace(bad, good)
+    s = s.replace("€", "")          # any stray lone euro left over from the mangling
+    return s.strip() or None
+
+
+def roll_up_comment(row) -> str | None:
+    """Format the long guidance columns into one Markdown-ish rdfs:comment. No interpretation —
+    the text is captured verbatim (only whitespace-normalised) under section headings."""
+    sections = [
+        ("Aim", "Aim"), ("Purpose", "Purpose"), ("Where", "where"), ("What", "what"),
+        ("When", "when"), ("Evidence", "evidence"), ("Advice", "advice"),
+    ]
+    parts = []
+    for heading, col in sections:
+        text = clean_text(row.get(col))
+        if text and text.lower() != "nan":
+            parts.append(f"## {heading}\n{text}")
+    return "\n\n".join(parts) if parts else None
+
+
+xl = pd.read_excel(RAW / "SFI Option details.xlsx", sheet_name="SFI Option Data")
+xl_rows = []
+for _, r in xl.iterrows():
+    notation = clean_text(r["Code"])
+    if not notation:
+        continue
+    pay_unit_text = clean_text(r["Pay Unit"])
+    # The payment rate is quoted per a base unit. We only compute a monetary cost for the two
+    # units we can reliably tie to a measured option quantity: per hectare (area) and per 100
+    # metres (length). Everything else keeps the verbatim rate but no computed per-unit divisor.
+    per_amount, per_unit_slug = None, None
+    if pay_unit_text and "100 metres" in pay_unit_text.lower():
+        per_amount, per_unit_slug = 100, "M"
+    elif pay_unit_text and pay_unit_text.lower().startswith("per hectare"):
+        per_amount, per_unit_slug = 1, "HA"
+    xl_rows.append({
+        "notation": notation,
+        "definition": clean_text(r["Description"]),
+        "comment": roll_up_comment(r),
+        "duration": clean_text(r["duration"]),
+        "pay_amount": float(r["PAYMENT_RATE"]) if pd.notna(r["PAYMENT_RATE"]) else None,
+        "pay_unit_text": pay_unit_text,
+        "more_pay_info": clean_text(r["More_pay_info"]),
+        "per_amount": per_amount,
+        "per_unit_slug": per_unit_slug,
+        "broader": re.sub(r"^C", "", re.match(r"([A-Za-z]+)", notation).group(1)),
+    })
+xlsx_df = pd.DataFrame(xl_rows)
+
+# Older codes (SFI 2023 / pilot) not in the workbook: fall back to the data-notes PDF for a
+# definition + broader grouping only.
+all_rows = []
 with pdfplumber.open(str(HERE / "Sustainable Farming Incentive_Data_Notes_v1_0.pdf")) as pdf:
     for i in range(len(pdf.pages) - 1):
-        page = pdf.pages[i]
-        table = page.extract_table()
+        table = pdf.pages[i].extract_table()
         if table:
             all_rows.extend(table)
-
-df = pd.DataFrame(all_rows)
-df = df.iloc[1:]
-df = df.rename(columns={0: "notation", 1: "description"})
-df["description"] = (
-    df["description"]
-      .str.replace(r"\s+", " ", regex=True)
-      .str.strip()
-)
-df["broader"] = (
-    df["notation"]
-    .astype(str)
-    .str.extract(r"([A-Za-z]+)")[0]
-    .str.replace(r"^C", "", regex=True)
+pdf_df = pd.DataFrame(all_rows).iloc[1:].rename(columns={0: "notation", 1: "description"})
+pdf_df["description"] = pdf_df["description"].str.replace(r"\s+", " ", regex=True).str.strip()
+pdf_df["broader"] = (
+    pdf_df["notation"].astype(str).str.extract(r"([A-Za-z]+)")[0].str.replace(r"^C", "", regex=True)
 )
 
+con.register("xlsx_df", xlsx_df)
+con.register("pdf_df", pdf_df)
 con.execute("""
 CREATE OR REPLACE TABLE concepts AS
-SELECT * FROM df
+SELECT notation, definition, comment, duration, pay_amount, pay_unit_text,
+       more_pay_info, per_amount, per_unit_slug, broader
+FROM xlsx_df
+UNION ALL
+SELECT notation, description AS definition, NULL, NULL, NULL, NULL,
+       NULL, NULL, NULL, broader
+FROM pdf_df
+WHERE notation NOT IN (SELECT notation FROM xlsx_df)
+""")
+
+# --- Per-option cost ----------------------------------------------------------
+# Followup activity: value each option by multiplying its measured extent by the concept's payment
+# rate. cost = extent * pay_amount / per_amount, taking the option's summed length (metres) for a
+# per-100-metres rate and summed area (hectares) for a per-hectare rate. This is the base annual
+# rate only — it does NOT apply the More_pay_info nuances (e.g. "for both sides", extra per-agreement
+# top-ups). See the SFI README data warning.
+con.execute("""
+CREATE OR REPLACE TABLE option_cost AS
+SELECT g.app_id,
+       g.option_code,
+       CAST(
+         CASE c.per_unit_slug
+           WHEN 'M'  THEN g.total_mtl  * c.pay_amount / c.per_amount
+           WHEN 'HA' THEN g.total_area * c.pay_amount / c.per_amount
+         END AS DECIMAL(18,2)) AS cost
+FROM option_geometry g
+JOIN concepts c ON c.notation = g.option_code
+WHERE c.per_unit_slug IS NOT NULL AND c.pay_amount IS NOT NULL;
 """)

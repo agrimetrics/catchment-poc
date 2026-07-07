@@ -4,9 +4,13 @@ ex:             http://example.com/
 xsd:            http://www.w3.org/2001/XMLSchema#
 rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
 defra-farming:  http://environment.data.gov.uk/ontology/farming/
-defra-core:     http://environment.data.gov.uk/ontology/core/ 
+defra-core:     http://environment.data.gov.uk/ontology/core/
 skos:           http://www.w3.org/2004/02/skos/core#
 geo:            http://www.opengis.net/ont/geosparql#
+rdfs:           http://www.w3.org/2000/01/rdf-schema#
+qudt:           http://qudt.org/schema/qudt/
+unit:           http://qudt.org/vocab/unit/
+currency:       http://qudt.org/vocab/currency/
 
 [MappingDeclaration] @collection [[
 
@@ -52,14 +56,45 @@ target      :Option/{app_id}/{option_code} ex:area {total_area}^^xsd:decimal .
             :Option/{app_id}/{option_code}#geometry geo:asWKT "{geom_wkt}"^^geo:wktLiteral .
 
 mappingId   SFIConcepts
-source      SELECT * FROM concepts
+source      SELECT notation, definition, comment, duration FROM concepts
 target      :Option/Concept/{notation} rdf:type skos:Concept .
             :Option/Concept/{notation} skos:notation {notation} .
-            :Option/Concept/{notation} skos:definition {description} .
+            :Option/Concept/{notation} skos:definition {definition} .
+            :Option/Concept/{notation} rdfs:comment {comment} .
+            :Option/Concept/{notation} defra-farming:duration {duration} .
             :Option/Concept/{notation} skos:inScheme :Option .
             :Option rdf:type skos:ConceptScheme .
-            :Option/Concept/{notation} skos:broader :Option/Concept/{broader} .
+
+mappingId   SFIConceptBroader
+source      SELECT notation, broader FROM concepts WHERE broader IS NOT NULL
+target      :Option/Concept/{notation} skos:broader :Option/Concept/{broader} .
             :Option/Concept/{broader} rdf:type skos:Concept .
             :Option/Concept/{broader} skos:inScheme :Option .
+
+mappingId   SFIConceptPaymentRate
+source      SELECT notation, pay_amount, pay_unit_text FROM concepts WHERE pay_amount IS NOT NULL
+target      :Option/Concept/{notation} defra-farming:paymentRate :Option/Concept/{notation}#payment-rate .
+            :Option/Concept/{notation}#payment-rate rdf:type defra-farming:PaymentRate .
+            :Option/Concept/{notation}#payment-rate qudt:numericValue {pay_amount}^^xsd:decimal .
+            :Option/Concept/{notation}#payment-rate qudt:unit currency:GBP .
+            :Option/Concept/{notation}#payment-rate rdfs:label {pay_unit_text} .
+
+mappingId   SFIConceptPaymentPer
+source      SELECT notation, per_amount, per_unit_slug FROM concepts WHERE per_unit_slug IS NOT NULL
+target      :Option/Concept/{notation}#payment-rate defra-farming:perQuantity :Option/Concept/{notation}#payment-per .
+            :Option/Concept/{notation}#payment-per rdf:type qudt:QuantityValue .
+            :Option/Concept/{notation}#payment-per qudt:numericValue {per_amount}^^xsd:decimal .
+            :Option/Concept/{notation}#payment-per qudt:unit unit:{per_unit_slug} .
+
+mappingId   SFIConceptPaymentNote
+source      SELECT notation, more_pay_info FROM concepts WHERE more_pay_info IS NOT NULL
+target      :Option/Concept/{notation}#payment-rate defra-farming:paymentNote {more_pay_info} .
+
+mappingId   OptionCost
+source      SELECT app_id, option_code, cost FROM option_cost WHERE cost IS NOT NULL
+target      :Option/{app_id}/{option_code} defra-farming:annualPayment :Option/{app_id}/{option_code}#payment .
+            :Option/{app_id}/{option_code}#payment rdf:type qudt:QuantityValue .
+            :Option/{app_id}/{option_code}#payment qudt:numericValue {cost}^^xsd:decimal .
+            :Option/{app_id}/{option_code}#payment qudt:unit currency:GBP .
 ]]
 
