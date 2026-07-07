@@ -36,7 +36,9 @@ eval $(poetry env activate)
 python app/server.py          # loads the 4 graphs, then serves on port 8000
 ```
 
-Then open **http://localhost:8000**.
+Then open **http://localhost:8000**. The server runs in the foreground — press **Ctrl-C** in
+that terminal to stop it. Nothing is persisted (the store is rebuilt in memory on each start), so
+there is no cleanup and no state to reset between runs.
 
 | URL                                                              | What it serves                                                                                                        |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
