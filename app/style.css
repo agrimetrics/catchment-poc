@@ -51,15 +51,32 @@ select {
 
 nav#views {
   display: flex;
-  gap: 8px;
-  padding: 12px 20px;
+  gap: 14px;
+  padding: 10px 20px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
 }
+/* Domain super-boxes grouping the views: Water (three) and Land (one). */
+.view-group {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px 8px 8px;
+}
+.view-group.water { flex: 3 1 0; background: rgba(90, 169, 255, .04); }
+.view-group.land { flex: 1 1 0; background: rgba(70, 185, 120, .05); }
+.view-group > legend {
+  padding: 0 8px; margin-left: 2px;
+  font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+}
+.view-group.water > legend { color: #5aa9ff; }
+.view-group.land > legend { color: #46b978; }
+.group-buttons { display: flex; gap: 8px; }
 nav#views button {
   flex: 1 1 0;
-  min-width: 190px;
+  min-width: 170px;
   text-align: left;
   background: var(--panel-2);
   color: var(--text);

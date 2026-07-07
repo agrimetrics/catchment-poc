@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Poole Harbour — Three Ways</title>
+  <title>Poole Harbour Rivers - Linked Data Catchment Demonstrator</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
@@ -13,8 +13,8 @@
 <body>
   <header>
     <div class="title">
-      <h1>Poole Harbour Rivers</h1>
-      <span class="subtitle">Regulation · WINEP · Farming — one catchment, three ways</span>
+      <h1>Poole Harbour Rivers - Linked Data Catchment Demonstrator</h1>
+      <span class="subtitle">Water: Breaches · Substance Views · WINEP (Water Industry National Environment Programme) &nbsp;·&nbsp; Land: Sustainable Farming Incentive</span>
     </div>
     <div class="controls">
       <label class="substance-picker">
@@ -25,22 +25,32 @@
   </header>
 
   <nav id="views">
-    <button data-view="breaches" class="active">
-      <span class="v-title">Show me the breaches</span>
-      <span class="v-desc">Current &amp; past permit breaches on the map</span>
-    </button>
-    <button data-view="substance">
-      <span class="v-title">Solving for a substance</span>
-      <span class="v-desc">Current limits &amp; future works for the selected substance</span>
-    </button>
-    <button data-view="wessex">
-      <span class="v-title">What Wessex Water is up to</span>
-      <span class="v-desc">Proposed investments, completion dates &amp; new limits</span>
-    </button>
-    <button data-view="farming">
-      <span class="v-title">Farming</span>
-      <span class="v-desc">SFI agreements &amp; what they pay per intervention</span>
-    </button>
+    <fieldset class="view-group water">
+      <legend>Water</legend>
+      <div class="group-buttons">
+        <button data-view="breaches" class="active">
+          <span class="v-title">Breaches</span>
+          <span class="v-desc">Current &amp; past permit breaches on the map</span>
+        </button>
+        <button data-view="substance">
+          <span class="v-title">Substance Views</span>
+          <span class="v-desc">Current limits &amp; future works for the selected substance</span>
+        </button>
+        <button data-view="wessex">
+          <span class="v-title">WINEP</span>
+          <span class="v-desc">Water Industry National Environment Programme — proposed investments &amp; new limits</span>
+        </button>
+      </div>
+    </fieldset>
+    <fieldset class="view-group land">
+      <legend>Land</legend>
+      <div class="group-buttons">
+        <button data-view="farming">
+          <span class="v-title">Sustainable Farming Incentive</span>
+          <span class="v-desc">SFI agreements &amp; what they pay per intervention</span>
+        </button>
+      </div>
+    </fieldset>
   </nav>
 
   <p id="lede"></p>
