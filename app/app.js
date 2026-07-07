@@ -17,6 +17,14 @@ const CENTER = [50.731, -2.370];
 const NITROGEN = "0111"; // Ammoniacal Nitrogen as N — the default for the substance story
 const WQE = "https://environment.data.gov.uk/water-quality/sampling-point/";
 
+// Conservation-designation underlays (clipped to the catchment by raw_datasets/prep_designations.py).
+// Rendered beneath every plotted location on all map views, toggled from the legend.
+const DESIGNATIONS = [
+  { key: "sssi", label: "SSSI", full: "Sites of Special Scientific Interest", file: "sssi.geojson", color: "#c9922e" },
+  { key: "sac", label: "SAC", full: "Special Areas of Conservation", file: "sac.geojson", color: "#2f9ea0" },
+  { key: "spa", label: "SPA", full: "Special Protection Areas", file: "spa.geojson", color: "#9a5eae" },
+];
+
 // SFI programmes (schemes). Only the Expanded Offer has published option rates in our source
 // workbook, so SFI 2023 agreements are shown unpriced. Applications colour-code by programme.
 const PROGRAMMES = {
@@ -335,6 +343,7 @@ async function openChart(subNotation, sp, permit) {
   document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
   const body = document.getElementById("chart-body");
   chart.classList.remove("hidden");
+  collapseLegend();
   // resize the (now narrower) map and zoom it to the charted sampling point's discharge point
   const target = DB.dischargePoints.find((d) => d.permit === permit && d.sp === sp && d.lat != null)
     || DB.dischargePoints.find((d) => d.permit === permit && d.lat != null);
@@ -360,6 +369,7 @@ async function openChart(subNotation, sp, permit) {
 
 function closeChart() {
   document.getElementById("chart").classList.add("hidden");
+  expandLegend();
   setTimeout(() => map.invalidateSize(), 60);
 }
 
@@ -523,6 +533,7 @@ function openAppChart(appIri) {
   document.getElementById("chart-title").textContent = `Application ${app ? app.id : last(appIri)}`;
   renderAppChart(appIri);
   document.getElementById("chart").classList.remove("hidden");
+  collapseLegend();
   setTimeout(() => map.invalidateSize(), 60);
 }
 
@@ -667,6 +678,7 @@ window.zoomPermit = zoomPermit;
 const DB = {};       // raw + derived caches
 let map, base, catchmentLayer;
 const layers = {};   // name -> L.LayerGroup / MarkerClusterGroup
+const DES = {};      // designation key -> { label, full, color, sites: Map(name -> {layer, on}) }
 let currentView = "breaches";
 let currentSubstance = ""; // notation or ""
 let currentOptionType = ""; // farming: broader option-group code filter, or ""
@@ -819,6 +831,12 @@ function initMap() {
     attribution: "© OpenStreetMap contributors", maxZoom: 18,
   }).addTo(map);
 
+  // A pane for the conservation underlays: above the tiles, below every vector/marker (overlayPane
+  // is 400, markerPane 600), and non-interactive so it never intercepts clicks on the data above it.
+  map.createPane("designations");
+  map.getPane("designations").style.zIndex = 250;
+  map.getPane("designations").style.pointerEvents = "none";
+
   fetch("catchment.geojson").then((r) => r.json()).then((gj) => {
     catchmentLayer = L.geoJSON(gj, {
       style: { color: "#5aa9ff", weight: 1.5, fillColor: "#3aa0ff", fillOpacity: 0.06 },
@@ -874,10 +892,99 @@ function clearLayers() {
 }
 
 function setLegend(items) {
-  document.getElementById("legend").innerHTML = items
+  document.getElementById("legend-key").innerHTML = items
     .map((i) => `<span class="item"><span class="dot" style="background:${i.c}"></span>${i.t}</span>`)
     .join("");
 }
+
+// ---------------------------------------------------------------------------
+// Conservation-designation underlays + their legend control
+// ---------------------------------------------------------------------------
+async function loadDesignations() {
+  for (const d of DESIGNATIONS) {
+    let gj;
+    try {
+      const res = await fetch(d.file);
+      if (!res.ok) continue;
+      gj = await res.json();
+    } catch { continue; }
+    const sites = new Map();
+    for (const f of (gj.features || [])) {
+      const name = (f.properties && f.properties.name) || "Unnamed";
+      const layer = L.geoJSON(f, {
+        pane: "designations", interactive: false,
+        style: { color: d.color, weight: 1, fillColor: d.color, fillOpacity: 0.22 },
+      });
+      sites.set(name, { layer, on: false });
+    }
+    DES[d.key] = { label: d.label, full: d.full, color: d.color, sites };
+  }
+  buildDesignationLegend();
+}
+
+function setSite(key, name, on) {
+  const site = DES[key] && DES[key].sites.get(name);
+  if (!site || site.on === on) return;
+  site.on = on;
+  if (on) site.layer.addTo(map); else map.removeLayer(site.layer);
+}
+function setCategory(key, on) {
+  for (const name of DES[key].sites.keys()) setSite(key, name, on);
+  syncCategory(key);
+}
+// Reflect the current on/off state into a category's checkboxes (tri-state header + each site).
+function syncCategory(key) {
+  const el = document.querySelector(`.desig-cat[data-cat="${key}"]`);
+  if (!el) return;
+  const sites = DES[key].sites;
+  const on = [...sites.values()].filter((s) => s.on).length;
+  const head = el.querySelector(".cat-all");
+  head.checked = sites.size > 0 && on === sites.size;
+  head.indeterminate = on > 0 && on < sites.size;
+  el.querySelectorAll(".desig-site input").forEach((cb) => {
+    cb.checked = !!(sites.get(cb.dataset.name) || {}).on;
+  });
+}
+
+function buildDesignationLegend() {
+  const host = document.getElementById("legend-desig");
+  if (!Object.keys(DES).length) return;
+  host.innerHTML = `<span class="desig-title">Designations</span>` +
+    DESIGNATIONS.filter((d) => DES[d.key]).map((d) => {
+      const names = [...DES[d.key].sites.keys()].sort((a, b) => a.localeCompare(b));
+      const list = names.map((n) =>
+        `<label class="desig-site"><input type="checkbox" data-name="${esc(n)}"><span>${esc(n)}</span></label>`).join("");
+      return `<div class="desig-cat" data-cat="${d.key}">
+        <div class="desig-head">
+          <span class="caret">▸</span>
+          <input type="checkbox" class="cat-all" title="Show all ${esc(d.label)}">
+          <span class="swatch" style="background:${d.color}"></span>
+          <span class="desig-lbl" title="${esc(d.full)}">${esc(d.label)}</span>
+          <span class="desig-count">${names.length}</span>
+        </div>
+        <div class="desig-list hidden">${list}</div>
+      </div>`;
+    }).join("");
+
+  host.addEventListener("click", (e) => {
+    const head = e.target.closest(".desig-head");
+    if (head && !e.target.matches("input")) {           // toggle the site list (not on the checkbox)
+      const cat = head.closest(".desig-cat");
+      cat.classList.toggle("open");
+      cat.querySelector(".desig-list").classList.toggle("hidden");
+    }
+  });
+  host.addEventListener("change", (e) => {
+    const cat = e.target.closest(".desig-cat");
+    if (!cat) return;
+    const key = cat.dataset.cat;
+    if (e.target.classList.contains("cat-all")) setCategory(key, e.target.checked);
+    else if (e.target.matches(".desig-site input")) { setSite(key, e.target.dataset.name, e.target.checked); syncCategory(key); }
+  });
+}
+
+const collapseLegend = () => document.getElementById("legend").classList.add("collapsed");
+const expandLegend = () => document.getElementById("legend").classList.remove("collapsed");
 
 function breachPeriod(b) {
   if (b.current) return `since ${fmtDate(b.from)} (ongoing)`;
@@ -1462,6 +1569,7 @@ async function main() {
   const status = document.getElementById("status");
   try {
     await loadAll();
+    loadDesignations();  // fire-and-forget: fetches the 3 clipped GeoJSONs and builds the legend control
     status.textContent = `Loaded ${DB.breaches.length} breaches · ${DB.conditions.length} conditions · ${DB.actions.length} actions · ${DB.applications.length} farming applications (${DB.sfiOptions.length} options)`;
   } catch (err) {
     status.textContent = "Error: " + err.message;

@@ -205,6 +205,7 @@ class Handler(BaseHTTPRequestHandler):
             ".js": "application/javascript",
             ".css": "text/css",
             ".json": "application/json",
+            ".geojson": "application/geo+json",
         }.get(target.suffix, "application/octet-stream")
         data = target.read_bytes()
         self.send_response(200)

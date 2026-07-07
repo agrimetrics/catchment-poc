@@ -193,16 +193,40 @@ tbody tr.app-row.sel:hover { background: #322a18; }
 
 .legend {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 8px 20px;
   padding: 10px 20px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   font-size: 12.5px;
   color: var(--muted);
 }
+.legend.collapsed { display: none; } /* collapse the legend while the chart panel is open */
+.legend-key { display: flex; flex-wrap: wrap; gap: 16px; }
 .legend .item { display: flex; align-items: center; gap: 7px; }
 .legend .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #0007; }
+
+/* Conservation-designation toggle control (right side of the legend). */
+.legend-desig { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.desig-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.desig-cat { position: relative; }
+.desig-head { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; color: var(--text); }
+.desig-head .caret { color: var(--muted); width: 10px; display: inline-block; transition: transform .12s; }
+.desig-cat.open .caret { transform: rotate(90deg); }
+.desig-head .swatch { width: 12px; height: 12px; border-radius: 2px; }
+.desig-head .cat-all, .desig-site input { cursor: pointer; }
+.desig-count { color: var(--muted); font-size: 11px; }
+.desig-list {
+  position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 600;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px; width: 250px; max-height: 244px; overflow: auto;
+  box-shadow: 0 6px 16px #0008;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.desig-list.hidden { display: none; }
+.desig-site { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.desig-site:hover { background: #1b2836; }
 
 section#tables { padding: 18px 20px 60px; display: grid; gap: 20px; }
 
