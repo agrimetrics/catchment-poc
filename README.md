@@ -19,10 +19,11 @@ raw_datasets/ ──► per-dataset pipeline ──► ttl/*.ttl ──► app/s
                    → rdfpipe)                              triplestore)     + tables)
 ```
 
-Each dataset follows the same **DuckDB shred → ontop map → rdfpipe** pattern into one Turtle file
-(`ttl/regulation.ttl`, `ttl/winep.ttl`, `ttl/sfi.ttl`). `app/server.py` loads all three into a
-single pyoxigraph store and serves, **from one origin (port 8000)**, a SPARQL endpoint, a small
-proxy to the EA Water Quality Archive, and the static frontend. Serving everything from one origin
+Each dataset is shredded to one Turtle file — `ttl/regulation.ttl`, `ttl/winep.ttl`, `ttl/sfi.ttl`
+via **DuckDB shred → ontop map → rdfpipe**, and `ttl/designations.ttl` (SSSI/SAC/SPA as GeoSPARQL
+features) straight via **geopandas → rdflib**. `app/server.py` loads all four into a single
+pyoxigraph store and serves, **from one origin (port 8000)**, a SPARQL endpoint, a small proxy to the
+EA Water Quality Archive, and the static frontend. Serving everything from one origin
 means the browser makes same-origin requests, so there is no CORS to configure. The store is rebuilt
 from the `.ttl` files on every start — nothing is persisted.
 
@@ -31,7 +32,7 @@ from the `.ttl` files on every start — nothing is persisted.
 ```bash
 poetry install --no-root
 eval $(poetry env activate)
-python app/server.py          # loads the 3 graphs, then serves on port 8000
+python app/server.py          # loads the 4 graphs, then serves on port 8000
 ```
 
 Then open **http://localhost:8000**.
@@ -110,14 +111,15 @@ python ttl/sfi/sfi_to_db.py                          # spatial clip + aggregate 
   && rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
 ```
 
-**Conservation designations** (static map underlays, not RDF):
+**4. Designations** (SSSI/SAC/SPA) — [`ttl/designations/README.md`](ttl/designations/README.md) · spatial queries in [`ttl/designations/TODO.md`](ttl/designations/TODO.md)
 
 ```bash
-python raw_datasets/prep_designations.py             # clip SSSI/SAC/SPA to the catchment → app/{sssi,sac,spa}.geojson
+python ttl/designations/designations_to_ttl.py       # clip → ttl/designations.ttl (RDF) + app/{sssi,sac,spa}.geojson (display)
 ```
 
 The ontology the mappings target lives in the sibling **`ontology-work`** repo
-(`defra-core-ontology.ttl`, `defra-regulation.ttl`, `defra-water.ttl`, `defra-farming.ttl`).
+(`defra-core-ontology.ttl`, `defra-regulation.ttl`, `defra-water.ttl`, `defra-farming.ttl`,
+`defra-nature.ttl`).
 
 ## Scope, warnings & assumptions (summary)
 
@@ -135,8 +137,12 @@ is in the linked per-dataset READMEs.
 - **SFI payments are indicative.** Costs are base-rate × extent only (per-hectare / per-100-metres),
   ignoring qualifying pay text; **SFI 2023 options are unpriced** (only the Expanded Offer has
   published rates in source); group labels are curated. → [SFI data warnings](ttl/sfi/README.md#data-warnings).
-- **Some geometry is transcribed / reprojected**, and one designation group (PAC) shows its code
-  where the option isn't in the concept scheme. See the app geometry note above.
+- **Designations are GeoSPARQL, WGS84/CRS84.** SSSI/SAC/SPA are `defra-nature:ProtectedSite` features
+  with ~2 m `geo:asWKT` geometry, so spatial questions (e.g. discharges within 200 m of a protected
+  area) run in SPARQL — on GraphDB, not the local store. → [designations README](ttl/designations/README.md)
+  · [spatial-query TODO](ttl/designations/TODO.md).
+- **Some geometry is transcribed / reprojected**, and one SFI option group (PAC) shows its code where
+  the option isn't in the concept scheme. See the app geometry note above.
 
 ## Data sources
 
@@ -161,12 +167,12 @@ is in the linked per-dataset READMEs.
 ```
 app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static),
                          index.html, app.js, style.css, catchment.geojson, {sssi,sac,spa}.geojson
-ttl/                     the three committed graphs + per-dataset pipelines
-  regulation/ winep/ sfi/  {*_to_db.py, *.obda, README.md} (+ winep/TODO.md, regulation/fetch_version_dates.py)
+ttl/                     the four committed graphs + per-dataset pipelines
+  regulation/ winep/ sfi/ designations/  {pipeline, README.md} (+ winep/TODO.md, designations/TODO.md,
+                         regulation/fetch_version_dates.py)
 ontop/                   vendored ontop CLI + duckdb JDBC .properties (one per dataset)
-raw_datasets/            source data + prep_designations.py + merge_observational_data.py
+raw_datasets/            source data + merge_observational_data.py
 link_data.py             joins the regulation raw CSVs → output_data/ (input to regulation_to_db.py)
-generate_map.py          legacy standalone folium viewer (output_data/map.html) — superseded by app/
 ```
 
 ## Documentation map

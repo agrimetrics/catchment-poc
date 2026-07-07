@@ -1,0 +1,25 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# Conservation designation-type codelist (reference data, not ontology). The designations pipeline
+# (ttl/designations/designations_to_ttl.py) bakes these concepts into ttl/designations.ttl and each
+# protected site is linked to one with defra-core:hasClassification. (IRIs are written in full: the
+# local parts contain a slash, which a Turtle prefixed name can't carry.)
+
+<http://example.com/nature/designation> a skos:ConceptScheme ;
+    rdfs:label "Conservation designation types" .
+
+<http://example.com/nature/designation/SSSI> a skos:Concept ;
+    skos:inScheme <http://example.com/nature/designation> ;
+    skos:notation "SSSI" ;
+    skos:prefLabel "Site of Special Scientific Interest"@en .
+
+<http://example.com/nature/designation/SAC> a skos:Concept ;
+    skos:inScheme <http://example.com/nature/designation> ;
+    skos:notation "SAC" ;
+    skos:prefLabel "Special Area of Conservation"@en .
+
+<http://example.com/nature/designation/SPA> a skos:Concept ;
+    skos:inScheme <http://example.com/nature/designation> ;
+    skos:notation "SPA" ;
+    skos:prefLabel "Special Protection Area"@en .

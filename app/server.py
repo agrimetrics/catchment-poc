@@ -32,7 +32,7 @@ ROOT = HERE.parent
 TTL = ROOT / "ttl"
 PORT = 8000
 
-GRAPHS = ["regulation.ttl", "winep.ttl", "sfi.ttl"]
+GRAPHS = ["regulation.ttl", "winep.ttl", "sfi.ttl", "designations.ttl"]
 
 # Environment Agency Water Quality Archive — live observation time series. We proxy it
 # server-side so the browser stays same-origin and we can follow the Link-header pagination.
