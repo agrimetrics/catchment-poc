@@ -39,7 +39,7 @@ from shapely.geometry import Point
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 XLSX = ROOT / "raw_datasets" / "PR24 WINEP National Dataset.xlsx"
-CODELIST = ROOT / "output_data" / "determinand_codelist.json"
+CODELIST = ROOT / "raw_datasets" / "determinand_codelist.json"
 REG_DB = ROOT / "ttl" / "regulation" / "regulation.duckdb"
 CATCHMENT = ROOT / "raw_datasets" / "poole_harbour_rivers_operational_catchment.geojson"
 WR = "http://example.com/water-regulation/"
