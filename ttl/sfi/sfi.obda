@@ -71,6 +71,10 @@ target      :Option/Concept/{notation} skos:broader :Option/Concept/{broader} .
             :Option/Concept/{broader} rdf:type skos:Concept .
             :Option/Concept/{broader} skos:inScheme :Option .
 
+mappingId   SFIGroupLabels
+source      SELECT broader, label FROM group_labels
+target      :Option/Concept/{broader} skos:prefLabel {label} .
+
 mappingId   SFIConceptPaymentRate
 source      SELECT notation, pay_amount, pay_unit_text FROM concepts WHERE pay_amount IS NOT NULL
 target      :Option/Concept/{notation} defra-farming:paymentRate :Option/Concept/{notation}#payment-rate .

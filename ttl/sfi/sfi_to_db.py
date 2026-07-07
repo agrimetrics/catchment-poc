@@ -152,12 +152,39 @@ FROM pdf_df
 WHERE notation NOT IN (SELECT notation FROM xlsx_df)
 """)
 
+# Human-readable prefLabel for each broader group (the action-code letter-group). The group codes
+# are a controlled vocabulary; these are curated short names so the farming view can label option
+# groups meaningfully (e.g. HRW -> Hedgerows, SAM -> Soil management) instead of showing bare codes.
+# Any broader code not listed falls back to the code itself.
+GROUP_LABELS = {
+    "AB": "Flower-rich & arable plots", "AGF": "Agroforestry", "AHL": "Arable land",
+    "AHW": "Arable habitats", "BFS": "Buffer strips", "GRH": "Grassland habitats",
+    "GS": "Grassland", "HEF": "Historic & heritage features", "HRW": "Hedgerows",
+    "IGL": "Improved grassland", "IPM": "Integrated pest management", "LIG": "Low-input grassland",
+    "MOR": "Moorland", "NUM": "Nutrient management", "OFA": "Organic — arable",
+    "OFC": "Organic — conversion", "OFM": "Organic — management", "PAC": "Public access",
+    "PRF": "Precision farming", "SAM": "Soil management", "SCR": "Scrub & successional areas",
+    "SOH": "Soil health", "SP": "Species management", "SPM": "Species recovery",
+    "SW": "Water quality", "UPL": "Upland", "WBD": "Waterbodies", "WD": "Woodland",
+    "WT": "Wetland & water",
+}
+broader_codes = [r[0] for r in con.execute(
+    "SELECT DISTINCT broader FROM concepts WHERE broader IS NOT NULL").fetchall()]
+group_labels_df = pd.DataFrame(
+    [{"broader": b, "label": GROUP_LABELS.get(b, b)} for b in broader_codes])
+con.register("group_labels_df", group_labels_df)
+con.execute("CREATE OR REPLACE TABLE group_labels AS SELECT * FROM group_labels_df")
+
 # --- Per-option cost ----------------------------------------------------------
 # Followup activity: value each option by multiplying its measured extent by the concept's payment
 # rate. cost = extent * pay_amount / per_amount, taking the option's summed length (metres) for a
 # per-100-metres rate and summed area (hectares) for a per-hectare rate. This is the base annual
 # rate only — it does NOT apply the More_pay_info nuances (e.g. "for both sides", extra per-agreement
 # top-ups). See the SFI README data warning.
+#
+# Options coded with a superseded SFI 2023 action (e.g. HRW3, SAM1) are NOT priced: the workbook only
+# carries the expanded-offer (C-prefixed) rates, and we deliberately do not borrow those rates for the
+# older codes. Such options simply produce no cost row here and are surfaced as "unpriced" in the UI.
 con.execute("""
 CREATE OR REPLACE TABLE option_cost AS
 SELECT g.app_id,

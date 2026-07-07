@@ -17,6 +17,15 @@ const CENTER = [50.731, -2.370];
 const NITROGEN = "0111"; // Ammoniacal Nitrogen as N — the default for the substance story
 const WQE = "https://environment.data.gov.uk/water-quality/sampling-point/";
 
+// SFI programmes (schemes). Only the Expanded Offer has published option rates in our source
+// workbook, so SFI 2023 agreements are shown unpriced. Applications colour-code by programme.
+const PROGRAMMES = {
+  "SFI EO": { label: "SFI Expanded Offer", color: "#46b978", priced: true },
+  "SFI 23": { label: "SFI 2023", color: "#8a94a0", priced: false },
+};
+const progOf = (a) =>
+  PROGRAMMES[a.scheme] || { label: a.scheme || "—", color: "#8a94a0", priced: a.priced > 0 };
+
 proj4.defs(
   "EPSG:27700",
   "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 " +
@@ -27,6 +36,8 @@ const PREFIXES = `
 PREFIX reg:   <http://environment.data.gov.uk/ontology/regulation/>
 PREFIX water: <http://environment.data.gov.uk/ontology/water/>
 PREFIX core:  <http://environment.data.gov.uk/ontology/core/>
+PREFIX farm:  <http://environment.data.gov.uk/ontology/farming/>
+PREFIX ex:    <http://example.com/>
 PREFIX qudt:  <http://qudt.org/schema/qudt/>
 PREFIX iop:   <http://w3id.org/iadopt/ont/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
@@ -114,11 +125,26 @@ const Q = {
       OPTIONAL { ?limit reg:continuesCondition ?continues }
     }`,
 
-  sfi: `${PREFIXES}
-    SELECT ?opt (SAMPLE(?w) AS ?wkt) WHERE {
+  // Farming: one row per application with its option count and TOTAL annual payment summed live.
+  applications: `${PREFIXES}
+    SELECT ?app ?appId ?scheme (SUM(?c) AS ?total) (COUNT(DISTINCT ?opt) AS ?n) WHERE {
+      ?app a farm:Application ; core:hasPart ?opt .
+      OPTIONAL { ?app skos:notation ?appId }
+      OPTIONAL { ?app ex:scheme ?scheme }
+      OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?c }
+    } GROUP BY ?app ?appId ?scheme`,
+
+  // Farming: one row per option — its concept definition, broader group (+ label), annual payment
+  // and multipoint geometry. Drives the hulls, spiders, option tables and pie.
+  sfiOptions: `${PREFIXES}
+    SELECT ?app ?opt ?def ?broader ?broaderLabel ?cost (SAMPLE(?w) AS ?wkt) WHERE {
+      ?app a farm:Application ; core:hasPart ?opt .
       ?opt geo:hasGeometry/geo:asWKT ?w .
-      FILTER(STRSTARTS(STR(?opt), "http://example.com/sfi/"))
-    } GROUP BY ?opt`,
+      OPTIONAL { ?opt core:hasClassification ?con .
+                 OPTIONAL { ?con skos:definition ?def }
+                 OPTIONAL { ?con skos:broader ?broader . OPTIONAL { ?broader skos:prefLabel ?broaderLabel } } }
+      OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?cost }
+    } GROUP BY ?app ?opt ?def ?broader ?broaderLabel ?cost`,
 };
 
 // ---------------------------------------------------------------------------
@@ -161,6 +187,36 @@ function parseWkt(wkt) {
   return { points: pairs };
 }
 
+// Centroid of a set of [lat, lon] points (simple mean; the points sit within one small catchment).
+function centroidOf(points) {
+  if (!points.length) return null;
+  let la = 0, lo = 0;
+  for (const [a, o] of points) { la += a; lo += o; }
+  return [la / points.length, lo / points.length];
+}
+
+// Convex hull (Andrew's monotone chain) over [lat, lon] points, treating lon=x, lat=y. Returns the
+// hull as an ordered ring of [lat, lon]. Degenerate inputs (<3 unique points) return the unique set.
+function convexHull(points) {
+  const uniq = [...new Map(points.map((p) => [`${p[0]},${p[1]}`, p])).values()];
+  if (uniq.length < 3) return uniq;
+  const pts = uniq.map(([lat, lon]) => [lon, lat]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  lower.pop(); upper.pop();
+  return lower.concat(upper).map(([lon, lat]) => [lat, lon]);
+}
+
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
@@ -188,6 +244,14 @@ const prettyUnit = (u) =>
         .replace("milligram per litre", "mg/l")
         .replace("percentage", "%");
 const fmtDate = (d) => (d ? d.slice(0, 10) : "");
+const fmtGBP = (v) =>
+  "£" + Number(v || 0).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+// Stable colour per broader group so hulls/spiders/pie agree. Hashes the group code to a hue.
+const groupColor = (code) => {
+  let h = 0;
+  for (const ch of String(code)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 62% 55%)`;
+};
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------------------
@@ -398,6 +462,144 @@ function renderChart(ctx, obs) {
   </svg><p class="chart-note">${obs.length} observations · live from the EA Water Quality Archive</p>`;
 }
 
+// ---------------------------------------------------------------------------
+// Farming: application pie chart (cost per intervention, opens to the right of the map)
+// ---------------------------------------------------------------------------
+// Sum each application's option costs up to the TOP-LEVEL broader group (two hedgerow options add
+// into one "Hedgerows" slice), sorted biggest first.
+function groupCostsForApp(appIri) {
+  const byGroup = {};
+  for (const o of DB.optionsByApp[appIri] || []) {
+    if (o.cost == null) continue;
+    (byGroup[o.broader] ||= { code: o.broader, label: o.broaderLabel, value: 0 }).value += o.cost;
+  }
+  return Object.values(byGroup).sort((a, b) => b.value - a.value);
+}
+
+// Count view: mapped locations (multipoint components) per intervention group — how many places
+// each intervention is done. This is the "count" view and the fallback when there are no prices.
+function groupCountsForApp(appIri) {
+  const byGroup = {};
+  for (const o of DB.optionsByApp[appIri] || [])
+    (byGroup[o.broader] ||= { code: o.broader, label: o.broaderLabel, count: 0 }).count += o.points.length;
+  return Object.values(byGroup).sort((a, b) => b.count - a.count);
+}
+
+// Open (and keep open) the chart for a selected application. Priced applications default to the cost
+// pie with a Cost/Count toggle; unpriced ones show the count bar chart directly (no prices to show).
+function openAppChart(appIri) {
+  const app = DB.appById[appIri];
+  document.getElementById("chart-title").textContent = `Application ${app ? app.id : last(appIri)}`;
+  renderAppChart(appIri);
+  document.getElementById("chart").classList.remove("hidden");
+  setTimeout(() => map.invalidateSize(), 60);
+}
+
+function renderAppChart(appIri) {
+  const app = DB.appById[appIri];
+  const slices = groupCostsForApp(appIri);
+  const total = slices.reduce((s, g) => s + g.value, 0);
+  const unpriced = (DB.optionsByApp[appIri] || []).filter((o) => o.cost == null).length;
+  const hasPrices = total > 0;
+  const mode = hasPrices ? farmChartMode : "count"; // no prices -> force the count view
+  const toggle = hasPrices
+    ? `<div class="chart-toggle">
+         <button class="${mode === "value" ? "on" : ""}" onclick="setFarmChartMode('value')">Cost</button>
+         <button class="${mode === "count" ? "on" : ""}" onclick="setFarmChartMode('count')">Count</button>
+       </div>`
+    : "";
+  const body = mode === "value"
+    ? renderPie(slices, total, unpriced, app)
+    : renderBars(groupCountsForApp(appIri), app, hasPrices, unpriced);
+  document.getElementById("chart-body").innerHTML = toggle + body;
+}
+
+function setFarmChartMode(m) {
+  farmChartMode = m;
+  if (selectedApp) renderAppChart(selectedApp);
+}
+window.setFarmChartMode = setFarmChartMode;
+
+// Count view: a bar per intervention group (categorical x), option count on y.
+function renderBars(groups, app, hasPrices, unpriced) {
+  if (!groups.length) return `<p class="chart-note">No options for this application.</p>`;
+  const W = 340, H = 300, m = { l: 34, r: 12, t: 16, b: 64 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
+  const yMax = Math.max(1, ...groups.map((g) => g.count));
+  const bw = iw / groups.length;
+  const y = (v) => m.t + ih - (ih * v) / yMax;
+  let grid = "";
+  const ticks = Math.min(yMax, 5);
+  for (let i = 0; i <= ticks; i++) {
+    const v = Math.round((yMax * i) / ticks), yy = y(v);
+    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#2b3a49"/>` +
+      `<text x="${m.l - 5}" y="${yy + 3}" fill="#93a4b3" font-size="10" text-anchor="end">${v}</text>`;
+  }
+  let bars = "";
+  groups.forEach((g, i) => {
+    const x0 = m.l + i * bw + bw * 0.16, w = bw * 0.68, yy = y(g.count);
+    bars += `<rect x="${x0}" y="${yy}" width="${w}" height="${y0 - yy}" fill="${groupColor(g.code)}" rx="2"><title>${esc(g.label)} — ${g.count}</title></rect>` +
+      `<text x="${x0 + w / 2}" y="${yy - 4}" fill="#e8eef4" font-size="10" text-anchor="middle">${g.count}</text>` +
+      `<text transform="translate(${x0 + w / 2} ${y0 + 9}) rotate(35)" fill="#93a4b3" font-size="9.5" text-anchor="start">${esc(g.code)}</text>`;
+  });
+  const note = hasPrices
+    ? "count of intervention locations"
+    : `SFI 2023 — rates unavailable; showing intervention locations (${unpriced} options unpriced)`;
+  const legend = groups.map((g) =>
+    `<div class="pie-leg"><span class="dot" style="background:${groupColor(g.code)}"></span>` +
+    `<span class="pie-name">${esc(g.label)} <span class="mono">${esc(g.code)}</span></span>` +
+    `<span class="pie-val">${g.count}</span></div>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="bars" preserveAspectRatio="xMidYMid meet">${grid}${bars}
+    <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
+    <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
+    <text transform="translate(11 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="10" text-anchor="middle">locations</text>
+  </svg>
+  <p class="chart-note">${note}</p>
+  <div class="pie-legend">${legend}</div>`;
+}
+
+function renderPie(slices, total, unpriced, app) {
+  if (!slices.length || total <= 0) {
+    const prog = app ? progOf(app) : null;
+    const why = prog && !prog.priced
+      ? `this is an <b>${esc(prog.label)}</b> agreement — SFI 2023 option rates are not published in our source`
+      : `these options have no published per-unit rate in our source`;
+    return `<p class="chart-note">No priced options — ${why}. ${unpriced} option${unpriced === 1 ? "" : "s"} unpriced.</p>`;
+  }
+  const S = 320, R = 132, cx = S / 2, cy = S / 2;
+  const pt = (a) => [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+  let a0 = -Math.PI / 2, paths = "";
+  for (const g of slices) {
+    const a1 = a0 + (g.value / total) * 2 * Math.PI;
+    const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    // full-circle guard (a lone slice) — draw as a circle, an arc back to the same point is a no-op
+    paths += slices.length === 1
+      ? `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${groupColor(g.code)}"/>`
+      : `<path d="M${cx} ${cy} L${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="${groupColor(g.code)}" stroke="#0b1016" stroke-width="1"><title>${esc(g.label)} — ${fmtGBP(g.value)}</title></path>`;
+    a0 = a1;
+  }
+  const legend = slices.map((g) =>
+    `<div class="pie-leg"><span class="dot" style="background:${groupColor(g.code)}"></span>` +
+    `<span class="pie-name">${esc(g.label)} <span class="mono">${esc(g.code)}</span></span>` +
+    `<span class="pie-val">${fmtGBP(g.value)} · ${Math.round((g.value / total) * 100)}%</span></div>`).join("");
+  return `<svg viewBox="0 0 ${S} ${S}" class="pie" preserveAspectRatio="xMidYMid meet">${paths}
+    <circle cx="${cx}" cy="${cy}" r="58" fill="#0b1016"/>
+    <text x="${cx}" y="${cy - 3}" text-anchor="middle" fill="#e8eef4" font-size="22" font-weight="600">${fmtGBP(total)}</text>
+    <text x="${cx}" y="${cy + 17}" text-anchor="middle" fill="#93a4b3" font-size="12">per annum</text>
+  </svg>
+  <p class="chart-note">${fmtGBP(total)} per annum · cost per intervention${unpriced ? ` · <b>${unpriced}</b> option${unpriced === 1 ? "" : "s"} unpriced` : ""}</p>
+  <div class="pie-legend">${legend}</div>`;
+}
+
+// Select (toggle) an application: redraw the map emphasis + spider + tables, and open its pie.
+function selectApp(iri) {
+  selectedApp = selectedApp === iri ? null : iri;
+  farmChartMode = "value"; // each new selection defaults to the cost view (falls back to count if unpriced)
+  render();
+}
+window.selectApp = selectApp;
+
 // clickable substance name that opens the chart (needs a sampling point)
 const subLink = (label, subNotation, sp, permit) =>
   sp ? `<span class="sub-link" onclick="openChart('${subNotation}','${esc(sp)}','${permit}')">${esc(label)}</span>` : esc(label);
@@ -406,9 +608,9 @@ window.openChart = openChart;
 // clickable permit id that zooms the map to that permit's discharge point(s)
 const permitLink = (iri) =>
   `<span class="mono sub-link" onclick="event.stopPropagation();zoomPermit('${iri}')">${permitRef(iri)}</span>`;
-// sampling point that links out to the Water Quality Explorer
+// sampling point that links OUT to the Water Quality Explorer (external: solid underline + ↗)
 const wqeLink = (sp) =>
-  sp ? `<a href="${WQE}${esc(sp)}" target="_blank" rel="noopener">${esc(sp)} ↗</a>` : "—";
+  sp ? `<a class="ext-link" href="${WQE}${esc(sp)}" target="_blank" rel="noopener">${esc(sp)} ↗</a>` : "—";
 
 const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
 function zoomPermit(permit) {
@@ -431,15 +633,19 @@ let map, base, catchmentLayer;
 const layers = {};   // name -> L.LayerGroup / MarkerClusterGroup
 let currentView = "breaches";
 let currentSubstance = ""; // notation or ""
+let selectedApp = null;    // farming: selected application IRI (or null)
+let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar)
 
 // ---------------------------------------------------------------------------
 // Load everything once
 // ---------------------------------------------------------------------------
 async function loadAll() {
-  const [substances, breaches, dps, conditions, actions, proposed, sfi, limitHistory] = await Promise.all([
-    sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
-    sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed), sparql(Q.sfi), sparql(Q.limitHistory),
-  ]);
+  const [substances, breaches, dps, conditions, actions, proposed, applications, sfiOptions, limitHistory] =
+    await Promise.all([
+      sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
+      sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed),
+      sparql(Q.applications), sparql(Q.sfiOptions), sparql(Q.limitHistory),
+    ]);
 
   // Dated limit history per (permit, substance): each permit version's bound(s) over its
   // effective window [from, to] (from the public register). Powers the chart's stepped limit line.
@@ -517,12 +723,34 @@ async function loadAll() {
   }
   DB.proposed = Object.values(limMap);
 
-  DB.sfi = sfi.map((s) => {
-    const p = parseWkt(s.wkt).points[0] || null;
-    const code = (/\/([A-Za-z0-9]+)$/.exec(s.opt) || [])[1] || "";
-    return { iri: s.opt, code, cat: (code.match(/[A-Za-z]+/) || [""])[0].replace(/^C/, ""),
-             lat: p ? p[0] : null, lon: p ? p[1] : null };
-  }).filter((s) => s.lat != null);
+  // Farming applications: id, option count, total annual payment (£). Keyed by IRI for selection.
+  DB.applications = applications.map((a) => ({
+    iri: a.app, id: a.appId || last(a.app), scheme: a.scheme || "—",
+    total: a.total != null ? Number(a.total) : 0,
+    n: a.n != null ? Number(a.n) : 0,
+  })).sort((a, b) => b.total - a.total);
+  DB.appById = {};
+  for (const a of DB.applications) DB.appById[a.iri] = a;
+
+  // Farming options: keep ALL multipoint components (for the spider legs) + the concept meaning.
+  DB.sfiOptions = sfiOptions.map((o) => {
+    const points = parseWkt(o.wkt).points;                  // [[lat,lon], ...] in WGS84
+    const code = (/\/([A-Za-z0-9]+)$/.exec(o.opt) || [])[1] || "";
+    const broaderCode = o.broader ? last(o.broader) : (code.match(/[A-Za-z]+/) || [""])[0].replace(/^C/, "");
+    return {
+      app: o.app, iri: o.opt, code, def: o.def || "",
+      broader: broaderCode, broaderLabel: o.broaderLabel || broaderCode,
+      cost: o.cost != null ? Number(o.cost) : null,
+      points, centroid: centroidOf(points),
+    };
+  }).filter((o) => o.points.length);
+  DB.optionsByApp = groupBy(DB.sfiOptions, "app");
+  // How many of each application's options have no published rate (superseded SFI 2023 codes).
+  for (const a of DB.applications) {
+    const opts = DB.optionsByApp[a.iri] || [];
+    a.unpriced = opts.filter((o) => o.cost == null).length;
+    a.priced = opts.length - a.unpriced;
+  }
 
   // Substance dropdown
   DB.substances = substances;
@@ -552,6 +780,8 @@ function initMap() {
   layers.dischargePoints = L.layerGroup();
   layers.actions = L.layerGroup();
   layers.sfi = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45 });
+  layers.appHulls = L.layerGroup();
+  layers.spider = L.layerGroup();
 }
 
 function dot(color, r = 7, opacity = 0.9) {
@@ -575,7 +805,6 @@ const LEDE = {
   breaches: (n, cur) => `<b>${n} condition breaches</b> — each a run of failing observations with no passing result in between. <b>${cur} current</b> (open: nothing has passed since the breach began); the rest are <b>past</b> (closed, with a start and end). Click a marker to open the sampling point in the Water Quality Explorer.`,
   substance: (n, lbl) => `Solving for <b>${esc(lbl)}</b>: <b>${n.limits} current permit limits</b> in force and <b>${n.works} improvement actions</b> proposing future limits across the catchment.`,
   wessex: (n) => `<b>Wessex Water</b> has <b>${n} WINEP actions</b> in this catchment — investments with a completion date and the new (or continued) permit limits they will bring.`,
-  overall: () => `The whole picture: permit limits and their breaches, Wessex Water's planned works, and the farming (SFI) options that reduce diffuse pollution at source.`,
 };
 
 function clearLayers() {
@@ -585,6 +814,8 @@ function clearLayers() {
   layers.dischargePoints.clearLayers();
   layers.actions.clearLayers();
   layers.sfi.clearLayers();
+  layers.appHulls.clearLayers();
+  layers.spider.clearLayers();
 }
 
 function setLegend(items) {
@@ -608,9 +839,7 @@ function limitRange(c) {
 // One unified popup per discharge point: identity + WQE link, its breaches (current/past), and
 // the in-force (current-version) limits. Shown whether or not the point has any breaches.
 function dischargePopup(dp, currentConds, cur, past) {
-  const wqe = dp.sp
-    ? `<a href="${WQE}${dp.sp}" target="_blank" rel="noopener">${esc(dp.sp)} ↗</a>`
-    : "—";
+  const wqe = wqeLink(dp.sp);
   let breaches = "";
   if (cur.length || past.length) {
     const line = (b) => `${esc(b.subLabel)} — ${breachPeriod(b)}`;
@@ -654,6 +883,7 @@ function render() {
   const subLbl = sub ? sub.label : "all substances";
   const tables = document.getElementById("tables");
   tables.innerHTML = "";
+  if (currentView === "farming") { renderFarming(tables); return; }
 
   // Data slices with substance filter applied where relevant. "Current limits" are the latest
   // permit version's conditions only; the full history stays available for the expandable views.
@@ -696,19 +926,6 @@ function render() {
     setLegend([{ c: "#a06bff", t: "Wessex Water action site" }]);
     document.getElementById("lede").innerHTML = LEDE.wessex(DB.actions.length);
     tables.append(actionTable(DB.actions, limByAction));
-  } else if (currentView === "overall") {
-    show.breach = show.discharge = show.action = show.sfi = true;
-    setLegend([
-      { c: "#3aa0ff", t: "Discharge point" }, { c: "#e5484d", t: "Current breach" }, { c: "#f5a623", t: "Past breach" },
-      { c: "#a06bff", t: "Action site" }, { c: "#46b978", t: "Farming (SFI)" },
-    ]);
-    document.getElementById("lede").innerHTML = LEDE.overall();
-    tables.append(
-      breachTable(breaches),
-      permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit),
-      actionTable(DB.actions, limByAction),
-      sfiTable(DB.sfi),
-    );
   }
 
   // Draw layers. Breaches live AT their discharge point, so a discharge point is a single marker
@@ -789,9 +1006,16 @@ function emptyBody(msg) {
   d.textContent = msg;
   return d;
 }
+// Header cells. A column heading may carry an alignment marker — "Cost|r" (right) or "Status|c"
+// (centre) — so the label lines up with its cells (which use the same .num / .ctr classes).
 function tableEl(head, rowsHtml) {
+  const th = head.map((h) => {
+    const [label, align] = String(h).split("|");
+    const cls = align === "r" ? ' class="num"' : align === "c" ? ' class="ctr"' : "";
+    return `<th${cls}>${label}</th>`;
+  }).join("");
   const t = document.createElement("table");
-  t.innerHTML = `<thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rowsHtml}</tbody>`;
+  t.innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rowsHtml}</tbody>`;
   return t;
 }
 
@@ -803,10 +1027,10 @@ function breachTable(breaches) {
       <td>${breachPeriod(b)}</td>
       <td>${subLink(b.subLabel, b.subNotation, b.sp, b.permit)}</td>
       <td>${permitLink(b.permit)}</td>
-      <td>${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
+      <td class="ctr">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
       <td>${wqeLink(b.sp)}</td>
     </tr>`).join("");
-  return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status", "Sampling point (WQE)"], rows));
+  return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status|c", "Sampling point (WQE)"], rows));
 }
 
 function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit) {
@@ -820,11 +1044,11 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
     return `<tr class="expandable" data-row="${i}"><td><span class="caret">▸</span> ${permitLink(p)}
           <span style="color:#777"> v${DB.currentVersion[p] ?? "?"}</span></td>
         <td>${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
-        <td>${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${wqeLink(sp)}</td></tr>
+        <td class="ctr">${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${wqeLink(sp)}</td></tr>
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
   }).join("");
   const c = card("Permits &amp; limits", permits.length,
-    tableEl(["Permit", "Current limits", "Discharge points", "Breaches", "Monitored at"], rows));
+    tableEl(["Permit", "Current limits", "Discharge points", "Breaches|c", "Monitored at"], rows));
   wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit));
   return c;
 }
@@ -835,17 +1059,17 @@ function permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit
   const cur = (condByPermit[p] || []).slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel));
   const hist = (condHistByPermit[p] || []).slice().sort((a, b) =>
     (Number(b.version) - Number(a.version)) || a.subLabel.localeCompare(b.subLabel));
-  const curTbl = tableEl(["Substance", "Upper", "Lower", "Unit"],
+  const curTbl = tableEl(["Substance", "Upper|r", "Lower|r", "Unit"],
     cur.map((c) => `<tr><td>${subLink(c.subLabel, c.subNotation, sp, p)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
       <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td></tr>`).join("")).outerHTML;
-  const histTbl = tableEl(["Version", "Substance", "Upper", "Lower", "Unit", ""],
+  const histTbl = tableEl(["Version", "Substance", "Upper|r", "Lower|r", "Unit", "|c"],
     hist.map((c) => {
       const breached = breachedKey.has(`${p}|${c.version}|${c.subNotation}`);
       return `<tr${c.current ? ' style="font-weight:600"' : ""}>
         <td class="mono">v${c.version}${c.current ? " (current)" : ""}</td>
         <td>${esc(c.subLabel)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
         <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td>
-        <td>${breached ? '<span class="pill current">breached</span>' : ""}</td></tr>`;
+        <td class="ctr">${breached ? '<span class="pill current">breached</span>' : ""}</td></tr>`;
     }).join("")).outerHTML;
   const nVer = new Set(hist.map((c) => c.version)).size;
   return `<div style="padding:2px 0 8px"><b style="color:#93a4b3">Current limits</b></div>${curTbl}` +
@@ -904,7 +1128,7 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
 
   return card('Current limits &amp; future works <span class="count">— click a substance for its time-series chart</span>',
     `${conditions.length} current · ${proposed.length} proposed`,
-    tableEl(["Permit", "Substance", "Limit", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body));
+    tableEl(["Permit", "Substance", "Limit|r", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body));
 }
 
 function actionTable(actions, limByAction) {
@@ -928,12 +1152,141 @@ function actionTable(actions, limByAction) {
   return c;
 }
 
-function sfiTable(sfi) {
-  const byCat = {};
-  for (const s of sfi) (byCat[s.cat] ||= []).push(s);
-  const cats = Object.entries(byCat).sort((a, b) => b[1].length - a[1].length);
-  const rows = cats.map(([cat, arr]) => `<tr><td class="mono">${esc(cat || "?")}</td><td class="num">${arr.length}</td></tr>`).join("");
-  return card("Farming options (SFI)", `${sfi.length} options · not substance-filtered`, tableEl(["Option group", "Count"], rows));
+// ---------------------------------------------------------------------------
+// Farming view: application hulls on the map, a spider + pie for the selected one.
+// ---------------------------------------------------------------------------
+// Lede for the farming view: the prices broken down per programme (so it's clear which carries
+// finances) plus why SFI 2023 agreements are unpriced.
+function farmingLede() {
+  const byProg = {};
+  for (const a of DB.applications) {
+    const p = progOf(a);
+    const g = (byProg[p.label] ||= { label: p.label, color: p.color, priced: p.priced, apps: 0, total: 0 });
+    g.apps++; g.total += a.total;
+  }
+  const chips = Object.values(byProg).sort((a, b) => b.total - a.total).map((g) =>
+    `<span class="prog-chip"><span class="swatch" style="background:${g.color}"></span>` +
+    `${esc(g.label)}: <b>${g.apps}</b> agreement${g.apps === 1 ? "" : "s"} · ` +
+    `${g.priced ? "<b>" + fmtGBP(g.total) + "</b>/yr" : "rates unavailable"}</span>`).join("");
+  return `<b>Farming (SFI)</b> — ${DB.applications.length} agreements holding ${DB.sfiOptions.length} options ` +
+    `paying farmers to cut diffuse pollution at source. Only <b>SFI Expanded Offer</b> rates are published in our ` +
+    `source, so <b>SFI 2023</b> agreements show as <b>unpriced</b>. Click an application to value it.` +
+    `<span class="prog-summary">${chips}</span>`;
+}
+
+function renderFarming(tables) {
+  setLegend([
+    { c: PROGRAMMES["SFI EO"].color, t: "SFI Expanded Offer — priced" },
+    { c: PROGRAMMES["SFI 23"].color, t: "SFI 2023 — rates unavailable" },
+    { c: "#f5a623", t: "selected application" },
+  ]);
+  document.getElementById("lede").innerHTML = farmingLede();
+
+  // Every application as the convex hull of all its option multipoints (a marker when degenerate),
+  // coloured by its programme so it's obvious which agreements carry finances (Expanded Offer) and
+  // which have no published rates (SFI 2023).
+  const bounds = [];
+  for (const app of DB.applications) {
+    const pts = (DB.optionsByApp[app.iri] || []).flatMap((o) => o.points);
+    if (!pts.length) continue;
+    const sel = app.iri === selectedApp;
+    const prog = progOf(app);
+    const col = sel ? "#f5a623" : prog.color;
+    const hull = convexHull(pts);
+    const shape = hull.length >= 3
+      ? L.polygon(hull, { color: col, weight: sel ? 2.5 : 1, fillColor: col, fillOpacity: sel ? 0.12 : 0.05 })
+      : L.circleMarker(centroidOf(pts), dot(col, sel ? 7 : 5, 0.85));
+    shape.on("click", () => selectApp(app.iri));
+    shape.bindTooltip(`Application ${app.id} · ${prog.label} · ${prog.priced ? fmtGBP(app.total) + "/yr" : "unpriced"} · ${app.n} option${app.n === 1 ? "" : "s"}`);
+    shape.addTo(layers.appHulls);
+    if (sel) pts.forEach((p) => bounds.push(p));
+  }
+  layers.appHulls.addTo(map);
+
+  // Selected application: a spider per option (hub at the option's centroid, a leg to each point),
+  // each hub permanently labelled with its option code so you can read what is done where.
+  if (selectedApp) {
+    for (const o of DB.optionsByApp[selectedApp] || []) {
+      if (!o.centroid) continue;
+      const col = groupColor(o.broader);
+      for (const p of o.points) {
+        L.polyline([o.centroid, p], { color: col, weight: 1, opacity: 0.5 }).addTo(layers.spider);
+        L.circleMarker(p, { radius: 2.5, color: col, weight: 1, fillColor: col, fillOpacity: 0.9 }).addTo(layers.spider);
+      }
+      L.circleMarker(o.centroid, dot(col, 6, 0.95))
+        .bindTooltip(`${o.code} · ${o.cost != null ? fmtGBP(o.cost) : "unpriced"}`,
+          { permanent: true, direction: "top", className: "spider-label", offset: [0, -3] })
+        .bindPopup(`<b>${esc(o.broaderLabel)}</b> <span class="mono">${esc(o.code)}</span><br>` +
+          `${esc(o.def || "")}<br><b>${o.cost != null ? fmtGBP(o.cost) + " / annum" : "unpriced — no published rate for this SFI 2023 action"}</b>`)
+        .addTo(layers.spider);
+    }
+    layers.spider.addTo(map);
+    openAppChart(selectedApp);
+  } else {
+    closeChart();
+  }
+
+  tables.append(applicationsTable(), optionsTable(selectedApp));
+
+  if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 14 });
+  else {
+    const all = DB.sfiOptions.flatMap((o) => o.points);
+    if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.1));
+  }
+}
+
+function applicationsTable() {
+  const swatch = (c) => `<span class="swatch" style="background:${c}"></span>`;
+  const rows = DB.applications.map((a) => {
+    const prog = progOf(a);
+    const cost = prog.priced
+      ? `${fmtGBP(a.total)}/yr${a.unpriced ? ` <span class="unpriced-tag" title="${a.unpriced} option(s) with no published rate">+${a.unpriced}&nbsp;unpriced</span>` : ""}`
+      : `<span class="muted">unpriced</span>`;
+    return `
+    <tr class="app-row${a.iri === selectedApp ? " sel" : ""}" data-app="${esc(a.iri)}">
+      <td class="mono"><span class="sub-link">${esc(a.id)}</span></td>
+      <td>${swatch(prog.color)}${esc(prog.label)}</td>
+      <td class="num">${a.n}</td>
+      <td class="num">${cost}</td>
+    </tr>`;
+  }).join("");
+  const c = card('Applications <span class="count">— click one to value it</span>',
+    DB.applications.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows));
+  c.addEventListener("click", (e) => {
+    const tr = e.target.closest(".app-row");
+    if (tr) selectApp(tr.dataset.app);
+  });
+  return c;
+}
+
+// Options for the selected application, grouped by broader concept (expandable to the components).
+function optionsTable(appIri) {
+  if (!appIri) return card("Options", "—", emptyBody("Select an application to see its options."));
+  const byG = {};
+  for (const o of DB.optionsByApp[appIri] || []) {
+    const g = (byG[o.broader] ||= { code: o.broader, label: o.broaderLabel, items: [], total: 0, unpriced: 0 });
+    g.items.push(o);
+    if (o.cost == null) g.unpriced++; else g.total += o.cost;
+  }
+  const groups = Object.values(byG).sort((a, b) => b.total - a.total);
+  const nOpts = groups.reduce((s, g) => s + g.items.length, 0);
+  const groupCost = (g) => g.total
+    ? `${fmtGBP(g.total)}/yr${g.unpriced ? ` <span class="unpriced-tag">+${g.unpriced}&nbsp;unpriced</span>` : ""}`
+    : `<span class="muted">unpriced</span>`;
+  const rows = groups.map((g, i) => `
+    <tr class="expandable" data-row="${i}">
+      <td><span class="caret">▸</span> ${esc(g.label)} <span class="mono">${esc(g.code)}</span></td>
+      <td class="num">${g.items.length}</td>
+      <td class="num">${groupCost(g)}</td>
+    </tr>
+    <tr class="expand-row hidden" data-exp="${i}"><td colspan="3"><div class="expand-inner"></div></td></tr>`).join("");
+  const c = card(`Options <span class="count">— ${esc(DB.appById[appIri]?.id || "")}</span>`, nOpts,
+    tableEl(["Group", "Options|r", "Cost|r"], rows));
+  wireExpand(c, groups, (g) => tableEl(["Option", "Description", "Cost|r"],
+    g.items.slice().sort((a, b) => (b.cost || 0) - (a.cost || 0)).map((o) =>
+      `<tr><td class="mono">${esc(o.code)}</td><td>${esc(o.def || "—")}</td>` +
+      `<td class="num">${o.cost != null ? fmtGBP(o.cost) + "/yr" : '<span class="muted">unpriced</span>'}</td></tr>`).join("")).outerHTML);
+  return c;
 }
 
 // Expandable rows: clicking a summary row toggles the detail row and lazily fills it.
@@ -957,6 +1310,7 @@ function wireExpand(cardEl, keys, buildHtml) {
 function setView(v) {
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
+  if (v !== "farming") { selectedApp = null; closeChart(); } // drop the pie when leaving farming
   if (v === "substance" && !currentSubstance) {
     currentSubstance = NITROGEN;
     document.getElementById("substance").value = NITROGEN;
@@ -969,7 +1323,7 @@ async function main() {
   const status = document.getElementById("status");
   try {
     await loadAll();
-    status.textContent = `Loaded ${DB.breaches.length} breaches · ${DB.conditions.length} conditions · ${DB.actions.length} actions · ${DB.sfi.length} SFI options`;
+    status.textContent = `Loaded ${DB.breaches.length} breaches · ${DB.conditions.length} conditions · ${DB.actions.length} actions · ${DB.applications.length} farming applications (${DB.sfiOptions.length} options)`;
   } catch (err) {
     status.textContent = "Error: " + err.message;
     console.error(err);
@@ -987,7 +1341,7 @@ async function main() {
     document.getElementById("substance").value = sub;
   }
   const view = params.get("view");
-  setView(["breaches", "substance", "wessex", "overall"].includes(view) ? view : "breaches");
+  setView(["breaches", "substance", "wessex", "farming"].includes(view) ? view : "breaches");
 }
 
 main();

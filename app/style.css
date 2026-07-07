@@ -111,8 +111,43 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 .chart-note { color: var(--muted); font-size: 11.5px; padding: 4px 12px 0; }
 .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 12px 2px; font-size: 12px; color: var(--muted); }
 .chart-legend .item { display: flex; align-items: center; gap: 6px; }
-.sub-link { cursor: pointer; border-bottom: 1px dotted currentColor; }
+/* Internal clickable (stays in the app): dashed underline, no arrow. */
+.sub-link { cursor: pointer; border-bottom: 1px dashed currentColor; }
 .sub-link:hover { color: var(--accent); }
+
+/* Farming pie + application selection */
+svg.pie { max-width: 320px; margin: 4px auto 0; }
+svg.bars { max-width: 340px; margin: 2px auto 0; }
+.chart-toggle { display: flex; justify-content: flex-end; padding: 2px 12px 0; }
+.chart-toggle button {
+  background: var(--panel-2); color: var(--muted); border: 1px solid #2b3a49;
+  font-size: 11.5px; padding: 2px 11px; cursor: pointer;
+}
+.chart-toggle button:first-child { border-radius: 5px 0 0 5px; }
+.chart-toggle button:last-child { border-radius: 0 5px 5px 0; border-left: none; }
+.chart-toggle button.on { background: var(--accent); color: #06121f; border-color: var(--accent); }
+.pie-legend { padding: 6px 12px 4px; display: flex; flex-direction: column; gap: 4px; }
+.pie-leg { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.pie-leg .dot { width: 11px; height: 11px; border-radius: 2px; flex: none; }
+.pie-leg .pie-name { flex: 1; }
+.pie-leg .pie-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+tbody tr.app-row { cursor: pointer; }
+tbody tr.app-row.sel { background: #2a2416; box-shadow: inset 3px 0 0 #f5a623; }
+tbody tr.app-row.sel:hover { background: #322a18; }
+
+.muted { color: var(--muted); }
+.unpriced-tag { color: #d9a441; font-size: 11px; white-space: nowrap; }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+/* programme prices summary in the lede */
+.prog-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; }
+.prog-chip { font-size: 12px; color: var(--muted); }
+.prog-chip b { color: var(--text); }
+/* permanent option-code labels on the spider hubs */
+.leaflet-tooltip.spider-label {
+  background: rgba(11, 16, 22, .82); color: #e8eef4; border: none; box-shadow: none;
+  font-size: 10.5px; font-weight: 600; padding: 1px 5px; white-space: nowrap;
+}
+.leaflet-tooltip.spider-label::before { display: none; }
 
 .legend {
   display: flex;
@@ -151,7 +186,9 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; z-index: 1; }
 tbody tr:hover { background: #1b2836; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Column alignment — applies to BOTH the header and its cells so columns never look skew. */
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ctr { text-align: center; }
 
 .pill { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .pill.current { background: rgba(229,72,77,.18); color: #ff9a9d; }
@@ -167,6 +204,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* External link (leaves the app, e.g. to the Water Quality Explorer): solid underline + ↗ arrow. */
+.ext-link { text-decoration: underline; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 
 footer {
