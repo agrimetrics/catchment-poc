@@ -25,6 +25,13 @@ const PROGRAMMES = {
 };
 const progOf = (a) =>
   PROGRAMMES[a.scheme] || { label: a.scheme || "—", color: "#8a94a0", priced: a.priced > 0 };
+// Short cost label for an application: the summed priced total plus how many options are unpriced.
+// SFI 2023 (unpriced programme) shows just "unpriced".
+function appCostLabel(a) {
+  if (!progOf(a).priced) return "unpriced";
+  const base = fmtGBP(a.total) + "/yr";
+  return a.unpriced ? `${base} · ${a.unpriced} unpriced` : base;
+}
 
 proj4.defs(
   "EPSG:27700",
@@ -126,8 +133,11 @@ const Q = {
     }`,
 
   // Farming: one row per application with its option count and TOTAL annual payment summed live.
+  // COALESCE(?c,0): an application's options are OPTIONALly priced, so unpriced options leave ?c
+  // unbound — and SUM over a group containing an unbound value yields unbound (not 0). Coalescing to
+  // 0 lets the priced options still sum (otherwise any mixed application totals £0).
   applications: `${PREFIXES}
-    SELECT ?app ?appId ?scheme (SUM(?c) AS ?total) (COUNT(DISTINCT ?opt) AS ?n) WHERE {
+    SELECT ?app ?appId ?scheme (SUM(COALESCE(?c, 0)) AS ?total) (COUNT(DISTINCT ?opt) AS ?n) WHERE {
       ?app a farm:Application ; core:hasPart ?opt .
       OPTIONAL { ?app skos:notation ?appId }
       OPTIONAL { ?app ex:scheme ?scheme }
@@ -217,6 +227,17 @@ function convexHull(points) {
   return lower.concat(upper).map(([lon, lat]) => [lat, lon]);
 }
 
+// A polygon ring for an application, ALWAYS with area (never a dot). Uses the convex hull when there
+// are ≥3 non-collinear points; otherwise (1–2 distinct or collinear points) a small square around the
+// centroid so a single-option application still reads as a polygon.
+function hullPolygon(points) {
+  const hull = convexHull(points);
+  if (hull.length >= 3) return hull;
+  const [la, lo] = centroidOf(points);
+  const dLat = 0.0006, dLon = 0.0009; // ~65 m; dLon widened for the ~50.7°N latitude compression
+  return [[la + dLat, lo - dLon], [la + dLat, lo + dLon], [la - dLat, lo + dLon], [la - dLat, lo - dLon]];
+}
+
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
@@ -252,6 +273,7 @@ const groupColor = (code) => {
   for (const ch of String(code)) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return `hsl(${h} 62% 55%)`;
 };
+const swatch = (c) => `<span class="swatch" style="background:${c}"></span>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------------------
@@ -613,6 +635,11 @@ const wqeLink = (sp) =>
   sp ? `<a class="ext-link" href="${WQE}${esc(sp)}" target="_blank" rel="noopener">${esc(sp)} ↗</a>` : "—";
 
 const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
+// Farming overlap disambiguation: applications overlap heavily, so we keep each drawn polygon and
+// its ring to (a) list ALL applications under the cursor on hover, and (b) pick one from a popup.
+const appShapes = {}; // app IRI -> polygon layer (current render)
+const appRings = {};  // app IRI -> hull ring [[lat,lon],...] for point-in-polygon tests
+let overlapTip = null, tipHideTimer = null, pickerOpen = false;
 function zoomPermit(permit) {
   const dps = DB.dischargePoints.filter((d) => d.permit === permit && d.lat != null);
   if (!dps.length) return;
@@ -782,6 +809,11 @@ function initMap() {
   layers.sfi = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45 });
   layers.appHulls = L.layerGroup();
   layers.spider = L.layerGroup();
+
+  // While the application picker popup is open, suppress the hover tooltip; restore polygon fills
+  // when it closes.
+  map.on("popupopen", (e) => { if (e.popup.options.className === "picker-popup") { pickerOpen = true; hideOverlapTip(); } });
+  map.on("popupclose", (e) => { if (e.popup.options.className === "picker-popup") { pickerOpen = false; restoreAllShapes(); } });
 }
 
 function dot(color, r = 7, opacity = 0.9) {
@@ -1155,6 +1187,76 @@ function actionTable(actions, limByAction) {
 // ---------------------------------------------------------------------------
 // Farming view: application hulls on the map, a spider + pie for the selected one.
 // ---------------------------------------------------------------------------
+// --- Overlap handling: which applications sit under a point, and how we highlight them ----------
+function pointInRing(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const yi = ring[i][0], xi = ring[i][1], yj = ring[j][0], xj = ring[j][1];
+    if (((yi > lat) !== (yj > lat)) && (lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+// Every application whose polygon contains the given latlng (topmost first, i.e. smallest last-drawn
+// on top → we return them in draw order reversed so the visually-topmost is first).
+function containingApps(latlng) {
+  const out = [];
+  for (const a of DB.applications) {
+    const ring = appRings[a.iri];
+    if (ring && pointInRing(latlng.lat, latlng.lng, ring)) out.push(a);
+  }
+  return out;
+}
+const baseFillOf = (iri) => (iri === selectedApp ? 0.12 : 0.05);
+function restoreAllShapes() {
+  for (const k in appShapes) appShapes[k].setStyle({ fillOpacity: baseFillOf(k) });
+}
+// Darken exactly one polygon (used when hovering a picker row); null restores all.
+function highlightOnly(iri) {
+  restoreAllShapes();
+  const s = iri && appShapes[iri];
+  if (s) { s.setStyle({ fillOpacity: 0.34 }); s.bringToFront(); }
+}
+
+// Hover: a tooltip listing ALL applications under the cursor (read-only preview of the overlap).
+function showOverlapTip(latlng) {
+  if (pickerOpen) return;
+  clearTimeout(tipHideTimer);
+  const apps = containingApps(latlng);
+  if (!apps.length) { hideOverlapTip(); return; }
+  const rows = apps.map((a) => `${esc(a.id)} · ${appCostLabel(a)}`).join("<br>");
+  const head = apps.length > 1 ? `<b>${apps.length} applications here</b><br>` : "";
+  const foot = `<br><i>click to ${apps.length > 1 ? "choose" : "select"}</i>`;
+  if (!overlapTip) overlapTip = L.tooltip({ direction: "top", className: "overlap-tip", offset: [0, -2], opacity: 1 });
+  overlapTip.setLatLng(latlng).setContent(head + rows + foot);
+  if (!map.hasLayer(overlapTip)) overlapTip.addTo(map);
+}
+function hideOverlapTip() {
+  clearTimeout(tipHideTimer);
+  if (overlapTip && map.hasLayer(overlapTip)) map.removeLayer(overlapTip);
+}
+
+// Click: a persistent, interactive popup listing the applications under the click. Each row is a
+// dotted-underline (internal) link — hovering it darkens that one polygon, clicking selects it.
+function openPicker(latlng) {
+  hideOverlapTip();
+  const apps = containingApps(latlng);
+  if (!apps.length) return;
+  const div = document.createElement("div");
+  div.className = "app-picker";
+  div.innerHTML = `<div class="pick-head">${apps.length} application${apps.length === 1 ? "" : "s"} here</div>` +
+    apps.map((a) =>
+      `<div class="pick-row"><span class="sub-link pick-app" data-app="${esc(a.iri)}">${esc(a.id)}</span>` +
+      `<span class="pick-meta">${swatch(progOf(a).color)}${appCostLabel(a)} · ${a.n} opt${a.n === 1 ? "" : "s"}</span></div>`
+    ).join("");
+  div.querySelectorAll(".pick-app").forEach((el) => {
+    const iri = el.dataset.app;
+    el.addEventListener("mouseenter", () => highlightOnly(iri));
+    el.addEventListener("mouseleave", () => highlightOnly(null));
+    el.addEventListener("click", () => { map.closePopup(); selectApp(iri); });
+  });
+  L.popup({ className: "picker-popup", maxHeight: 260 }).setLatLng(latlng).setContent(div).openOn(map);
+}
+
 // Lede for the farming view: the prices broken down per programme (so it's clear which carries
 // finances) plus why SFI 2023 agreements are unpriced.
 function farmingLede() {
@@ -1182,9 +1284,12 @@ function renderFarming(tables) {
   ]);
   document.getElementById("lede").innerHTML = farmingLede();
 
-  // Every application as the convex hull of all its option multipoints (a marker when degenerate),
-  // coloured by its programme so it's obvious which agreements carry finances (Expanded Offer) and
-  // which have no published rates (SFI 2023).
+  // Every application as a polygon (convex hull of all its option multipoints, or a small square when
+  // degenerate), coloured by its programme. Applications overlap heavily, so hovering lists ALL of
+  // them under the cursor and clicking opens a picker rather than selecting the topmost outright.
+  for (const k in appShapes) delete appShapes[k];
+  for (const k in appRings) delete appRings[k];
+  hideOverlapTip();
   const bounds = [];
   for (const app of DB.applications) {
     const pts = (DB.optionsByApp[app.iri] || []).flatMap((o) => o.points);
@@ -1192,13 +1297,14 @@ function renderFarming(tables) {
     const sel = app.iri === selectedApp;
     const prog = progOf(app);
     const col = sel ? "#f5a623" : prog.color;
-    const hull = convexHull(pts);
-    const shape = hull.length >= 3
-      ? L.polygon(hull, { color: col, weight: sel ? 2.5 : 1, fillColor: col, fillOpacity: sel ? 0.12 : 0.05 })
-      : L.circleMarker(centroidOf(pts), dot(col, sel ? 7 : 5, 0.85));
-    shape.on("click", () => selectApp(app.iri));
-    shape.bindTooltip(`Application ${app.id} · ${prog.label} · ${prog.priced ? fmtGBP(app.total) + "/yr" : "unpriced"} · ${app.n} option${app.n === 1 ? "" : "s"}`);
+    const ring = hullPolygon(pts);
+    const shape = L.polygon(ring, { color: col, weight: sel ? 2.5 : 1, fillColor: col, fillOpacity: baseFillOf(app.iri) });
+    shape.on("mousemove", (e) => showOverlapTip(e.latlng));
+    shape.on("mouseout", () => { tipHideTimer = setTimeout(hideOverlapTip, 60); });
+    shape.on("click", (e) => openPicker(e.latlng));
     shape.addTo(layers.appHulls);
+    appShapes[app.iri] = shape;
+    appRings[app.iri] = ring;
     if (sel) pts.forEach((p) => bounds.push(p));
   }
   layers.appHulls.addTo(map);
@@ -1236,7 +1342,6 @@ function renderFarming(tables) {
 }
 
 function applicationsTable() {
-  const swatch = (c) => `<span class="swatch" style="background:${c}"></span>`;
   const rows = DB.applications.map((a) => {
     const prog = progOf(a);
     const cost = prog.priced
