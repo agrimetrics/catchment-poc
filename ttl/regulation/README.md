@@ -5,6 +5,8 @@ The regulation graph (permits, conditions, limits, discharge points, breaches) f
 into a small star schema in `regulation.duckdb`) → ontop (`regulation.obda`) → `../regulation.ttl`.
 
 ```
+python link_data.py                             # upstream join → output_data/observations_with_permits_and_rules.csv
+python ttl/regulation/fetch_version_dates.py    # (occasional) refresh permit_version_dates.csv from the EA public register
 python ttl/regulation/regulation_to_db.py
 ./ontop/ontop materialize --mapping ttl/regulation/regulation.obda \
     --properties ontop/duckdb-regulation.properties \

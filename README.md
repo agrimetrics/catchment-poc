@@ -1,96 +1,190 @@
-# catchment-poc
+# Poole Harbour Rivers — Linked Data Catchment Demonstrator
 
-## Introduction
-Exploratory data analysis of the Poole Harbour Rivers operational catchment area.
+A demonstrator that takes three Environment Agency datasets for the **Poole Harbour Rivers**
+operational catchment — water **regulation** (permits, conditions, breaches), the **WINEP**
+improvement programme, and **Sustainable Farming Incentive** (SFI) agreements — shreds each into
+RDF, loads them into an in-memory [Oxigraph](https://pyoxigraph.readthedocs.io/) triplestore, and
+explores them through a single Leaflet web app (the "three-ways" app) with conservation-designation
+map underlays.
 
-## Data sources
-- Operational Catchment GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_operational_catchment.geojson`
-    - Obtained from https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367
-- Water Quality Observational Data for Poole Harbour Rivers between 2020-2026: `poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv`
-    - Obtained from https://environment.data.gov.uk/water-quality/downloads multi-year data has been concatenated together with `raw_datasets/merge_observational_data.py`
-- Consented Discharges to Controlled Waters with Conditions
-    - Obtained from https://www.data.gov.uk/dataset/55b8eaa8-60df-48a8-929a-060891b7a109/consented-discharges-to-controlled-waters-with-conditions1
-        - Discharge and Permit Data: `raw_datasets/access_database_csv_files/consents_active.csv`
-        - Permit rules: `raw_datasets/access_database_csv_files/determinands.csv`
-        - Effluents: `raw_datasets/access_database_csv_files/effluents.csv`
-- PR24 Water Industry National Environment Programme (WINEP Actions/Drivers): `raw_datasets/PR24 WINEP National Dataset.xlsx`
-    - Obtained from https://environment.data.gov.uk/dataset/39b11ea0-3cfa-4cbb-b3a1-b5950019f169
-- Sustainable Farming Initiatives GeoJSON for Poole Harbour: `raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson`
-    - Obtained from https://environment.data.gov.uk/explore/58cc85ab-a955-4b37-9c42-eee8532cbd01
-- Sites of Special Scientific Interest England: `raw_datasets/Sites_of_Special_Scientific_Interest_England.geojson`
-    - Obtained from https://environment.data.gov.uk/dataset/ba8dc201-66ef-4983-9d46-7378af21027e
-- Special Protection Areas England: `raw_datasets/Special_Protection_Areas_England.geojson`
-    - Obtained from https://environment.data.gov.uk/dataset/4c660eee-887e-4c8b-91e5-d84b4c1078ac
-- Special Areas of Conservation England: `raw_datasets/Special_Areas_of_Conservation_England.geojson`
-    - Obtained from https://environment.data.gov.uk/dataset/6ecea2a1-5d2e-4f53-ba1f-690f4046ed1c
+> Scope note: everything here is deliberately cut down to one catchment and the simplest defensible
+> model. The per-dataset READMEs record exactly how each was whittled down and what was assumed —
+> see **[Documentation map](#documentation-map)**.
 
-# Using the interactive map
-You can run the interactive map without running the code, to do this `cd` into the `output_data` directory and run `python -m http.server 8000` then navigate to `http://localhost:8000/map.html` to view the interactive map
-
-# Running the code
-- `poetry install --no-root`
-- `eval $(poetry env activate)`
-- Run `python link_data.py` which links the data together and saves the output data in the `output_data` folder. The final dataframe which stores observations, their permits and evaluates the observation against the min/max permit rules is the `output_data/observations_with_permits_and_rules.csv` file.
-- Run `python generate_map.py` which generates the map and saves it as a html file in `output_data/map.html`. It can take a minute or so to generate this map due to how many different datasets and data points are on the map.
-
-**Notes on the `output_data/observations_with_permits_and_rules.csv` dataset**
-- The `ROW_PASS_STATUS` column is a purely row based TRUE/FALSE on whether the row passes or not.
-- The `OBSERVATION_PASS_STATUS` column answers the question: For a given (observation id, PERMIT_NUMBER, PERMIT_VERSION, determinand.notation) did the observation pass or not, this is a logical `AND` operation on the `ROW_PASS_STATUS` values in this grouping. So this answers for a given observation, permit_number, permit_version, determinand_notation does the observation pass, it checks by doing an AND operation across this combinations varying rows which may have different outlet_number, effluent_number, month_from or month_to values.
-
-# Ontop
-Ontop is used to map our datasets into RDF.
-
-### SFI (Sustainable Farming Incentives) dataset into RDF
-From the root folder of this repository you can run the following command which generates RDF data for the Sustainable Farming Incentives dataset for Poole Harbour. The output turtle data is stored in `ttl/sfi.ttl`.The duckdb file is stored in `ttl/sfi/sfi.duckdb`, this duckdb file is generated using `ttl/sfi/sfi_to_db.py`.
-```
-./ontop/ontop materialize \
-  --mapping ttl/sfi/sfi.obda \
-  --properties ontop/duckdb.properties \
-  --output ttl/sfi/sfi_raw.ttl \
-  --format turtle && \
-rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
-```
-# Three-Ways app (map + tables over a triplestore)
-
-`app/` is a static web app that reads the RDF via SPARQL — the same "federated data
-layer" pattern of loading the Turtle graphs into an Oxigraph store and querying it.
-`app/server.py` loads `ttl/regulation.ttl`, `ttl/winep.ttl` and `ttl/sfi.ttl` into an
-in-memory [pyoxigraph](https://pyoxigraph.readthedocs.io/) store and serves, from one
-origin, both a SPARQL endpoint at `/sparql` and the static frontend (Leaflet map +
-tables).
+## Architecture
 
 ```
+raw_datasets/ ──► per-dataset pipeline ──► ttl/*.ttl ──► app/server.py ──► browser
+                  (DuckDB shred → ontop      (RDF)        (pyoxigraph      (Leaflet map
+                   → rdfpipe)                              triplestore)     + tables)
+```
+
+Each dataset follows the same **DuckDB shred → ontop map → rdfpipe** pattern into one Turtle file
+(`ttl/regulation.ttl`, `ttl/winep.ttl`, `ttl/sfi.ttl`). `app/server.py` loads all three into a
+single pyoxigraph store and serves, **from one origin (port 8000)**, a SPARQL endpoint, a small
+proxy to the EA Water Quality Archive, and the static frontend. Serving everything from one origin
+means the browser makes same-origin requests, so there is no CORS to configure. The store is rebuilt
+from the `.ttl` files on every start — nothing is persisted.
+
+## Quickstart — run the app
+
+```bash
 poetry install --no-root
 eval $(poetry env activate)
-python app/server.py          # then open http://localhost:8000
+python app/server.py          # loads the 3 graphs, then serves on port 8000
 ```
 
-The page always shows the catchment map with tables beneath it, and offers four views:
+Then open **http://localhost:8000**.
 
-- **Show me the breaches** — condition breaches as *periods* (a run of consecutive failing
-  observations with no passing result in between). A breach is **current** when its period is
-  still open — nothing has passed since it began — otherwise it is a **past** breach with a
-  start and end; a lone failure is a period whose start and end are the same day. Each links out
-  to the Water Quality Explorer sampling point.
-- **Solving for a substance** — pick a substance (defaults to Ammoniacal Nitrogen, `0111`);
-  the map and tables show its in-force permit limits and the WINEP actions proposing future
-  limits.
-- **What Wessex Water is up to** — the WINEP actions (all `08WW…` = Wessex Water) with
+| URL                                                              | What it serves                                                                                                        |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `http://localhost:8000/`                                         | the frontend (Leaflet map + tables)                                                                                   |
+| `http://localhost:8000/sparql`                                   | SPARQL 1.1 endpoint (GET `?query=` or POST), returns `application/sparql-results+json`                                |
+| `http://localhost:8000/observations?samplingPoint=&determinand=` | server-side proxy to the EA Water Quality Archive (follows `Link` pagination), powers the substance time-series chart |
+
+The rendered `.ttl` files are committed, so **running the app needs no pipeline rebuild** — only
+`poetry install` and `python app/server.py`.
+
+### The app's views
+
+The page always shows the catchment map with tables beneath it, grouped into **Water** and **Land**:
+
+- **Breaches** — condition breaches as *periods* (a run of consecutive failing observations with no
+  passing result in between). A breach is **current** while its period is still open (nothing has
+  passed since it began), otherwise **past** with a start and end; a lone failure is a period whose
+  start and end are the same day. Each links out to the Water Quality Explorer sampling point.
+- **Substance Views** — pick a substance (defaults to Ammoniacal Nitrogen, `0111`); the map and
+  tables show its in-force permit limits and the WINEP actions proposing future limits, plus a live
+  hit/miss time-series chart per discharge point.
+- **WINEP** — the Water Industry National Environment Programme actions (all Wessex Water here) with
   completion dates and their proposed / continued limits.
-- **Overall** — everything, plus the SFI farming layer (an annotation layer that does not
-  respond to substance filtering).
+- **Sustainable Farming Incentive** — SFI agreements as convex-hull polygons coloured by programme,
+  with a cost-per-intervention pie (or count bar chart), an option-type filter, and per-application
+  valuations. See the [SFI data warnings](ttl/sfi/README.md#data-warnings) for the pricing caveats.
 
-Geometry notes: regulation discharge points carry WGS84 lon/lat, SFI options carry WGS84,
-and WINEP action sites carry EPSG:27700 (British National Grid) which the frontend reprojects
-with proj4. The discharge-point geometry is asserted on the discharge point we own (a
-`#geography` fragment), sourced from the coordinates of the sampling point it is `monitoredAt`;
-the `environment.data.gov.uk` sampling point itself is left as a bare `geo:Feature`.
+**Conservation designations** (SSSI / SAC / SPA) can be toggled on any map view from the legend —
+individually or by category — and render beneath all plotted locations. The legend collapses while
+the chart panel is open.
 
-# License
+Geometry notes: regulation discharge points and SFI options carry WGS84 lon/lat; WINEP action sites
+carry EPSG:27700 (British National Grid), reprojected in the browser with proj4. The discharge-point
+geometry is asserted on the discharge point we own (a `#geography` fragment), transcribed from the
+coordinates of the sampling point it is `monitoredAt`; the `environment.data.gov.uk` sampling point
+itself is left as a bare `geo:Feature`.
+
+## Rebuilding the RDF pipelines
+
+All intermediates (`*.duckdb`, `*_raw.ttl`) are gitignored and regenerated; the final `ttl/*.ttl`
+are committed. Each dataset's own README documents its scope, columns and modelling in detail — the
+commands below are the reproducible rebuild in **dependency order** (WINEP reads `regulation.duckdb`,
+so regulation must be built first).
+
+**1. Regulation** — [`ttl/regulation/README.md`](ttl/regulation/README.md)
+
+```bash
+python link_data.py                                  # joins raw CSVs → output_data/observations_with_permits_and_rules.csv
+python ttl/regulation/fetch_version_dates.py         # (occasional) refresh permit_version_dates.csv from the EA public register
+python ttl/regulation/regulation_to_db.py            # shred → regulation.duckdb
+./ontop/ontop materialize --mapping ttl/regulation/regulation.obda \
+    --properties ontop/duckdb-regulation.properties \
+    --output ttl/regulation/regulation_raw.ttl --format turtle \
+  && rdfpipe -i turtle -o turtle ttl/regulation/regulation_raw.ttl > ttl/regulation.ttl
+```
+
+**2. WINEP** — [`ttl/winep/README.md`](ttl/winep/README.md) · backlog in [`ttl/winep/TODO.md`](ttl/winep/TODO.md)
+
+```bash
+python ttl/winep/winep_to_db.py                      # shred PR24 xlsx (+ regulation.duckdb, + catchment) → winep.duckdb
+./ontop/ontop materialize --mapping ttl/winep/winep.obda \
+    --properties ontop/duckdb-winep.properties \
+    --output ttl/winep/winep_raw.ttl --format turtle \
+  && rdfpipe -i turtle -o turtle ttl/winep/winep_raw.ttl > ttl/winep.ttl
+```
+
+**3. SFI** — [`ttl/sfi/README.md`](ttl/sfi/README.md)
+
+```bash
+python ttl/sfi/sfi_to_db.py                          # spatial clip + aggregate + concept scheme → sfi.duckdb
+./ontop/ontop materialize --mapping ttl/sfi/sfi.obda --properties ontop/duckdb.properties \
+    --output ttl/sfi/sfi_raw.ttl --format turtle \
+  && rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
+```
+
+**Conservation designations** (static map underlays, not RDF):
+
+```bash
+python raw_datasets/prep_designations.py             # clip SSSI/SAC/SPA to the catchment → app/{sssi,sac,spa}.geojson
+```
+
+The ontology the mappings target lives in the sibling **`ontology-work`** repo
+(`defra-core-ontology.ttl`, `defra-regulation.ttl`, `defra-water.ttl`, `defra-farming.ttl`).
+
+## Scope, warnings & assumptions (summary)
+
+Cross-cutting points a consumer of the graph should know. Detail — and every column-level choice —
+is in the linked per-dataset READMEs.
+
+- **One catchment, deliberately cut down.** Every dataset is filtered to Poole Harbour Rivers (by
+  region, spatial clip, or permit overlap). Counts and the exact filters are in each README.
+- **Regulation is abstracted.** Absolute min/max rules only (no percentile/rolling/load), seasonality
+  collapsed to one limit per (permit, version, substance), numeric results only. Breaches are
+  **periods**, not single failures. → [regulation README](ttl/regulation/README.md).
+- **WINEP proposed limits are semi-structured text**, interpreted deterministically; 5 cells remain
+  verbatim, one generic `chemical` analyte is unresolved, and a permit+substance can carry competing
+  proposals from different regulatory drivers (the app lists all). → [WINEP TODO](ttl/winep/TODO.md).
+- **SFI payments are indicative.** Costs are base-rate × extent only (per-hectare / per-100-metres),
+  ignoring qualifying pay text; **SFI 2023 options are unpriced** (only the Expanded Offer has
+  published rates in source); group labels are curated. → [SFI data warnings](ttl/sfi/README.md#data-warnings).
+- **Some geometry is transcribed / reprojected**, and one designation group (PAC) shows its code
+  where the option isn't in the concept scheme. See the app geometry note above.
+
+## Data sources
+
+- Operational Catchment GeoJSON: `raw_datasets/poole_harbour_rivers_operational_catchment.geojson`
+  — https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367
+- Water Quality observations 2020–2026: `raw_datasets/poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv`
+  — https://environment.data.gov.uk/water-quality/downloads (multi-year files concatenated by `raw_datasets/merge_observational_data.py`)
+- Consented Discharges to Controlled Waters with Conditions
+  — https://www.data.gov.uk/dataset/55b8eaa8-60df-48a8-929a-060891b7a109 (tables extracted with `mdb-export`, see `raw_datasets/access_database_csv_files/README.md`):
+  discharges/permits `consents_active.csv`, permit rules `determinands.csv`, effluents `effluents.csv`
+- PR24 WINEP National Dataset: `raw_datasets/PR24 WINEP National Dataset.xlsx`
+  — https://environment.data.gov.uk/dataset/39b11ea0-3cfa-4cbb-b3a1-b5950019f169
+- SFI options GeoJSON: `raw_datasets/poole_harbour_rivers_sustainable_farming_initiatives.geojson`
+  — https://environment.data.gov.uk/explore/58cc85ab-a955-4b37-9c42-eee8532cbd01 ;
+  option details `raw_datasets/SFI Option details.xlsx` ; data-notes PDF (concept scheme)
+- Sites of Special Scientific Interest England — https://environment.data.gov.uk/dataset/ba8dc201-66ef-4983-9d46-7378af21027e
+- Special Protection Areas England — https://environment.data.gov.uk/dataset/4c660eee-887e-4c8b-91e5-d84b4c1078ac
+- Special Areas of Conservation England — https://environment.data.gov.uk/dataset/6ecea2a1-5d2e-4f53-ba1f-690f4046ed1c
+
+## Repository layout
+
+```
+app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static),
+                         index.html, app.js, style.css, catchment.geojson, {sssi,sac,spa}.geojson
+ttl/                     the three committed graphs + per-dataset pipelines
+  regulation/ winep/ sfi/  {*_to_db.py, *.obda, README.md} (+ winep/TODO.md, regulation/fetch_version_dates.py)
+ontop/                   vendored ontop CLI + duckdb JDBC .properties (one per dataset)
+raw_datasets/            source data + prep_designations.py + merge_observational_data.py
+link_data.py             joins the regulation raw CSVs → output_data/ (input to regulation_to_db.py)
+generate_map.py          legacy standalone folium viewer (output_data/map.html) — superseded by app/
+```
+
+## Documentation map
+
+- **This README** — front door: what it is, how to run/rebuild, ports, views, and the scope/warnings
+  *summary* above.
+- **`ttl/<dataset>/README.md`** — the authoritative per-dataset detail: scope whittling, enrichments,
+  modelling and data warnings.
+- **`ttl/winep/TODO.md`** — the remaining curation backlog and interpretive assumptions for WINEP
+  (the messiest dataset), including the competing-driver worked example.
+
+## License
+
 Unless stated otherwise, the codebase in this repository is released under the MIT License.
 
 Copyright (c) 2026 Crown Copyright (Government Digital Service)
 
-The documentation and any other non-code content in this repository is licensed under the Open Government Licence v3.0, except where otherwise stated.
+The documentation and any other non-code content in this repository is licensed under the Open
+Government Licence v3.0, except where otherwise stated.
 
-Contains public sector information licensed under the Open Government Licence v3.0.
+Contains public sector information licensed under the Open Government Licence v3.0.s
