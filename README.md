@@ -23,7 +23,8 @@ Each dataset is shredded to one Turtle file — `ttl/regulation.ttl`, `ttl/winep
 via **DuckDB shred → ontop map → rdfpipe**, and `ttl/designations.ttl` (SSSI/SAC/SPA as GeoSPARQL
 features) straight via **geopandas → rdflib**. `app/server.py` loads all four into a single
 pyoxigraph store and serves, **from one origin (port 8000)**, a SPARQL endpoint, a small proxy to the
-EA Water Quality Archive, and the static frontend. Serving everything from one origin
+EA Water Quality Archive, the static frontend (map, plus in-app SPARQL editor and docs viewer), and
+the repo's Markdown docs. Serving everything from one origin
 means the browser makes same-origin requests, so there is no CORS to configure. The store is rebuilt
 from the `.ttl` files on every start — nothing is persisted.
 
@@ -40,8 +41,11 @@ Then open **http://localhost:8000**.
 | URL                                                              | What it serves                                                                                                        |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `http://localhost:8000/`                                         | the frontend (Leaflet map + tables)                                                                                   |
+| `http://localhost:8000/sparql.html`                              | in-browser SPARQL editor (SPARQL 1.1) over the store — reachable from the header and footer                          |
+| `http://localhost:8000/docs.html`                                | in-app documentation viewer that renders this repo's Markdown — reachable from the header                            |
 | `http://localhost:8000/sparql`                                   | SPARQL 1.1 endpoint (GET `?query=` or POST), returns `application/sparql-results+json`                                |
 | `http://localhost:8000/observations?samplingPoint=&determinand=` | server-side proxy to the EA Water Quality Archive (follows `Link` pagination), powers the substance time-series chart |
+| `http://localhost:8000/*.md`                                     | raw Markdown docs from the repo root (what the docs viewer fetches; `.md` under the repo only)                        |
 
 The rendered `.ttl` files are committed, so **running the app needs no pipeline rebuild** — only
 `poetry install` and `python app/server.py`.
@@ -66,6 +70,13 @@ The page always shows the catchment map with tables beneath it, grouped into **W
 **Conservation designations** (SSSI / SAC / SPA) can be toggled on any map view from the legend —
 individually or by category — and render beneath all plotted locations. The legend collapses while
 the chart panel is open.
+
+Two utility pages hang off the app chrome (top-right of the header, and the footer):
+
+- **SPARQL** ([`/sparql.html`](app/sparql.html)) — an embedded [SPARQL editor](https://github.com/sib-swiss/sparql-editor)
+  wired to the same-origin `/sparql` endpoint, for running ad-hoc queries against the loaded graphs.
+- **Docs** ([`/docs.html`](app/docs.html)) — an in-app viewer that renders this repo's Markdown (the
+  top-level and per-dataset READMEs, the TODOs) with a sidebar and working cross-links.
 
 Geometry notes: regulation discharge points and SFI options carry WGS84 lon/lat; WINEP action sites
 carry EPSG:27700 (British National Grid), reprojected in the browser with proj4. The discharge-point
@@ -139,8 +150,10 @@ is in the linked per-dataset READMEs.
   published rates in source); group labels are curated. → [SFI data warnings](ttl/sfi/README.md#data-warnings).
 - **Designations are GeoSPARQL, WGS84/CRS84.** SSSI/SAC/SPA are `defra-nature:ProtectedSite` features
   with ~2 m `geo:asWKT` geometry, so spatial questions (e.g. discharges within 200 m of a protected
-  area) run in SPARQL — on GraphDB, not the local store. → [designations README](ttl/designations/README.md)
-  · [spatial-query TODO](ttl/designations/TODO.md).
+  area) run in SPARQL. The bundled pyoxigraph store's GeoSPARQL is **point-only** (`geof:distance`
+  returns unbound for polygons, no `geof:buffer` — see oxigraph#1560), so accurate point-to-polygon
+  proximity needs **GraphDB**; `TODO.md` has that query plus a centroid approximation that runs on the
+  bundled endpoint. → [designations README](ttl/designations/README.md) · [spatial-query TODO](ttl/designations/TODO.md).
 - **Some geometry is transcribed / reprojected**, and one SFI option group (PAC) shows its code where
   the option isn't in the concept scheme. See the app geometry note above.
 
@@ -165,8 +178,9 @@ is in the linked per-dataset READMEs.
 ## Repository layout
 
 ```
-app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static),
-                         index.html, app.js, style.css, catchment.geojson, {sssi,sac,spa}.geojson
+app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static + .md),
+                         index.html, app.js, style.css, catchment.geojson, {sssi,sac,spa}.geojson,
+                         docs.{html,js,css} (Markdown docs viewer), sparql.{html,css} (SPARQL editor)
 ttl/                     the four committed graphs + per-dataset pipelines
   regulation/ winep/ sfi/ designations/  {pipeline, README.md} (+ winep/TODO.md, designations/TODO.md,
                          regulation/fetch_version_dates.py)
@@ -176,6 +190,8 @@ link_data.py             joins the regulation raw CSVs → output_data/ (input t
 ```
 
 ## Documentation map
+
+All of the docs below also render in-app in the **Docs** viewer (`/docs.html`) while the server is running.
 
 - **This README** — front door: what it is, how to run/rebuild, ports, views, and the scope/warnings
   *summary* above.
