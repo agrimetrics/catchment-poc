@@ -35,6 +35,22 @@ header {
 header h1 { margin: 0; font-size: 19px; letter-spacing: .2px; }
 .subtitle { color: var(--muted); font-size: 12.5px; }
 
+/* Top-right utility links (Docs, SPARQL); mirrored as "← Back to app" on those pages. */
+.header-links { flex: none; display: flex; align-items: center; gap: 8px; }
+.docs-link {
+  flex: none;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.docs-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
 .controls { display: flex; align-items: center; gap: 14px; }
 .substance-picker { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
 select {
@@ -282,6 +298,10 @@ footer {
   font-size: 11.5px; color: var(--muted);
 }
 footer code { color: var(--text); }
+/* Footer link to the SPARQL editor — internal navigation, so the dashed-underline convention. */
+.foot-link { color: var(--muted); border-bottom: 1px dashed currentColor; text-decoration: none; }
+.foot-link:hover { color: var(--accent); text-decoration: none; }
+.foot-link code { color: var(--text); }
 
 .leaflet-popup-content { font-size: 13px; }
 .leaflet-popup-content h3 { margin: 0 0 4px; font-size: 14px; }

@@ -66,5 +66,9 @@ a code, so it goes directly to RDF.
   too (the frontend fetches it). There are no gitignored intermediates — the whole thing rebuilds
   from the raw datasets in one script.
 - The spatial use case (e.g. "discharges within 200 m of a protected area that discharge nutrients")
-  needs a GeoSPARQL engine — **GraphDB**, not the local pyoxigraph store, which holds and serves the
-  geometry but does not evaluate `geof:` functions. The worked query is in `TODO.md`.
+  needs a full GeoSPARQL engine. The bundled pyoxigraph store evaluates only *basic* point-geometry
+  `geof:` functions (its `spargeo` plugin — see [oxigraph#1560](https://github.com/oxigraph/oxigraph/issues/1560)):
+  `geof:distance` works point-to-point but returns **unbound** for the site *polygons*, and
+  `geof:buffer` is unimplemented — so accurate point-to-polygon proximity needs **GraphDB** (or a
+  future oxigraph). `TODO.md` has the GraphDB query plus a centroid approximation that runs on the
+  bundled endpoint.

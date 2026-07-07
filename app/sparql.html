@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SPARQL · Poole Harbour Rivers Demonstrator</title>
+  <meta name="description" content="SPARQL editor for the federated data layer" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="sparql.css" />
+
+  <!-- SPARQL editor web component (same CDN approach as Leaflet/marked elsewhere). -->
+  <script type="module" src="https://esm.sh/@sib-swiss/sparql-editor@0.2.14"></script>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1>SPARQL</h1>
+      <span class="subtitle">Query the federated data layer — regulation · WINEP · SFI · designations</span>
+    </div>
+    <a class="docs-link" href="index.html" title="Return to the map app">← Back to app</a>
+  </header>
+
+  <!-- Same-origin endpoint (port 8000, served by app/server.py) — no CORS, like the rest of the app. -->
+  <sparql-editor></sparql-editor>
+  <script>
+    // The editor runs `new URL(endpoint)` internally, which rejects a relative path — a bare
+    // endpoint="/sparql" fails silently with "/sparql is not a valid URL" and no query ever fires.
+    // So point it at the *absolute* same-origin URL (kept portable across host/port). Setting the
+    // attribute alone isn't enough: YASGUI's first tab is created with the relative default and
+    // ignores it, so also set each tab's endpoint once YASGUI has initialised, and on any new tab.
+    (function () {
+      var ep = location.origin + "/sparql";
+      var ed = document.querySelector("sparql-editor");
+      ed.setAttribute("endpoint", ep);
+      function fixTab() {
+        try {
+          var t = ed.yasgui.getTab();
+          if (t && t.setEndpoint && t.getRequestConfig().endpoint !== ep) t.setEndpoint(ep);
+        } catch (e) {}
+      }
+      var n = 0;
+      var iv = setInterval(function () {
+        var y = ed.yasgui;
+        if (y && y.getTab && y.getTab()) {
+          clearInterval(iv);
+          fixTab();
+          if (y.on) { y.on("tabSelect", fixTab); y.on("tabAdd", fixTab); }
+        } else if (++n > 100) {
+          clearInterval(iv);
+        }
+      }, 100);
+    })();
+  </script>
+</body>
+</html>

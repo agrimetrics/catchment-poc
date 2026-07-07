@@ -1,0 +1,22 @@
+/* SPARQL editor page. The @sib-swiss/sparql-editor web component brings its own
+ * (light) YASGUI-based styling; we keep the app's dark header/footer chrome around it
+ * and just tint its buttons with the app accent. */
+
+sparql-editor {
+  display: block;
+  --btn-color: #fff;
+  --btn-bg-color: var(--accent);
+}
+
+/* The component renders on a light background; give the page that base so there is no
+ * dark gap below the editor before content fills in. */
+body { background: #fff; }
+
+/* style.css sets the app's near-white body text colour, which *inherits* into YASGUI's
+ * light-background editor and results table — washing the cell text out to unreadable grey on
+ * white. Reset the editor region to dark, readable text (YASQE's syntax colours and the results
+ * header keep their own explicit colours; only the inherited body text is affected). */
+sparql-editor { color: #1b2733; }
+.yasr table.dataTable td { color: #1b2733; }         /* literals (e.g. site names) */
+.yasr a, .yasr a.iri { color: #00588a; }             /* IRIs: darker blue for contrast on white */
+.yasr .rowNumber, .yasr .dataTables_info { color: #55636f; }

@@ -175,6 +175,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
             return
+        if parsed.path.endswith(".md"):
+            self._serve_markdown(parsed.path)
+            return
         self._serve_static(parsed.path)
 
     def do_POST(self):
@@ -193,6 +196,25 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(400, "missing query")
             return
         self._run_query(query)
+
+    def _serve_markdown(self, path: str):
+        """Serve a Markdown doc from the repository root (the docs viewer fetches these).
+
+        The frontend static files live in app/, but the docs (README.md, ttl/*/README.md,
+        TODO.md …) live across the repo, so these resolve against ROOT — restricted to .md
+        files under ROOT, with `..` traversal rejected by the resolved-parent check.
+        """
+        rel = path.lstrip("/")
+        target = (ROOT / rel).resolve()
+        if ROOT not in target.parents or target.suffix != ".md" or not target.is_file():
+            self.send_error(404)
+            return
+        data = target.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/markdown; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _serve_static(self, path: str):
         rel = path.lstrip("/") or "index.html"

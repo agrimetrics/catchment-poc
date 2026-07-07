@@ -37,17 +37,45 @@ SELECT DISTINCT ?permit ?site ?siteName ?substance (?d AS ?metres) WHERE {
 }
 ```
 
+> ⚠️ **This query returns nothing on the bundled `/sparql` — it needs a full GeoSPARQL engine.**
+> The in-memory pyoxigraph store ships only the basic `spargeo` geometry functions (tracking issue for
+> full GeoSPARQL 1.1: [oxigraph#1560](https://github.com/oxigraph/oxigraph/issues/1560)). Verified
+> against the bundled endpoint: `geof:distance` computes **only between two POINTs** — given a
+> POLYGON (or MULTIPOINT) operand it returns *unbound*, so `FILTER(?d …)` drops every row — and
+> `geof:buffer` is not implemented at all. (The `CRS84` prefix is fine; that is **not** the cause.)
+> Every protected site is a MULTIPOLYGON, so this whole query is empty locally. Run it on **GraphDB**
+> (GeoSPARQL plugin + spatial index) for accurate point-to-polygon **boundary** distance.
+
+### A version that runs on the bundled endpoint (centroid approximation)
+
+To demonstrate the same join in the app's SPARQL editor today, measure to each site's **centroid** —
+a point, which pyoxigraph *can* handle — instead of its boundary. Swap only the distance `BIND`:
+
+```sparql
+  BIND(geof:distance(?dpWkt, geof:centroid(?siteWkt), uom:metre) AS ?d)
+  FILTER(?d <= 1000)
+```
+
+Caveat: this measures to the site **centre**, so it over-states distance for large sites and can
+misrank them — treat it as a rough "is anything nearby?" screen, not a metric. Worked example:
+permit **042451** (Ammoniacal Nitrogen as N) is **86 m** from the *boundary* of Morden Bog & Hyde
+Heath SSSI (and the co-located Dorset Heaths SAC / Dorset Heathlands SPA) — but that heath's
+*centroid* is ~2.1 km away, so the centroid query instead surfaces 042451 at **948 m from East
+Coppice SSSI**. The permit shows up (which is the point of the demo), just against a farther,
+smaller neighbour. Use the GraphDB boundary query for anything quantitative.
+
 **To do:** pin the nutrient determinand set to an explicit codelist (rather than a label match), and
 add this as a first-class app view once the frontend talks to GraphDB.
 
-## 2. CRS / distance caveat — verify on GraphDB
+## 2. CRS / geodesic-distance caveat — verify on GraphDB
 
-Everything is stored WGS84/CRS84 (one CRS across all graphs) on the assumption that GraphDB's
-GeoSPARQL `geof:distance(…, …, uom:metre)` returns **geodesic metres** on geographic coordinates.
-**Verify this once** against the target GraphDB. If it turns out to compute planar degrees instead,
-the fallback is to also emit a projected **EPSG:27700 (British National Grid, metres)** geometry on
-both the designations *and* the discharge points and compute distance there — the shredder already
-has the reprojection machinery.
+Separate from the point-only limitation above (which is why the polygon query is empty *locally*),
+this is the caveat for when it runs *on GraphDB*: everything is stored WGS84/CRS84 (one CRS across all
+graphs) on the assumption that GraphDB's GeoSPARQL `geof:distance(…, …, uom:metre)` returns
+**geodesic metres** on geographic coordinates. **Verify this once** against the target GraphDB. If it
+turns out to compute planar degrees instead, the fallback is to also emit a projected **EPSG:27700
+(British National Grid, metres)** geometry on both the designations *and* the discharge points and
+compute distance there — the shredder already has the reprojection machinery.
 
 ## 3. Geometry precision
 
