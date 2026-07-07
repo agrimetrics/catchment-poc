@@ -664,6 +664,7 @@ const wqeLink = (sp) =>
   sp ? `<a class="ext-link" href="${WQE}${esc(sp)}" target="_blank" rel="noopener">${esc(sp)} ↗</a>` : "—";
 
 const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
+const actionMarkers = {}; // WINEP action IRI -> marker (current render), for table<->map focus
 // Farming overlap disambiguation: applications overlap heavily, so we keep each drawn polygon and
 // its ring to (a) list ALL applications under the cursor on hover, and (b) pick one from a popup.
 const appShapes = {}; // app IRI -> polygon layer (current render)
@@ -692,7 +693,30 @@ let currentView = "breaches";
 let currentSubstance = ""; // notation or ""
 let currentOptionType = ""; // farming: broader option-group code filter, or ""
 let selectedApp = null;    // farming: selected application IRI (or null)
+let selectedAction = null; // WINEP: focused action IRI (or null) — links the table row and map marker
 let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar)
+
+// Focus a WINEP action, keeping the table row and its map marker in sync (the dashed-underlined
+// action id in the table and the marker both call this). fromMap=true means the click came from the
+// marker, so we bring the table row into view; otherwise we pan the map to the marker + open it.
+function focusAction(iri, fromMap) {
+  selectedAction = iri;
+  document.querySelectorAll("#tables tr.action-row").forEach((tr) => tr.classList.toggle("sel", tr.dataset.action === iri));
+  for (const k in actionMarkers) styleActionMarker(actionMarkers[k], k === iri);
+  const mk = actionMarkers[iri];
+  if (fromMap) {
+    const tr = [...document.querySelectorAll("#tables tr.action-row")].find((t) => t.dataset.action === iri);
+    if (tr) tr.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else if (mk) {
+    map.panTo(mk.getLatLng());
+    mk.openPopup();
+  }
+}
+function styleActionMarker(mk, on) {
+  mk.setStyle({ color: "#0b1016", weight: 1.5, fillColor: on ? "#c9aaff" : "#a06bff", fillOpacity: on ? 1 : 0.85 });
+  mk.setRadius(on ? 9 : 7);
+  if (on) mk.bringToFront();
+}
 
 // ---------------------------------------------------------------------------
 // Load everything once
@@ -766,6 +790,9 @@ async function loadAll() {
     return {
       iri: a.action, id: last(a.action), label: a.label, desc: a.desc || "",
       completion: a.completion || "", permit: a.permit || null,
+      // Delivering party. All current WINEP actions are Wessex Water (the "WW" in the action id);
+      // default it here until the data carries an explicit operator for multi-company actions.
+      party: a.party || "Wessex Water",
       lat: p ? p[0] : null, lon: p ? p[1] : null,
     };
   });
@@ -1084,6 +1111,34 @@ function limitText(l) {
   return "—";
 }
 
+// Flatten an action's limits into individual display lines — one per bound/tier — so a multi-tier
+// limit (e.g. Iron: 8 mg/l Maximum + 4 mg/l 95th percentile) reads on separate rows rather than
+// being ";"-joined into one cell, and the Limits count matches the number of rows shown.
+function limitLines(limits) {
+  const lines = [];
+  for (const l of limits) {
+    const base = { subLabel: l.subLabel, subNotation: l.subNotation };
+    if (l.carried || (l.continues && !l.bounds.length)) lines.push({ ...base, text: "Continued (no change)", carried: true });
+    else if (l.bounds.length)
+      for (const b of l.bounds)
+        lines.push({ ...base, text: `${fmtNum(b.val)} ${prettyUnit(b.unit)}${b.stat ? " (" + esc(b.stat) + ")" : ""}` });
+    else lines.push({ ...base, text: l.stmt ? esc(l.stmt) : "—" });
+  }
+  return lines;
+}
+
+// The permit's current in-force limit for a substance, as text — for showing alongside the proposed
+// limit. Returns null when the substance isn't currently regulated on that permit (i.e. a new limit).
+function currentLimitFor(permit, subNotation) {
+  const c = DB.conditionsCurrent.find((x) => x.permit === permit && x.subNotation === subNotation);
+  if (!c) return null;
+  const u = prettyUnit(c.unit);
+  const parts = [];
+  if (c.upper != null && c.upper !== "") parts.push(`≤ ${fmtNum(c.upper)}`);
+  if (c.lower != null && c.lower !== "") parts.push(`≥ ${fmtNum(c.lower)}`);
+  return parts.length ? parts.join(" ") + (u ? " " + u : "") : null;
+}
+
 const drawnBounds = [];
 
 function render() {
@@ -1169,10 +1224,15 @@ function render() {
     layers.dischargePoints.addTo(map);
   }
   if (show.action) {
+    const winep = currentView === "wessex"; // only the WINEP table has rows to focus/sync with
+    for (const k in actionMarkers) delete actionMarkers[k];
     for (const a of DB.actions) {
       if (a.lat == null) continue;
       if (currentView === "substance" && currentSubstance && !actionIdsWithSub.has(a.iri)) continue;
-      circle(a.lat, a.lon, dot("#a06bff", 7, 0.85), actionPopup(a, limByAction[a.iri] || [])).addTo(layers.actions);
+      const on = a.iri === selectedAction;
+      const mk = circle(a.lat, a.lon, dot(on ? "#c9aaff" : "#a06bff", on ? 9 : 7, on ? 1 : 0.85), actionPopup(a, limByAction[a.iri] || []));
+      if (winep) { mk.on("click", () => focusAction(a.iri, true)); actionMarkers[a.iri] = mk; }
+      mk.addTo(layers.actions);
       drawnBounds.push([a.lat, a.lon]);
     }
     layers.actions.addTo(map);
@@ -1343,21 +1403,41 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
 }
 
 function actionTable(actions, limByAction) {
-  const rows = [...actions].sort((a, b) => (a.completion < b.completion ? -1 : 1)).map((a, i) => {
-    const limits = limByAction[a.iri] || [];
-    return `<tr class="expandable" data-row="${i}">
-        <td><span class="caret">▸</span> <span class="mono">${esc(a.id)}</span></td>
-        <td>${esc(a.label)}</td><td>${fmtDate(a.completion) || "TBC"}</td>
-        <td class="mono">${permitRef(a.permit)}</td><td>${limits.length}</td></tr>
-      <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
+  // Sort ONCE and use this order for both the rows (data-row=i) and the wireExpand keys, so each
+  // expansion resolves to the action on its own row (previously rows were sorted but the keys were
+  // not, cross-wiring one action's row to another action's limits).
+  const sorted = [...actions].sort((a, b) => (a.completion < b.completion ? -1 : 1));
+  const rows = sorted.map((a, i) => {
+    const nLimits = limitLines(limByAction[a.iri] || []).length; // individual limit lines (matches the expansion)
+    return `<tr class="expandable action-row${a.iri === selectedAction ? " sel" : ""}" data-row="${i}" data-action="${esc(a.iri)}">
+        <td><span class="caret">▸</span> <span class="sub-link mono">${esc(a.id)}</span></td>
+        <td>${esc(a.party)}</td><td>${esc(a.label)}</td><td>${fmtDate(a.completion) || "TBC"}</td>
+        <td class="mono">${permitRef(a.permit)}</td><td class="num">${nLimits}</td></tr>
+      <tr class="expand-row hidden" data-exp="${i}"><td colspan="6"><div class="expand-inner"></div></td></tr>`;
   }).join("");
-  const c = card("Wessex Water actions", actions.length, tableEl(["Action", "Name", "Completion", "Target permit", "Limits"], rows));
-  wireExpand(c, actions.map((a) => a.iri), (iri) => {
+  const c = card("WINEP Actions", actions.length, tableEl(["Action", "Party", "Name", "Completion", "Target permit", "Limits|r"], rows));
+  // Clicking a row focuses the action on the map (marker highlight + pan + popup); it still expands.
+  c.addEventListener("click", (e) => {
+    const tr = e.target.closest(".action-row");
+    if (tr) focusAction(tr.dataset.action, false);
+  });
+  wireExpand(c, sorted.map((a) => a.iri), (iri) => {
     const a = DB.actions.find((x) => x.iri === iri);
-    const limits = limByAction[iri] || [];
-    const body = tableEl(["Substance", "New limit"],
-      limits.map((l) => `<tr><td>${esc(l.subLabel || "—")}</td><td>${l.carried ? '<span class="pill carried">continued</span> ' : ""}${limitText(l)}</td></tr>`).join("")
-      || `<tr><td colspan="2" class="empty">No structured limits.</td></tr>`);
+    const lines = limitLines(limByAction[iri] || []);
+    // One row per limit line; the substance label + its matching current limit show once per
+    // substance (blank on that substance's subsequent tier rows). A "continued" limit is just the
+    // pill (it keeps the current limit, shown to the right); a substance with no current limit shows
+    // a "none" pill (i.e. a brand-new limit).
+    const body = tableEl(["Substance", "New limit", "Current limit"],
+      lines.map((ln, idx) => {
+        const firstOfSub = idx === 0 || lines[idx - 1].subNotation !== ln.subNotation;
+        const cur = firstOfSub ? currentLimitFor(a?.permit, ln.subNotation) : null;
+        return `<tr>
+          <td>${firstOfSub ? esc(ln.subLabel || "—") : ""}</td>
+          <td>${ln.carried ? '<span class="pill carried">continued</span>' : ln.text}</td>
+          <td>${firstOfSub ? (cur || '<span class="pill none">none</span>') : ""}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="3" class="empty">No structured limits.</td></tr>`);
     return `${a?.desc ? `<p style="color:#93a4b3">${esc(a.desc)}</p>` : ""}${body.outerHTML}`;
   });
   return c;
@@ -1610,6 +1690,7 @@ function setView(v) {
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   if (v !== "farming") { selectedApp = null; closeChart(); } // drop the pie when leaving farming
+  if (v !== "wessex") selectedAction = null; // drop the WINEP action focus when leaving
   if (v === "substance" && !currentSubstance) {
     currentSubstance = NITROGEN;
     document.getElementById("substance").value = NITROGEN;

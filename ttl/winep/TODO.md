@@ -20,6 +20,20 @@ analytes, tiers). Of 268 proposed limits:
 | `TBC` ×4      | genuinely undecided at source                       | none — stays a statement until the permit is confirmed    |
 | `0.20kg/d` ×1 | a **mass-load** limit (kg/day), not a concentration | add a load unit + model load limits (different dimension) |
 
+## Delivering party (operator) — not yet in the data
+
+Every action here is **Wessex Water** (the `WW` in the `08WW…` action id), so the app's WINEP table
+shows a **Party** column hard-defaulted to "Wessex Water" (see `party` in `DB.actions`,
+`app/app.js`). The PR24 WINEP dataset is national and carries the delivering company per action, so
+before adding other companies' actions:
+
+- shred the company/operator column into the graph (e.g. `reg:deliveredBy` → an operator resource,
+  or at minimum a `rdfs:label`),
+- fetch it in the `actions` query and drop the hard-coded default so the Party column reflects the
+  real operator, and
+- generalise the WINEP lede (`LEDE.wessex`, `app/app.js`) — it currently hard-codes "Wessex Water
+  has N WINEP actions", which is accurate today but wrong once other companies' actions are added.
+
 ## Interpretive assumptions worth a review
 
 The parser makes deterministic but *interpretive* choices — confirm these are right:

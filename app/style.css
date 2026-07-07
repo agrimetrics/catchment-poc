@@ -191,6 +191,10 @@ svg.bars { max-width: 340px; margin: 2px auto 0; }
 tbody tr.app-row { cursor: pointer; }
 tbody tr.app-row.sel { background: #2a2416; box-shadow: inset 3px 0 0 #f5a623; }
 tbody tr.app-row.sel:hover { background: #322a18; }
+/* WINEP action row focused (synced with its purple map marker). */
+tbody tr.action-row { cursor: pointer; }
+tbody tr.action-row.sel { background: #241f33; box-shadow: inset 3px 0 0 #a06bff; }
+tbody tr.action-row.sel:hover { background: #2b2540; }
 
 .muted { color: var(--muted); }
 .unpriced-tag { color: #d9a441; font-size: 11px; white-space: nowrap; }
@@ -293,6 +297,8 @@ tbody tr:hover { background: #1b2836; }
 .pill.past { background: rgba(245,166,35,.16); color: #f5c47a; }
 .pill.carried { background: rgba(147,164,179,.18); color: var(--muted); }
 .pill.proposed { background: rgba(160,107,255,.18); color: #c9aaff; }
+/* "none" — an absent current limit (i.e. a brand-new limit): a faint, quiet pill. */
+.pill.none { background: rgba(147,164,179,.10); color: var(--muted); font-weight: 500; }
 
 .expand-row > td { background: #131d27; padding: 0; }
 .expand-inner { padding: 4px 12px 10px 12px; }
