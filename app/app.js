@@ -642,6 +642,15 @@ function selectApp(iri) {
 }
 window.selectApp = selectApp;
 
+// Reset the farming focus back to the filter-driven view (no application selected). Overlapping
+// hulls make deselecting-by-clicking painful, so this is the one-shot escape hatch — wired to the
+// chart's ✕, the Escape key, clicking empty map, and a "clear selection" link in the table header.
+function clearAppFocus() {
+  if (!selectedApp) return;
+  selectedApp = null;
+  render();
+}
+
 // clickable substance name that opens the chart (needs a sampling point)
 const subLink = (label, subNotation, sp, permit) =>
   sp ? `<span class="sub-link" onclick="openChart('${subNotation}','${esc(sp)}','${permit}')">${esc(label)}</span>` : esc(label);
@@ -831,6 +840,31 @@ function initMap() {
     attribution: "© OpenStreetMap contributors", maxZoom: 18,
   }).addTo(map);
 
+  // Base-map style toggle: full colour vs a desaturated (greyscale) version, so the coloured markers
+  // and shaded designation polygons on top read more clearly. It is a CSS filter on the tile
+  // container only — the vector overlays live in other panes, so they keep their colour.
+  const savedBasemap = (() => { try { return localStorage.getItem("basemap"); } catch (e) { return null; } })() || "colour";
+  setBasemap(savedBasemap);
+  const BasemapControl = L.Control.extend({
+    options: { position: "topright" },
+    onAdd() {
+      const div = L.DomUtil.create("div", "basemap-control");
+      div.innerHTML =
+        `<button type="button" data-bm="colour" title="Full-colour base map">Colour</button>` +
+        `<button type="button" data-bm="desaturated" title="Desaturated base map — makes overlays stand out">Desaturated</button>`;
+      div.querySelectorAll("button").forEach((b) => {
+        b.classList.toggle("on", b.dataset.bm === savedBasemap);
+        b.addEventListener("click", () => {
+          div.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+          setBasemap(b.dataset.bm);
+        });
+      });
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    },
+  });
+  map.addControl(new BasemapControl());
+
   // A pane for the conservation underlays: above the tiles, below every vector/marker (overlayPane
   // is 400, markerPane 600), and non-interactive so it never intercepts clicks on the data above it.
   map.createPane("designations");
@@ -855,6 +889,21 @@ function initMap() {
   // when it closes.
   map.on("popupopen", (e) => { if (e.popup.options.className === "picker-popup") { pickerOpen = true; hideOverlapTip(); } });
   map.on("popupclose", (e) => { if (e.popup.options.className === "picker-popup") { pickerOpen = false; restoreAllShapes(); } });
+
+  // Click on empty map (no application polygon under the cursor) resets the farming focus — the
+  // intuitive "click away to deselect". Clicks on a hull hit containingApps() and open the picker
+  // instead, so this only fires on genuine background clicks.
+  map.on("click", (e) => {
+    if (currentView === "farming" && selectedApp && !containingApps(e.latlng).length) clearAppFocus();
+  });
+}
+
+// Toggle the base-map tiles between full colour and desaturated (greyscale). The filter is applied
+// to the tile layer's container, so only the basemap is affected, not the vector overlays.
+function setBasemap(mode) {
+  const container = base && base.getContainer();
+  if (container) container.classList.toggle("basemap-desaturated", mode === "desaturated");
+  try { localStorage.setItem("basemap", mode); } catch (e) {}
 }
 
 function dot(color, r = 7, opacity = 0.9) {
@@ -1496,9 +1545,13 @@ function applicationsTable() {
       <td class="num">${cost}</td>
     </tr>`;
   }).join("");
-  const c = card('Applications <span class="count">— click one to value it</span>',
+  const hint = selectedApp
+    ? '<span class="count">— <span class="sub-link clear-sel" title="Reset focus back to the filters">✕ clear selection</span></span>'
+    : '<span class="count">— click one to value it</span>';
+  const c = card(`Applications ${hint}`,
     apps.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows));
   c.addEventListener("click", (e) => {
+    if (e.target.closest(".clear-sel")) { clearAppFocus(); return; }
     const tr = e.target.closest(".app-row");
     if (tr) selectApp(tr.dataset.app);
   });
@@ -1584,7 +1637,18 @@ async function main() {
     if (currentOptionType && selectedApp && !appHasType(selectedApp, currentOptionType)) selectedApp = null;
     render();
   });
-  document.getElementById("chart-close").addEventListener("click", closeChart);
+  // The chart is the manifestation of a focused application, so in farming its ✕ clears the
+  // selection (which also closes the chart); elsewhere (the substance time-series) it just closes.
+  document.getElementById("chart-close").addEventListener("click", () => {
+    if (currentView === "farming" && selectedApp) clearAppFocus();
+    else closeChart();
+  });
+  // Escape resets the farming focus, or closes an open chart on the other views.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (currentView === "farming" && selectedApp) clearAppFocus();
+    else if (!document.getElementById("chart").classList.contains("hidden")) closeChart();
+  });
 
   // Deep-link support: ?view=breaches|substance|wessex|overall & ?sub=<notation>
   const params = new URLSearchParams(location.search);
