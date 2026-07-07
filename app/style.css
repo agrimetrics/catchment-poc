@@ -64,6 +64,8 @@ nav#views {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 6px 8px 8px;
+  display: flex;
+  flex-direction: column; /* so the filter can pin to the bottom and line up across boxes */
 }
 .view-group.water { flex: 3 1 0; background: rgba(90, 169, 255, .04); }
 .view-group.land { flex: 1 1 0; background: rgba(70, 185, 120, .05); }
@@ -74,6 +76,12 @@ nav#views {
 .view-group.water > legend { color: #5aa9ff; }
 .view-group.land > legend { color: #46b978; }
 .group-buttons { display: flex; gap: 8px; }
+/* A filter dropdown living inside a domain super-box (Substance in Water, Option type in Land). */
+.group-filter {
+  margin-top: auto; padding-top: 8px; /* pin to the bottom so Substance & Option type align */
+  color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+}
+.group-filter select { margin-top: 4px; width: 100%; min-width: 0; font-size: 13px; padding: 6px 9px; }
 nav#views button {
   flex: 1 1 0;
   min-width: 170px;

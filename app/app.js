@@ -144,6 +144,15 @@ const Q = {
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?c }
     } GROUP BY ?app ?appId ?scheme`,
 
+  // Canonical broader-group labels (HRW → Hedgerows). Used as a fallback for options whose own
+  // concept isn't in the scheme (so it carries no broader link) but whose group code is labelled.
+  groupLabels: `${PREFIXES}
+    SELECT ?code ?label WHERE {
+      ?bc skos:prefLabel ?label .
+      FILTER(STRSTARTS(STR(?bc), "http://example.com/sfi/Option/Concept/"))
+      BIND(REPLACE(STR(?bc), ".*/Concept/", "") AS ?code)
+    }`,
+
   // Farming: one row per option — its concept definition, broader group (+ label), annual payment
   // and multipoint geometry. Drives the hulls, spiders, option tables and pie.
   sfiOptions: `${PREFIXES}
@@ -660,6 +669,7 @@ let map, base, catchmentLayer;
 const layers = {};   // name -> L.LayerGroup / MarkerClusterGroup
 let currentView = "breaches";
 let currentSubstance = ""; // notation or ""
+let currentOptionType = ""; // farming: broader option-group code filter, or ""
 let selectedApp = null;    // farming: selected application IRI (or null)
 let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar)
 
@@ -667,12 +677,16 @@ let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar
 // Load everything once
 // ---------------------------------------------------------------------------
 async function loadAll() {
-  const [substances, breaches, dps, conditions, actions, proposed, applications, sfiOptions, limitHistory] =
+  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory] =
     await Promise.all([
       sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
       sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed),
-      sparql(Q.applications), sparql(Q.sfiOptions), sparql(Q.limitHistory),
+      sparql(Q.applications), sparql(Q.groupLabels), sparql(Q.sfiOptions), sparql(Q.limitHistory),
     ]);
+
+  // Canonical broader-group label map (code -> label), for the option-type fallback below.
+  DB.groupLabels = {};
+  for (const r of groupLabels) DB.groupLabels[r.code] = r.label;
 
   // Dated limit history per (permit, substance): each permit version's bound(s) over its
   // effective window [from, to] (from the public register). Powers the chart's stepped limit line.
@@ -766,7 +780,7 @@ async function loadAll() {
     const broaderCode = o.broader ? last(o.broader) : (code.match(/[A-Za-z]+/) || [""])[0].replace(/^C/, "");
     return {
       app: o.app, iri: o.opt, code, def: o.def || "",
-      broader: broaderCode, broaderLabel: o.broaderLabel || broaderCode,
+      broader: broaderCode, broaderLabel: o.broaderLabel || DB.groupLabels[broaderCode] || broaderCode,
       cost: o.cost != null ? Number(o.cost) : null,
       points, centroid: centroidOf(points),
     };
@@ -779,12 +793,21 @@ async function loadAll() {
     a.priced = opts.length - a.unpriced;
   }
 
-  // Substance dropdown
+  // Substance dropdown (Water super-box)
   DB.substances = substances;
   const sel = document.getElementById("substance");
   sel.innerHTML =
     `<option value="">All substances</option>` +
     substances.map((s) => `<option value="${s.notation}">${esc(s.label)} (${s.notation})</option>`).join("");
+
+  // Option-type dropdown (Land super-box): the distinct broader intervention groups.
+  DB.optionTypes = {};
+  for (const o of DB.sfiOptions) DB.optionTypes[o.broader] = o.broaderLabel;
+  const typeSel = document.getElementById("optionType");
+  typeSel.innerHTML =
+    `<option value="">All option types</option>` +
+    Object.entries(DB.optionTypes).sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([code, label]) => `<option value="${esc(code)}">${esc(label)} (${esc(code)})</option>`).join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -1187,6 +1210,12 @@ function actionTable(actions, limByAction) {
 // ---------------------------------------------------------------------------
 // Farming view: application hulls on the map, a spider + pie for the selected one.
 // ---------------------------------------------------------------------------
+// Farming filter: does an application include an option of the given broader type; and the current
+// application set after the Land "Option type" filter.
+const appHasType = (iri, code) => (DB.optionsByApp[iri] || []).some((o) => o.broader === code);
+const farmingApps = () =>
+  currentOptionType ? DB.applications.filter((a) => appHasType(a.iri, currentOptionType)) : DB.applications;
+
 // --- Overlap handling: which applications sit under a point, and how we highlight them ----------
 function pointInRing(lat, lng, ring) {
   let inside = false;
@@ -1260,8 +1289,9 @@ function openPicker(latlng) {
 // Lede for the farming view: the prices broken down per programme (so it's clear which carries
 // finances) plus why SFI 2023 agreements are unpriced.
 function farmingLede() {
+  const apps = farmingApps();
   const byProg = {};
-  for (const a of DB.applications) {
+  for (const a of apps) {
     const p = progOf(a);
     const g = (byProg[p.label] ||= { label: p.label, color: p.color, priced: p.priced, apps: 0, total: 0 });
     g.apps++; g.total += a.total;
@@ -1270,9 +1300,12 @@ function farmingLede() {
     `<span class="prog-chip"><span class="swatch" style="background:${g.color}"></span>` +
     `${esc(g.label)}: <b>${g.apps}</b> agreement${g.apps === 1 ? "" : "s"} · ` +
     `${g.priced ? "<b>" + fmtGBP(g.total) + "</b>/yr" : "rates unavailable"}</span>`).join("");
-  return `<b>Farming (SFI)</b> — ${DB.applications.length} agreements holding ${DB.sfiOptions.length} options ` +
+  const filterNote = currentOptionType
+    ? ` Filtered to agreements with a <b>${esc(DB.optionTypes[currentOptionType] || currentOptionType)}</b> option.`
+    : "";
+  return `<b>Farming (SFI)</b> — ${apps.length} agreement${apps.length === 1 ? "" : "s"} ` +
     `paying farmers to cut diffuse pollution at source. Only <b>SFI Expanded Offer</b> rates are published in our ` +
-    `source, so <b>SFI 2023</b> agreements show as <b>unpriced</b>. Click an application to value it.` +
+    `source, so <b>SFI 2023</b> agreements show as <b>unpriced</b>.${filterNote} Click an application to value it.` +
     `<span class="prog-summary">${chips}</span>`;
 }
 
@@ -1291,7 +1324,7 @@ function renderFarming(tables) {
   for (const k in appRings) delete appRings[k];
   hideOverlapTip();
   const bounds = [];
-  for (const app of DB.applications) {
+  for (const app of farmingApps()) {
     const pts = (DB.optionsByApp[app.iri] || []).flatMap((o) => o.points);
     if (!pts.length) continue;
     const sel = app.iri === selectedApp;
@@ -1342,7 +1375,8 @@ function renderFarming(tables) {
 }
 
 function applicationsTable() {
-  const rows = DB.applications.map((a) => {
+  const apps = farmingApps();
+  const rows = apps.map((a) => {
     const prog = progOf(a);
     const cost = prog.priced
       ? `${fmtGBP(a.total)}/yr${a.unpriced ? ` <span class="unpriced-tag" title="${a.unpriced} option(s) with no published rate">+${a.unpriced}&nbsp;unpriced</span>` : ""}`
@@ -1356,7 +1390,7 @@ function applicationsTable() {
     </tr>`;
   }).join("");
   const c = card('Applications <span class="count">— click one to value it</span>',
-    DB.applications.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows));
+    apps.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows));
   c.addEventListener("click", (e) => {
     const tr = e.target.closest(".app-row");
     if (tr) selectApp(tr.dataset.app);
@@ -1436,6 +1470,12 @@ async function main() {
   }
   document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   document.getElementById("substance").addEventListener("change", (e) => { currentSubstance = e.target.value; render(); });
+  document.getElementById("optionType").addEventListener("change", (e) => {
+    currentOptionType = e.target.value;
+    // drop the selection if the filter no longer includes it
+    if (currentOptionType && selectedApp && !appHasType(selectedApp, currentOptionType)) selectedApp = null;
+    render();
+  });
   document.getElementById("chart-close").addEventListener("click", closeChart);
 
   // Deep-link support: ?view=breaches|substance|wessex|overall & ?sub=<notation>
