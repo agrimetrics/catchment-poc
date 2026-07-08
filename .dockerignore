@@ -1,0 +1,32 @@
+# Keep the build context (and image) small. Only app/, ttl/*.ttl, and the Markdown the in-app docs
+# viewer links to are needed at runtime.
+
+# Version control & local envs
+.git/
+.venv/
+venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Disk caches (also default outside the repo, but never ship them)
+.obs_cache/
+.tile_cache/
+
+# Regenerable pipeline intermediates
+*.duckdb
+*_raw.ttl
+
+# Heavy source data not needed at runtime — keep only the README/TODO the docs viewer links to.
+raw_datasets/**
+!raw_datasets/**/README.md
+!raw_datasets/**/TODO.md
+ontop/**
+!ontop/**/README.md
+!ontop/**/TODO.md
+
+# Misc
+gecko.log
+.DS_Store
+md

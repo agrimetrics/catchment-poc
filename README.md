@@ -52,6 +52,73 @@ there is no cleanup and no state to reset between runs.
 The rendered `.ttl` files are committed, so **running the app needs no pipeline rebuild** — only
 `poetry install` and `python app/server.py`.
 
+### Configuring the endpoints (pointing at another SPARQL server)
+
+The frontend reads its endpoints from [`app/config.js`](app/config.js) (`window.APP_CONFIG`), a plain
+static asset loaded before `app.js` — edit it, no rebuild:
+
+```js
+window.APP_CONFIG = {
+  sparqlEndpoint: "/sparql",                 // every table + the query editor
+  observationsEndpoint: "/observations",     // the substance time-series chart
+  tilesUrl: "/tiles/{z}/{x}/{y}.png",        // basemap tiles (same-origin proxy by default)
+};
+```
+
+- A **relative** path (`/sparql`) stays same-origin — no CORS. This is the right choice for a static
+  deployment whose reverse proxy forwards that path to an internal triplestore.
+- An **absolute** URL (`https://data.internal/sparql`) targets another host directly, which then must
+  send `Access-Control-Allow-Origin`, or the browser blocks it.
+- Quick, file-free override for testing: append `?sparql=<url>` (or `?observations=<url>`) to the page
+  URL.
+
+This is what lets the app run as a **static site** with the Python server removed entirely: host
+`app/` on any static host and set `sparqlEndpoint` to a same-origin path your proxy forwards to your
+SPARQL server. Two caveats for that mode:
+
+- **The EA Water Quality Archive has no CORS** (verified: its responses carry no
+  `Access-Control-Allow-Origin`, and the request's custom headers would trigger a preflight `OPTIONS`
+  that 404s). So the browser **cannot** call it directly — `observationsEndpoint` must point at a
+  proxy (e.g. the same reverse proxy that fronts your SPARQL server), not at `environment.data.gov.uk`.
+- The bundled `python app/server.py` remains the simplest way to serve everything from one origin for
+  local use; the config just decouples the frontend from it.
+
+### Deploying as a self-contained container
+
+For a hosted deployment (e.g. `environment-test.data.gov.uk`) the easiest path is the bundled Python
+app in a container — it serves **everything from one origin**, so there is no CORS anywhere and the
+browser only ever talks to your host:
+
+```bash
+docker build -t catchment-poc .
+docker run --rm -p 8000:8000 catchment-poc      # http://localhost:8000
+```
+
+To keep it working on a locked-down network, the frontend's third-party assets are **vendored** into
+[`app/vendor/`](app/vendor/) (Leaflet, markercluster, proj4, marked, and the SPARQL editor as a
+mirrored ES-module closure), and basemap tiles are proxied same-origin via `/tiles/{z}/{x}/{y}.png`.
+The page loads **no external CDN** — only this origin. The only outbound calls are *server-side*: the
+observations proxy to the EA archive, and the tile fetch.
+
+Runtime is configured by environment variables (all optional):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `HOST` | `127.0.0.1` (the image sets `0.0.0.0`) | Interface to bind |
+| `PORT` | `8000` | Port to listen on (platforms inject this) |
+| `EA_BASE` | `https://environment.data.gov.uk/water-quality/sampling-point` | Observations upstream — point at an egress proxy if direct egress is blocked |
+| `TILE_BASE` | `https://tile.openstreetmap.org` | Basemap tile source for the `/tiles` proxy |
+| `CACHE_DIR` | a temp dir (e.g. `/tmp/catchment-poc-cache`) | Where the observation + tile disk caches live — **outside the repo**. Set to a mounted volume to persist, or to `none`/`off`/empty to disable disk caching entirely |
+
+The store is the in-memory Oxigraph rebuilt from the committed `.ttl` on boot, so the container is
+fully self-sufficient — no external database. A note on the server itself: it uses the stdlib
+`http.server` (fine for an internal/test deployment with modest traffic); TLS and ingress are expected
+to be terminated by the platform's load balancer.
+
+> **Downloaded data never lands in the source tree.** The observation and tile caches default to a
+> temp directory outside the project (`CACHE_DIR`); nothing under `.obs_cache/` / `.tile_cache/` is
+> written into the repo or committed.
+
 ### The app's views
 
 The page always shows the catchment map with tables beneath it, grouped into **Water** and **Land**:
@@ -85,6 +152,31 @@ carry EPSG:27700 (British National Grid), reprojected in the browser with proj4.
 geometry is asserted on the discharge point we own (a `#geography` fragment), transcribed from the
 coordinates of the sampling point it is `monitoredAt`; the `environment.data.gov.uk` sampling point
 itself is left as a bare `geo:Feature`.
+
+### Per-table SPARQL provenance links
+
+Every table card carries a small **◈ SPARQL** link in its header that opens the embedded editor
+pre-loaded with a single query reproducing that table's rows — click it to see, and run, the exact
+question the table answers. This is the whole point of the demonstrator made legible: each table *is*
+one declarative question over the linked graphs, not a pile of imperative glue.
+
+There is a deliberate wrinkle worth stating plainly. At runtime the app does **not** run those
+single queries. It runs a smaller set of queries once (the `Q` object in [`app/app.js`](app/app.js))
+and **joins them in JavaScript**, because several views reuse the same base results and joining
+client-side avoids re-querying. The provenance links are a **separate, hand-maintained** set of
+queries (the `PQ` object) that fold each of those JS joins back into one SPARQL statement. Because
+they are a second representation of the same logic, **they can drift**: if a table's join changes in
+JS and its `PQ` query isn't updated to match, the link will show a query that no longer exactly
+reproduces the table. A couple of them also simplify on purpose (e.g. the substance-story query
+left-joins from current limits, so it omits the rare *proposed-only* row).
+
+We accept that drift knowingly. This is a proof-of-concept about **why** linked data — the value on
+show is that a heterogeneous catchment (regulation, WINEP, farming) becomes a set of tables each
+answerable by one readable query. Keeping the runtime split-and-join for performance while offering
+faithful-enough single queries for provenance serves that story better than distorting either side
+to force a single source of truth. If this graduated past a POC, the honest fix would be to drive the
+genuinely-single-query tables straight from their query (removing the JS join for those), and to add
+a check that runs each `PQ` query and compares its row count against the rendered table.
 
 ## Rebuilding the RDF pipelines
 

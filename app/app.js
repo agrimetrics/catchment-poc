@@ -12,7 +12,13 @@
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const ENDPOINT = "/sparql";
+// Endpoints come from config.js (window.APP_CONFIG), loaded before this file, so the app can be
+// pointed at another SPARQL server / observations proxy for a static deployment without a rebuild.
+// Fall back to same-origin defaults if config.js is absent.
+const CONFIG = window.APP_CONFIG || {};
+const ENDPOINT = CONFIG.sparqlEndpoint || "/sparql";
+const OBSERVATIONS_ENDPOINT = CONFIG.observationsEndpoint || "/observations";
+const TILES_URL = CONFIG.tilesUrl || "/tiles/{z}/{x}/{y}.png";
 const CENTER = [50.731, -2.370];
 const NITROGEN = "0111"; // Ammoniacal Nitrogen as N — the default for the substance story
 const WQE = "https://environment.data.gov.uk/water-quality/sampling-point/";
@@ -172,6 +178,115 @@ const Q = {
                  OPTIONAL { ?con skos:broader ?broader . OPTIONAL { ?broader skos:prefLabel ?broaderLabel } } }
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?cost }
     } GROUP BY ?app ?opt ?def ?broader ?broaderLabel ?cost`,
+};
+
+// ---------------------------------------------------------------------------
+// Provenance queries — the "◈ SPARQL" link on each table card.
+// ---------------------------------------------------------------------------
+// Each of these reproduces, as ONE declarative query, the row set the table shows — so a viewer can
+// open the exact question the table answers and run it. They are a SEPARATE, hand-maintained
+// representation from the runtime `Q` queries above: the app still runs the split `Q` queries once
+// and joins them in JavaScript (to reuse results across the four views), while these fold that merge
+// back into a single query for legibility. That means they CAN DRIFT from the JS join if the table
+// logic changes and one side isn't updated. That trade-off is deliberate — this is a POC about *why*
+// linked data, and the payoff is showing that every table is one answerable question, not a pile of
+// imperative glue. See README → "Per-table SPARQL provenance links". A couple deliberately simplify
+// (e.g. the substance story omits proposed-only rows); the drift note covers that.
+const XSD_PFX = "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n";
+// A permit's in-force limits are its highest-numbered version's conditions; this sub-select finds
+// that version per permit (the JS does it as Math.max over versions parsed from the condition IRI).
+const CUR_VERSION = `      { SELECT ?permit (MAX(xsd:integer(REPLACE(STR(?c), ".*/version/([0-9]+)/.*", "$1"))) AS ?curV)
+        WHERE { ?permit reg:hasCondition ?c } GROUP BY ?permit }`;
+
+const PQ = {
+  // Breaches — one row per breach period. This is the single runtime query (Q.breaches): SAMPLE +
+  // GROUP BY collapse the permit→discharge-point→sampling-point fan-out to one row per breach.
+  breaches: (sub) => `${PREFIXES}
+    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit (SAMPLE(?sp) AS ?sp) WHERE {
+      ?breach reg:breachesCondition ?cond ;
+              core:hasApplicability/core:applicabilityPeriod ?period .
+      ?period core:applicableFrom ?from .
+      OPTIONAL { ?period core:applicableTo ?to }
+      OPTIONAL { ?breach a ?type . FILTER(?type IN (reg:ExceedanceBreach, reg:ShortfallBreach)) }
+      ?cond reg:regulatedProperty ?sub .
+      ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
+      ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
+      ?dp water:monitoredAt ?sp .
+      ?breach reg:evidencedByObservation ?obs .
+      FILTER(STRSTARTS(STR(?obs), STR(?sp)))${sub ? `\n      FILTER(?subNotation = "${sub}")` : ""}
+    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit`,
+
+  // Permits & limits — one row per permit: current version, and counts of current-version limits,
+  // discharge points and breaches. The app builds this by grouping conditions and joining three more
+  // query results in JS; here it is one query with the current-version sub-select above.
+  permits: (sub) => `${PREFIXES}${XSD_PFX}
+    SELECT ?permit (MAX(?curV) AS ?version)
+           (COUNT(DISTINCT ?curCond) AS ?currentLimits)
+           (COUNT(DISTINCT ?dp) AS ?dischargePoints)
+           (COUNT(DISTINCT ?breach) AS ?breaches) WHERE {
+${CUR_VERSION}
+      ?permit a water:WaterDischargePermit .
+      OPTIONAL {
+        ?permit reg:hasCondition ?curCond .
+        FILTER(xsd:integer(REPLACE(STR(?curCond), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
+      }
+      OPTIONAL { ?permit reg:permitSite ?dp }
+      OPTIONAL { ?breach reg:breachesCondition ?bc . ?permit reg:hasCondition ?bc }${sub ? `
+      FILTER EXISTS { ?permit reg:hasCondition ?sc .
+        FILTER(xsd:integer(REPLACE(STR(?sc), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
+        ?sc reg:regulatedProperty ?scp . ?scp skos:notation "${sub}" }` : ""}
+    } GROUP BY ?permit`,
+
+  // Substance story — the current permit limit joined to any proposed WINEP future limit, per permit
+  // and substance. (Simplification: this LEFT-joins from current limits, so it omits the rare
+  // proposed-only row — a future limit for a permit/substance with no current limit.)
+  substanceStory: (sub) => `${PREFIXES}${XSD_PFX}
+    SELECT ?permit ?subLabel ?currentUpper ?unit ?monitoredAt ?action ?actionName ?completion ?proposedUpper WHERE {
+${CUR_VERSION}
+      ?permit reg:hasCondition ?cond .
+      FILTER(xsd:integer(REPLACE(STR(?cond), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
+      ?cond reg:regulatedProperty ?sub . ?sub skos:notation ?subNotation ; skos:prefLabel ?subLabel .${sub ? `
+      FILTER(?subNotation = "${sub}")` : ""}
+      OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?currentUpper .
+                 OPTIONAL { ?ub qudt:unit/skos:prefLabel ?unit } }
+      OPTIONAL { ?permit reg:permitSite/water:monitoredAt ?monitoredAt }
+      OPTIONAL { ?action reg:targetPermit ?permit ; reg:proposesLimit ?lim ; rdfs:label ?actionName .
+                 ?lim reg:regulatedProperty ?s2 . ?s2 skos:notation ?subNotation .
+                 OPTIONAL { ?action core:applicabilityPeriod/core:applicableFrom ?completion }
+                 OPTIONAL { ?lim reg:upperBound/qudt:numericValue ?proposedUpper } }
+    }`,
+
+  // WINEP actions — one row per action with a count of the future limits it proposes (Q.actions plus
+  // the proposed-limit join the app does as limByAction).
+  actions: () => `${PREFIXES}
+    SELECT ?action ?label ?completion ?permit (COUNT(DISTINCT ?limit) AS ?limits) WHERE {
+      ?action a reg:Action ; rdfs:label ?label .
+      OPTIONAL { ?action reg:targetPermit ?permit }
+      OPTIONAL { ?ap core:applicabilityPeriod/core:applicableFrom ?completion .
+                 FILTER(STRSTARTS(STR(?ap), CONCAT(STR(?action), "#"))) }
+      OPTIONAL { ?action reg:proposesLimit ?limit }
+    } GROUP BY ?action ?label ?completion ?permit ORDER BY ?completion`,
+
+  // Applications — one row per SFI application with its option count and total annual payment
+  // (Q.applications; the runtime also filters by option-type in JS, which this base question omits).
+  applications: () => `${PREFIXES}
+    SELECT ?app ?appId ?scheme (SUM(COALESCE(?c, 0)) AS ?total) (COUNT(DISTINCT ?opt) AS ?options) WHERE {
+      ?app a farm:Application ; core:hasPart ?opt .
+      OPTIONAL { ?app skos:notation ?appId }
+      OPTIONAL { ?app ex:scheme ?scheme }
+      OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?c }
+    } GROUP BY ?app ?appId ?scheme ORDER BY DESC(?total)`,
+
+  // Options for the selected application — one row per option with its concept and payment.
+  sfiOptions: (appIri) => `${PREFIXES}
+    SELECT ?opt ?broaderLabel ?def ?cost WHERE {${appIri ? `
+      BIND(<${appIri}> AS ?app)` : ""}
+      ?app a farm:Application ; core:hasPart ?opt .
+      OPTIONAL { ?opt core:hasClassification ?con .
+                 OPTIONAL { ?con skos:definition ?def }
+                 OPTIONAL { ?con skos:broader/skos:prefLabel ?broaderLabel } }
+      OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?cost }
+    }`,
 };
 
 // ---------------------------------------------------------------------------
@@ -354,14 +469,14 @@ async function openChart(subNotation, sp, permit) {
   }, 80);
   body.innerHTML = `<p class="chart-note">Loading observations…</p>`;
   try {
-    const res = await fetch(`/observations?samplingPoint=${encodeURIComponent(sp)}&determinand=${encodeURIComponent(subNotation)}`);
+    const res = await fetch(`${OBSERVATIONS_ENDPOINT}?samplingPoint=${encodeURIComponent(sp)}&determinand=${encodeURIComponent(subNotation)}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     const obs = (data.observations || [])
       .map((o) => ({ t: Date.parse(o.time), v: parseResult(o.result) }))
       .filter((o) => Number.isFinite(o.t) && o.v != null)
       .sort((a, b) => a.t - b.t);
-    body.innerHTML = renderChart(ctx, obs);
+    body.innerHTML = renderChart(ctx, obs, data);
   } catch (err) {
     body.innerHTML = `<p class="chart-note">Could not load observations: ${esc(err.message)}</p>`;
   }
@@ -373,7 +488,7 @@ function closeChart() {
   setTimeout(() => map.invalidateSize(), 60);
 }
 
-function renderChart(ctx, obs) {
+function renderChart(ctx, obs, meta = {}) {
   if (!obs.length) return `<p class="chart-note">No observations for this substance at this sampling point.</p>`;
   const W = 640, H = 380, m = { l: 52, r: 16, t: 14, b: 38 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
@@ -500,7 +615,13 @@ function renderChart(ctx, obs) {
     ${lines}${pts}
     <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
     <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
-  </svg><p class="chart-note">${obs.length} observations · live from the EA Water Quality Archive</p>`;
+  </svg><p class="chart-note">${obs.length}${meta.partial ? "+" : ""} observations · ${
+    meta.stale
+      ? "cached copy (EA archive unreachable — may be out of date)"
+      : meta.partial
+      ? "partial (EA archive slow) · live from the EA Water Quality Archive"
+      : "live from the EA Water Quality Archive"
+  }</p>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -863,7 +984,7 @@ async function loadAll() {
 // ---------------------------------------------------------------------------
 function initMap() {
   map = L.map("map", { zoomControl: true }).setView(CENTER, 11);
-  base = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  base = L.tileLayer(TILES_URL, {
     attribution: "© OpenStreetMap contributors", maxZoom: 18,
   }).addTo(map);
 
@@ -1261,10 +1382,16 @@ function groupBy(arr, key) {
 // ---------------------------------------------------------------------------
 // Table builders
 // ---------------------------------------------------------------------------
-function card(title, count, bodyEl) {
+function card(title, count, bodyEl, query) {
   const c = document.createElement("div");
   c.className = "card";
-  c.innerHTML = `<h2>${title} <span class="count">${count}</span></h2>`;
+  // Optional provenance link: opens the SPARQL editor pre-loaded with the query that reproduces
+  // this table's rows (see the PQ object). The query travels in the URL fragment so it never hits
+  // the server. See README → "Per-table SPARQL provenance links".
+  const link = query
+    ? ` <a class="sparql-link" href="sparql.html#q=${encodeURIComponent(query)}" target="_blank" rel="noopener" title="Open the SPARQL query behind this table">◈ SPARQL</a>`
+    : "";
+  c.innerHTML = `<h2>${title} <span class="count">${count}</span>${link}</h2>`;
   const scroll = document.createElement("div");
   scroll.className = "scroll";
   scroll.append(bodyEl);
@@ -1291,7 +1418,7 @@ function tableEl(head, rowsHtml) {
 }
 
 function breachTable(breaches) {
-  if (!breaches.length) return card("Breaches", "0", emptyBody("No breaches for this selection."));
+  if (!breaches.length) return card("Breaches", "0", emptyBody("No breaches for this selection."), PQ.breaches(currentSubstance));
   // current first, then most-recently-started
   const rows = [...breaches].sort((a, b) => (b.current - a.current) || (a.from < b.from ? 1 : -1)).map((b) => `
     <tr>
@@ -1301,12 +1428,12 @@ function breachTable(breaches) {
       <td class="ctr">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
       <td>${wqeLink(b.sp)}</td>
     </tr>`).join("");
-  return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status|c", "Sampling point (WQE)"], rows));
+  return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status|c", "Sampling point (WQE)"], rows), PQ.breaches(currentSubstance));
 }
 
 function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit) {
   const permits = [...new Set(conditions.map((c) => c.permit))].sort();
-  if (!permits.length) return card("Permits &amp; limits", "0", emptyBody("No permits for this selection."));
+  if (!permits.length) return card("Permits &amp; limits", "0", emptyBody("No permits for this selection."), PQ.permits(currentSubstance));
   const rows = permits.map((p, i) => {
     const cur = (condByPermit[p] || []); // current-version conditions only
     const dps = dpByPermit[p] || [];
@@ -1319,7 +1446,7 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
   }).join("");
   const c = card("Permits &amp; limits", permits.length,
-    tableEl(["Permit", "Current limits", "Discharge points", "Breaches|c", "Monitored at"], rows));
+    tableEl(["Permit", "Current limits", "Discharge points", "Breaches|c", "Monitored at"], rows), PQ.permits(currentSubstance));
   wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit));
   return c;
 }
@@ -1360,7 +1487,7 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
     if (a && a.permit) (futByKey[key(a.permit, l.subNotation)] ||= []).push({ a, l });
   }
   const keys = [...new Set([...Object.keys(curByKey), ...Object.keys(futByKey)])];
-  if (!keys.length) return card("Current limits &amp; future works", "0", emptyBody("Nothing for this substance."));
+  if (!keys.length) return card("Current limits &amp; future works", "0", emptyBody("Nothing for this substance."), PQ.substanceStory(currentSubstance));
 
   const rows = [];
   for (const k of keys) {
@@ -1399,7 +1526,8 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
 
   return card('Current limits &amp; future works <span class="count">— click a substance for its time-series chart</span>',
     `${conditions.length} current · ${proposed.length} proposed`,
-    tableEl(["Permit", "Substance", "Limit|r", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body));
+    tableEl(["Permit", "Substance", "Limit|r", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body),
+    PQ.substanceStory(currentSubstance));
 }
 
 function actionTable(actions, limByAction) {
@@ -1415,7 +1543,7 @@ function actionTable(actions, limByAction) {
         <td class="mono">${permitRef(a.permit)}</td><td class="num">${nLimits}</td></tr>
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="6"><div class="expand-inner"></div></td></tr>`;
   }).join("");
-  const c = card("WINEP Actions", actions.length, tableEl(["Action", "Party", "Name", "Completion", "Target permit", "Limits|r"], rows));
+  const c = card("WINEP Actions", actions.length, tableEl(["Action", "Party", "Name", "Completion", "Target permit", "Limits|r"], rows), PQ.actions());
   // Clicking a row focuses the action on the map (marker highlight + pan + popup); it still expands.
   c.addEventListener("click", (e) => {
     const tr = e.target.closest(".action-row");
@@ -1629,7 +1757,7 @@ function applicationsTable() {
     ? '<span class="count">— <span class="sub-link clear-sel" title="Reset focus back to the filters">✕ clear selection</span></span>'
     : '<span class="count">— click one to value it</span>';
   const c = card(`Applications ${hint}`,
-    apps.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows));
+    apps.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows), PQ.applications());
   c.addEventListener("click", (e) => {
     if (e.target.closest(".clear-sel")) { clearAppFocus(); return; }
     const tr = e.target.closest(".app-row");
@@ -1640,7 +1768,7 @@ function applicationsTable() {
 
 // Options for the selected application, grouped by broader concept (expandable to the components).
 function optionsTable(appIri) {
-  if (!appIri) return card("Options", "—", emptyBody("Select an application to see its options."));
+  if (!appIri) return card("Options", "—", emptyBody("Select an application to see its options."), PQ.sfiOptions(null));
   const byG = {};
   for (const o of DB.optionsByApp[appIri] || []) {
     const g = (byG[o.broader] ||= { code: o.broader, label: o.broaderLabel, items: [], total: 0, unpriced: 0 });
@@ -1660,7 +1788,7 @@ function optionsTable(appIri) {
     </tr>
     <tr class="expand-row hidden" data-exp="${i}"><td colspan="3"><div class="expand-inner"></div></td></tr>`).join("");
   const c = card(`Options <span class="count">— ${esc(DB.appById[appIri]?.id || "")}</span>`, nOpts,
-    tableEl(["Group", "Options|r", "Cost|r"], rows));
+    tableEl(["Group", "Options|r", "Cost|r"], rows), PQ.sfiOptions(appIri));
   wireExpand(c, groups, (g) => tableEl(["Option", "Description", "Cost|r"],
     g.items.slice().sort((a, b) => (b.cost || 0) - (a.cost || 0)).map((o) =>
       `<tr><td class="mono">${esc(o.code)}</td><td>${esc(o.def || "—")}</td>` +

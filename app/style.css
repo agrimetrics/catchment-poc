@@ -282,6 +282,21 @@ section#tables { padding: 18px 20px 60px; display: grid; gap: 20px; }
   gap: 10px;
 }
 .card > h2 .count { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+/* Provenance link: opens the SPARQL query behind this table. Pushed to the right of the header. */
+.card > h2 .sparql-link {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.card > h2 .sparql-link:hover { border-color: var(--accent); color: var(--accent); }
 .card .scroll { max-height: 420px; overflow: auto; }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }

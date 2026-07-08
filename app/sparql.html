@@ -8,8 +8,12 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="sparql.css" />
 
-  <!-- SPARQL editor web component (same CDN approach as Leaflet/marked elsewhere). -->
-  <script type="module" src="https://esm.sh/@sib-swiss/sparql-editor@0.2.14"></script>
+  <!-- Endpoint configuration (window.APP_CONFIG), shared with the map app. Classic script in <head>
+       so it runs before the inline setup below. -->
+  <script src="config.js"></script>
+  <!-- SPARQL editor web component, vendored (mirrored esm.sh module closure) so the page loads only
+       from this origin. See app/vendor/sparql-editor/. -->
+  <script type="module" src="vendor/sparql-editor/sparql-editor.js"></script>
 </head>
 <body>
   <header>
@@ -20,22 +24,32 @@
     <a class="docs-link" href="index.html" title="Return to the map app">← Back to app</a>
   </header>
 
-  <!-- Same-origin endpoint (port 8000, served by app/server.py) — no CORS, like the rest of the app. -->
+  <!-- Endpoint comes from config.js (window.APP_CONFIG.sparqlEndpoint); defaults to the same-origin
+       /sparql served by app/server.py. Set it to your own endpoint/proxy for a static deployment. -->
   <sparql-editor></sparql-editor>
   <script>
     // The editor runs `new URL(endpoint)` internally, which rejects a relative path — a bare
     // endpoint="/sparql" fails silently with "/sparql is not a valid URL" and no query ever fires.
-    // So point it at the *absolute* same-origin URL (kept portable across host/port). Setting the
-    // attribute alone isn't enough: YASGUI's first tab is created with the relative default and
-    // ignores it, so also set each tab's endpoint once YASGUI has initialised, and on any new tab.
+    // So resolve the configured endpoint to an *absolute* URL (a relative path resolves against this
+    // origin; an absolute URL is used as-is). Setting the attribute alone isn't enough: YASGUI's first
+    // tab is created with the relative default and ignores it, so also set each tab's endpoint once
+    // YASGUI has initialised, and on any new tab.
     (function () {
-      var ep = location.origin + "/sparql";
+      var raw = (window.APP_CONFIG && window.APP_CONFIG.sparqlEndpoint) || "/sparql";
+      var ep = new URL(raw, location.origin).href;
       var ed = document.querySelector("sparql-editor");
       ed.setAttribute("endpoint", ep);
+      // Deep link: a table's "◈ SPARQL" link arrives as #q=<url-encoded query>. Load it into the
+      // active tab once YASGUI is up (applied once, so re-selecting the tab doesn't clobber edits).
+      var deepQuery = null, deepApplied = false;
+      if (location.hash.indexOf("#q=") === 0) {
+        try { deepQuery = decodeURIComponent(location.hash.slice(3)); } catch (e) {}
+      }
       function fixTab() {
         try {
           var t = ed.yasgui.getTab();
           if (t && t.setEndpoint && t.getRequestConfig().endpoint !== ep) t.setEndpoint(ep);
+          if (t && deepQuery && !deepApplied && t.setQuery) { t.setQuery(deepQuery); deepApplied = true; }
         } catch (e) {}
       }
       var n = 0;

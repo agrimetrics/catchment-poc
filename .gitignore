@@ -32,3 +32,13 @@ ttl/winep/winep_raw.ttl
 
 # Firefox/Marionette screenshot driver artifact
 gecko.log
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Safety net: app/server.py's disk caches (observations + basemap tiles) default to a temp dir OUTSIDE
+# the repo, so downloaded data never lands here. These patterns only matter if CACHE_DIR is pointed
+# back into the tree — they keep that from ever being committed.
+/.obs_cache/
+/.tile_cache/
