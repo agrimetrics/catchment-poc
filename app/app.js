@@ -15,10 +15,11 @@
 // Endpoints come from config.js (window.APP_CONFIG), loaded before this file, so the app can be
 // pointed at another SPARQL server / observations proxy for a static deployment without a rebuild.
 // Fall back to same-origin defaults if config.js is absent.
+// Relative defaults (no leading slash) so the app works at the origin root AND under a sub-path.
 const CONFIG = window.APP_CONFIG || {};
-const ENDPOINT = CONFIG.sparqlEndpoint || "/sparql";
-const OBSERVATIONS_ENDPOINT = CONFIG.observationsEndpoint || "/observations";
-const TILES_URL = CONFIG.tilesUrl || "/tiles/{z}/{x}/{y}.png";
+const ENDPOINT = CONFIG.sparqlEndpoint || "sparql";
+const OBSERVATIONS_ENDPOINT = CONFIG.observationsEndpoint || "observations";
+const TILES_URL = CONFIG.tilesUrl || "tiles/{z}/{x}/{y}.png";
 const CENTER = [50.731, -2.370];
 const NITROGEN = "0111"; // Ammoniacal Nitrogen as N — the default for the substance story
 const WQE = "https://environment.data.gov.uk/water-quality/sampling-point/";

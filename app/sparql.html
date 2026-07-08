@@ -35,8 +35,10 @@
     // tab is created with the relative default and ignores it, so also set each tab's endpoint once
     // YASGUI has initialised, and on any new tab.
     (function () {
-      var raw = (window.APP_CONFIG && window.APP_CONFIG.sparqlEndpoint) || "/sparql";
-      var ep = new URL(raw, location.origin).href;
+      var raw = (window.APP_CONFIG && window.APP_CONFIG.sparqlEndpoint) || "sparql";
+      // Resolve against the PAGE URL (document.baseURI), not the origin root, so a relative endpoint
+      // works under a sub-path deployment (/catchment-demo/sparql.html -> /catchment-demo/sparql).
+      var ep = new URL(raw, document.baseURI).href;
       var ed = document.querySelector("sparql-editor");
       ed.setAttribute("endpoint", ep);
       // Deep link: a table's "◈ SPARQL" link arrives as #q=<url-encoded query>. Load it into the

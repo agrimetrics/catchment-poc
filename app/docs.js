@@ -28,6 +28,11 @@ const DOCS = [
 const HOME = "/README.md";
 const TITLES = Object.fromEntries(DOCS.flatMap(g => g.items).map(d => [d.path, d.title]));
 
+// The doc paths above are server-root-absolute identifiers (used in the hash route). For the actual
+// network request, drop the leading slash so it resolves against the PAGE URL — that keeps the viewer
+// working under a sub-path deployment (/catchment-demo/) as well as at the origin root.
+const docUrl = (p) => p.replace(/^\//, "");
+
 const NAV = document.getElementById("docs-nav");
 const CONTENT = document.getElementById("content");
 let loadedPath = null;  // the doc currently rendered, so same-doc anchor jumps skip a refetch
@@ -84,7 +89,7 @@ function rewriteLinks(root, curPath) {
     if (u.pathname.endsWith(".md")) {        // another doc -> stay in the viewer
       a.setAttribute("href", `#${u.pathname}${u.hash}`);
     } else {                                 // a source file etc. -> open against the server
-      a.setAttribute("href", u.pathname + u.hash);
+      a.setAttribute("href", docUrl(u.pathname) + u.hash);  // page-relative, sub-path safe
       a.target = "_blank"; a.rel = "noopener"; a.classList.add("ext-link");
     }
   });
@@ -104,7 +109,7 @@ async function load() {
   CONTENT.innerHTML = '<div class="docs-article"><div class="loading">Loading…</div></div>';
   let md;
   try {
-    const res = await fetch(path, { headers: { accept: "text/markdown" } });
+    const res = await fetch(docUrl(path), { headers: { accept: "text/markdown" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     md = await res.text();
   } catch (e) {

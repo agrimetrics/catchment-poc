@@ -37,6 +37,11 @@ TTL = ROOT / "ttl"
 # inject PORT and expect the process to listen on all interfaces).
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
+# Mount prefix for serving under a sub-path (e.g. https://host/catchment-demo). Set BASE_PATH to the
+# prefix and the server strips it from every request, so a plain pass-through reverse proxy is all
+# that's needed — no proxy-side URL rewriting. Empty means served at the origin root. The frontend
+# uses relative URLs, so it adapts to whatever prefix the page is loaded under.
+BASE_PATH = "/" + os.environ.get("BASE_PATH", "").strip("/") if os.environ.get("BASE_PATH", "").strip("/") else ""
 
 GRAPHS = ["regulation.ttl", "winep.ttl", "sfi.ttl", "designations.ttl"]
 
@@ -238,9 +243,30 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _effective_path(self, raw_path: str) -> str | None:
+        """Strip BASE_PATH from an incoming request path (no-op when BASE_PATH is unset).
+
+        Returns None when a redirect has already been sent — the bare prefix without a trailing slash
+        (`/catchment-demo`) is redirected to `/catchment-demo/` so the browser resolves the page's
+        relative URLs under the sub-path rather than against the origin root.
+        """
+        if not BASE_PATH:
+            return raw_path
+        if raw_path == BASE_PATH:
+            self.send_response(301)
+            self.send_header("Location", BASE_PATH + "/")
+            self.end_headers()
+            return None
+        if raw_path.startswith(BASE_PATH + "/"):
+            return raw_path[len(BASE_PATH):]  # keep the leading slash of the remainder
+        return raw_path  # outside the mount (e.g. the container's own healthcheck on "/") — serve as-is
+
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/sparql":
+        path = self._effective_path(parsed.path)
+        if path is None:
+            return
+        if path == "/sparql":
             params = parse_qs(parsed.query)
             query = (params.get("query") or [None])[0]
             if not query:
@@ -248,7 +274,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._run_query(query)
             return
-        if parsed.path == "/observations":
+        if path == "/observations":
             params = parse_qs(parsed.query)
             sp = (params.get("samplingPoint") or [None])[0]
             det = (params.get("determinand") or [None])[0]
@@ -267,18 +293,21 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(payload).encode("utf-8"))
             return
-        m = _TILE_RE.match(parsed.path)
+        m = _TILE_RE.match(path)
         if m:
             self._serve_tile(*m.groups())
             return
-        if parsed.path.endswith(".md"):
-            self._serve_markdown(parsed.path)
+        if path.endswith(".md"):
+            self._serve_markdown(path)
             return
-        self._serve_static(parsed.path)
+        self._serve_static(path)
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path != "/sparql":
+        path = self._effective_path(parsed.path)
+        if path is None:
+            return
+        if path != "/sparql":
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))

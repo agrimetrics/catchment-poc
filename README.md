@@ -106,9 +106,30 @@ Runtime is configured by environment variables (all optional):
 | --- | --- | --- |
 | `HOST` | `127.0.0.1` (the image sets `0.0.0.0`) | Interface to bind |
 | `PORT` | `8000` | Port to listen on (platforms inject this) |
+| `BASE_PATH` | _(empty — served at root)_ | Mount prefix for serving under a **sub-path** (see below) |
 | `EA_BASE` | `https://environment.data.gov.uk/water-quality/sampling-point` | Observations upstream — point at an egress proxy if direct egress is blocked |
 | `TILE_BASE` | `https://tile.openstreetmap.org` | Basemap tile source for the `/tiles` proxy |
 | `CACHE_DIR` | a temp dir (e.g. `/tmp/catchment-poc-cache`) | Where the observation + tile disk caches live — **outside the repo**. Set to a mounted volume to persist, or to `none`/`off`/empty to disable disk caching entirely |
+
+#### Serving under a sub-path (e.g. `https://host/catchment-demo`)
+
+The app serves happily at the origin root **or** under a sub-path. The frontend uses only relative
+URLs, and the server strips a configurable mount prefix, so **a plain pass-through reverse proxy is
+all you need** — no proxy-side URL rewriting:
+
+```bash
+docker run -e BASE_PATH=/catchment-demo -p 8000:8000 catchment-poc
+```
+
+Point the proxy's `/catchment-demo/` location at the container **without stripping the prefix** (e.g.
+nginx `location /catchment-demo/ { proxy_pass http://catchment:8000; }`). The container then handles
+everything itself: it strips `BASE_PATH` from each request and 301-redirects the bare
+`/catchment-demo` to `/catchment-demo/` so the browser resolves the page's relative URLs under the
+sub-path. Requests to `/` (e.g. the container healthcheck) still work regardless of `BASE_PATH`.
+
+> A leading-slash pitfall: everything the frontend requests is relative on purpose. If you customise
+> `app/config.js`, keep endpoints relative (`"sparql"`, not `"/sparql"`) — a leading slash pins the
+> request to the origin root and breaks the sub-path.
 
 The store is the in-memory Oxigraph rebuilt from the committed `.ttl` on boot, so the container is
 fully self-sufficient — no external database. A note on the server itself: it uses the stdlib
