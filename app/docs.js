@@ -7,9 +7,14 @@
  */
 
 // The docs, grouped for the sidebar. Paths are server-root-absolute (see _serve_markdown).
+// An item with `href` (instead of `path`) is an external in-app page (e.g. an interactive explorer),
+// linked out of the viewer rather than rendered as Markdown.
 const DOCS = [
   { group: "Overview", items: [
     { path: "/README.md", title: "Project overview" },
+  ]},
+  { group: "Concepts", items: [
+    { href: "points.html", title: "Points apart — spatial vs. identifier" },
   ]},
   { group: "Datasets", items: [
     { path: "/ttl/regulation/README.md", title: "Regulation" },
@@ -40,7 +45,9 @@ let loadedPath = null;  // the doc currently rendered, so same-doc anchor jumps 
 // ---- sidebar ---------------------------------------------------------------
 NAV.innerHTML = DOCS.map(g =>
   `<div class="grp">${g.group}</div>` +
-  g.items.map(d => `<a href="#${d.path}" data-path="${d.path}">${d.title}</a>`).join("")
+  g.items.map(d => d.href
+    ? `<a href="${d.href}" class="ext-link">${d.title} ↗</a>`
+    : `<a href="#${d.path}" data-path="${d.path}">${d.title}</a>`).join("")
 ).join("");
 
 function setActive(path) {

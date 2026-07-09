@@ -48,11 +48,17 @@ source      SELECT permit_ref, outlet, effluent, sp_notation FROM discharge_poin
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest, geo:Feature .
 
+mappingId   SamplingPointGeometry
+source      SELECT sp_notation, lon, lat FROM sampling_point_geometry
+target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> rdf:type geo:Geometry .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> geo:asWKT "POINT({lon} {lat})"^^geo:wktLiteral .
+
 mappingId   DischargePointGeometry
-source      SELECT permit_ref, outlet, effluent, lon, lat FROM discharge_point_geometry
+source      SELECT permit_ref, outlet, effluent, wkt FROM discharge_point_geometry
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography .
             wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography rdf:type geo:Geometry .
-            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography geo:asWKT "POINT({lon} {lat})"^^geo:wktLiteral .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography geo:asWKT "{wkt}"^^geo:wktLiteral .
 
 mappingId   Substances
 source      SELECT notation, pref_label FROM substances

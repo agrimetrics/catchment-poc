@@ -13,8 +13,60 @@ import duckdb
 HERE = Path(__file__).resolve().parent          # ttl/regulation
 ROOT = HERE.parents[1]                           # repository root
 CSV = ROOT / "output_data" / "observations_with_permits_and_rules.csv"
+# The permit register (a raw source) is the only place the discharge site's own National Grid
+# Reference lives; the observations pipeline (CSV above) drops it. Read straight from here.
+# consents_active covers in-force permits; consents_all is a hand-cut extract of the *revoked*
+# permits that still carry observations here (absent from the active register), so between them
+# every monitored discharge point gets its own NGR. Both files share the same column layout.
+CONSENTS_CSVS = [
+    ROOT / "raw_datasets" / "access_database_csv_files" / "consents_active.csv",
+    ROOT / "raw_datasets" / "access_database_csv_files" / "consents_all.csv",
+]
 
 con = duckdb.connect(str(HERE / "regulation.duckdb"))
+
+
+# --- National Grid Reference -> Easting/Northing (EPSG:27700). Decodes an OSGB alphanumeric grid
+#     ref (e.g. 'SY7400087100') into metres from the British National Grid false origin. The two
+#     letters pick a 100km square (the grid skips 'I'); the digits split in half into easting then
+#     northing within that square, padded to 5 figures (metres). Registered as duckdb scalar UDFs. ---
+def _ngr_to_en(ngr):
+    if ngr is None:
+        return None
+    s = str(ngr).replace(" ", "").upper()
+    if len(s) < 2 or not s[0].isalpha() or not s[1].isalpha():
+        return None
+    digits = s[2:]
+    if not digits.isdigit() or len(digits) == 0 or len(digits) % 2 != 0:
+        return None
+    l1 = ord(s[0]) - ord("A")
+    l2 = ord(s[1]) - ord("A")
+    if l1 > 7:                                   # OSGB grid omits the letter 'I'
+        l1 -= 1
+    if l2 > 7:
+        l2 -= 1
+    e100 = ((l1 - 2) % 5) * 5 + (l2 % 5)
+    n100 = (19 - (l1 // 5) * 5) - (l2 // 5)
+    if not (0 <= e100 <= 6 and 0 <= n100 <= 12):  # outside the National Grid
+        return None
+    half = len(digits) // 2
+    easting = e100 * 100000 + int((digits[:half] + "00000")[:5])
+    northing = n100 * 100000 + int((digits[half:] + "00000")[:5])
+    return [easting, northing]
+
+
+def _ngr_easting(ngr):
+    en = _ngr_to_en(ngr)
+    return en[0] if en else None
+
+
+def _ngr_northing(ngr):
+    en = _ngr_to_en(ngr)
+    return en[1] if en else None
+
+
+con.create_function("ngr_easting", _ngr_easting, ["VARCHAR"], "INTEGER")
+con.create_function("ngr_northing", _ngr_northing, ["VARCHAR"], "INTEGER")
 
 # Raw load. PERMIT_REF / VERSION / OUTLET / EFFLUENT / determinand notation are forced to
 # VARCHAR so leading zeros (e.g. permit '040015') survive and IRIs stay stable.
@@ -67,21 +119,71 @@ FROM raw
 WHERE "samplingPoint.notation" IS NOT NULL AND "samplingPoint.notation" <> '';
 """)
 
-# --- Discharge point geometry. One geometry per discharge point, transcribed onto the discharge
-#     point we own (a #geography fragment) from the coordinates of the sampling point it is
-#     monitoredAt. The sampling point itself stays a bare geo:Feature - its geometry is owned by
-#     environment.data.gov.uk. WKT is POINT(lon lat), CRS84/WGS84 (EPSG:4326), no CRS URI. ---
+# --- Sampling-point geometry (WGS84). The sampling point owns its own coordinates (lon/lat from
+#     the water-quality observations), so we assert them on the sampling point itself rather than
+#     transcribing them onto the discharge point. WKT is POINT(lon lat), CRS84/WGS84 (EPSG:4326). ---
 con.execute("""
-CREATE OR REPLACE TABLE discharge_point_geometry AS
+CREATE OR REPLACE TABLE sampling_point_geometry AS
 SELECT
-    PERMIT_REF AS permit_ref,
-    OUTLET_NUMBER AS outlet,
-    EFFLUENT_NUMBER AS effluent,
+    "samplingPoint.notation" AS sp_notation,
     ANY_VALUE("samplingPoint.longitude") AS lon,
     ANY_VALUE("samplingPoint.latitude")  AS lat
 FROM raw
 WHERE "samplingPoint.longitude" IS NOT NULL AND "samplingPoint.latitude" IS NOT NULL
-GROUP BY PERMIT_REF, OUTLET_NUMBER, EFFLUENT_NUMBER;
+  AND "samplingPoint.notation" IS NOT NULL AND "samplingPoint.notation" <> ''
+GROUP BY "samplingPoint.notation";
+""")
+
+# --- Discharge-point geometry. The discharge point's own #geography, as a ready-made WKT literal
+#     string (mixed CRS, so built here rather than templated in the mapping). Preferred source is the
+#     permit register's own National Grid Reference (DISCHARGE_NGR) - a distinct location from the
+#     sampling point it is monitoredAt, so we surface it rather than hide it behind the sampling
+#     point's coordinates. Decoded to Easting/Northing and tagged EPSG:27700. Joined on permit ref
+#     (DISCHARGE_NGR is one site location per permit); ANY_VALUE collapses the register's duplicate
+#     version rows. The active + revoked (all) register extracts together cover every monitored
+#     discharge point, so all get a real NGR.
+#     Fallback: the second WHEN keeps the sampling point's WGS84 coordinates for any discharge point
+#     that still lacks an NGR (a new permit missing from both extracts), so it still maps rather than
+#     vanishing. To publish ONLY real NGRs, delete that second WHEN branch. ---
+consents_reads = " UNION ALL ".join(
+    f"SELECT PERMIT_NUMBER, DISCHARGE_NGR FROM read_csv('{p}', header=true, "
+    f"types={{'PERMIT_NUMBER': 'VARCHAR'}})"
+    for p in CONSENTS_CSVS
+)
+con.execute(f"""
+CREATE OR REPLACE TABLE discharge_point_geometry AS
+WITH consents AS (
+    SELECT PERMIT_NUMBER AS permit_ref, ANY_VALUE(DISCHARGE_NGR) AS ngr
+    FROM ({consents_reads})
+    WHERE DISCHARGE_NGR IS NOT NULL AND DISCHARGE_NGR <> ''
+    GROUP BY PERMIT_NUMBER
+),
+ngr AS (
+    SELECT dp.permit_ref, dp.outlet, dp.effluent,
+           ngr_easting(c.ngr) AS easting, ngr_northing(c.ngr) AS northing
+    FROM discharge_points dp
+    JOIN consents c USING (permit_ref)
+),
+sp AS (
+    SELECT m.permit_ref, m.outlet, m.effluent, g.lon, g.lat
+    FROM discharge_point_monitoring m
+    JOIN sampling_point_geometry g ON g.sp_notation = m.sp_notation
+)
+SELECT permit_ref, outlet, effluent, wkt FROM (
+    SELECT
+        dp.permit_ref, dp.outlet, dp.effluent,
+        CASE
+            WHEN ngr.easting IS NOT NULL
+                THEN 'POINT(' || ngr.easting || ' ' || ngr.northing
+                     || ') <http://www.opengis.net/def/crs/EPSG/0/27700>'
+            WHEN sp.lon IS NOT NULL
+                THEN 'POINT(' || sp.lon || ' ' || sp.lat || ')'
+        END AS wkt
+    FROM discharge_points dp
+    LEFT JOIN ngr USING (permit_ref, outlet, effluent)
+    LEFT JOIN sp  USING (permit_ref, outlet, effluent)
+)
+WHERE wkt IS NOT NULL;
 """)
 
 # --- Permit version effective/revocation dates, fetched from the public register by
@@ -228,8 +330,8 @@ JOIN breaches b
 
 # Summary + a couple of integrity checks for the operator
 for tbl in ["permits", "permit_versions", "permit_version_dates", "discharge_points",
-            "discharge_point_monitoring", "discharge_point_geometry", "substances", "units",
-            "conditions", "breaches", "breach_observations"]:
+            "discharge_point_monitoring", "sampling_point_geometry", "discharge_point_geometry",
+            "substances", "units", "conditions", "breaches", "breach_observations"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>20}: {n}")
 

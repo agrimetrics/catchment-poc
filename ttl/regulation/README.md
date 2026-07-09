@@ -40,10 +40,18 @@ Result: 52 permits, 125 permit versions, 342 conditions, 67 discharge points, 10
 
 ## Two enrichments this pipeline adds
 
-- **Discharge-point geometry.** Regulation has no coordinates of its own, so each discharge point
-  gets a `#geography` (WGS84) transcribed from the coordinates of the sampling point it is
-  `monitoredAt` — the sampling point itself stays a bare `geo:Feature` (owned by
-  environment.data.gov.uk). Lets breaches/permits appear on the map.
+- **Discharge-point geometry.** The discharge point gets a `#geography` from the permit register's
+  own National Grid Reference (`DISCHARGE_NGR`) — decoded to Easting/Northing and tagged
+  **EPSG:27700**. This is the site's real location, distinct from the sampling point it is
+  `monitoredAt`, so we surface it rather than hide it behind the sampling point's coordinates. The
+  sampling point in turn carries **its own** `#geometry` (WGS84 lon/lat from the observations),
+  asserted on the sampling point itself. The NGR is read from two extracts in
+  `../../raw_datasets/access_database_csv_files/`: `consents_active.csv` (in-force permits) and
+  `consents_all.csv` (a cut of the *revoked* permits that still carry observations here but are absent
+  from the active register); together they cover all 67 monitored discharge points, so every one gets
+  a real NGR. `regulation_to_db.py` keeps a WGS84 sampling-point fallback (the `CASE` second branch)
+  as a safety net for any future permit missing from both extracts. Lets breaches/permits appear on
+  the map (the app reprojects EPSG:27700 with proj4).
 - **Permit-version effective dates.** Not in any source CSV, so `fetch_version_dates.py` pulls each
   version's `effectiveDate`/`revocationDate` from the EA public register into the committed
   `permit_version_dates.csv` (see that script's header). Only **numeric** permit refs fit the
