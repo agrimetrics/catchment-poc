@@ -67,7 +67,8 @@ the store could hold **no ambient sampling point at all** — a river or a boreh
 join through, so nothing in the old pipeline could have reached one.
 
 Result: **61 permits, 170 permit versions, 587 conditions, 800 condition bounds, 102 discharge
-points, 161 sampling points, 17 sampling-point types, 12 substances.** (Breaches are a derived
+points (95 of them with a published location), 161 sampling points, 17 sampling-point types,
+12 substances.** (Breaches are a derived
 judgement and live in their own graph — see [../breaches/README.md](../breaches/README.md).)
 Substances keep leading zeros and are padded to 4 digits (`0111`); permit refs are 6-digit.
 
@@ -91,9 +92,27 @@ Substances keep leading zeros and are padded to 4 digits (`0111`); permit refs a
   monitored at, sitting hundreds of metres to over a kilometre apart. The NGR is read from two extracts
   in `../../raw_datasets/access_database_csv_files/`: `consents_active.csv` (in-force permits) and
   `consents_all.csv` (a cut of the *revoked* permits that still carry observations here but are absent
-  from the active register); together they cover 100 of the 102 discharge points, so all but two get
-  a real NGR (the two without any geometry are simply not drawn). Lets breaches/permits appear on the
-  map (the app reprojects EPSG:27700 → WGS84 with proj4).
+  from the active register); together they cover 95 of the 102 discharge points. Lets breaches/permits
+  appear on the map (the app reprojects EPSG:27700 → WGS84 with proj4).
+
+  > **No fallback. An outlet with no grid reference gets no geometry.** The other **7** discharge
+  > points belong to permits the consents extracts give no `DISCHARGE_NGR` for, so they are published
+  > with **no coordinate at all** — never a guessed one. This used to fall back to the coordinates of
+  > the sampling point the outlet is `monitoredAt`, "so it still maps rather than vanishing", and that
+  > was wrong three times over: it **fabricated a fact** (asserting the outfall sits exactly on the
+  > watercourse location it is sampled at — the precise conflation this store exists to disprove); it
+  > **corrupted the scoring**, since those outlets sat 0 m from their own sampling point and so scored
+  > a free hit for any nearest-point join (the catchment score was inflated from 42/91 to 47/96 by
+  > them); and it **made the map lie**, putting an outlet's marker on top of a sampling point's marker,
+  > so that a leg drawn from *another* permit's outlet to that shared sampling point looked like a link
+  > between two discharge points. Losing them from the map costs nothing that matters:
+  > `water:monitoredAt` still names their sampling point, which is the whole thesis — the join does not
+  > depend on the geometry being right, or on there being any geometry at all.
+  >
+  > (One outlet, `040111/1/1`, *does* coincide with its sampling point — but genuinely: the register
+  > publishes `DISCHARGE_NGR = SY9750080700` and the archive puts `SW-50900956` on the same 100 m grid
+  > square. That is the sources agreeing, not us inventing, so it stands. The build reports it, because
+  > it too hands a proximity join a free hit.)
 
   > **A coarse coordinate on a fine feature — read this before trusting the geometry.**
   > The register carries a grid reference at **three** levels: `DISCHARGE_NGR` (the discharge **site**),
@@ -105,7 +124,7 @@ Substances keep leading zeros and are padded to 4 digits (`0111`); permit refs a
   > has 13 permits on a single ref). Joining it on `permit_ref` alone therefore turns a **site** fact
   > into a **permit** fact, and every outlet of every permit at a site inherits one identical point.
   >
-  > In this catchment that leaves **100 mapped discharge points on just 42 distinct coordinates** — 83
+  > In this catchment that leaves **95 mapped discharge points on just 37 distinct coordinates** — 83
   > of them share a coordinate with another outlet. At *Brockhill Watercress Farm*, 7 outlets across 4
   > permits (`043244`, `043245`, `401057`, `401058`) all sit on `POINT(383690 92820)` — while the EA
   > samples them at 4 different sampling points 120–265 m away.
