@@ -135,13 +135,34 @@ GROUP BY "samplingPoint.notation";
 """)
 
 # --- Discharge-point geometry. The discharge point's own #geography, as a ready-made WKT literal
-#     string (mixed CRS, so built here rather than templated in the mapping). Preferred source is the
-#     permit register's own National Grid Reference (DISCHARGE_NGR) - a distinct location from the
-#     sampling point it is monitoredAt, so we surface it rather than hide it behind the sampling
-#     point's coordinates. Decoded to Easting/Northing and tagged EPSG:27700. Joined on permit ref
-#     (DISCHARGE_NGR is one site location per permit); ANY_VALUE collapses the register's duplicate
-#     version rows. The active + revoked (all) register extracts together cover every monitored
-#     discharge point, so all get a real NGR.
+#     string (mixed CRS, so built here rather than templated in the mapping). Source is the permit
+#     register's National Grid Reference (DISCHARGE_NGR) - a distinct location from the sampling point
+#     it is monitoredAt, so we surface it rather than hide it behind the sampling point's coordinates.
+#     Decoded to Easting/Northing and tagged EPSG:27700. The active + revoked (all) register extracts
+#     together cover every monitored discharge point, so all get a real NGR.
+#
+#     KNOWN LIMITATION - a coarse coordinate on a fine feature. The register carries a grid ref at
+#     THREE levels: DISCHARGE_NGR (the discharge SITE), OUTLET_GRID_REF (the outlet) and
+#     EFFLUENT_GRID_REF (the effluent). A discharge point here is keyed at the FINEST level
+#     (permit+outlet+effluent), but is given the COARSEST coordinate. There is no per-permit NGR:
+#     DISCHARGE_NGR belongs to the site, and a site can hold many permits (verified against the
+#     national register - 1085 grid refs are shared by >1 permit, and in 1083 of those every permit
+#     names the same discharge site; RAF Brize Norton has 13 permits on one ref). So joining it on
+#     permit_ref alone quietly turns a SITE fact into a PERMIT fact, and every outlet of every permit
+#     at a site inherits one identical point. In this catchment that puts 67 discharge points on 32
+#     distinct coordinates - at Brockhill Watercress Farm, 7 outlets across 4 permits (043244, 043245,
+#     401057, 401058) land on POINT(383690 92820).
+#
+#     This is deliberate, not an oversight: the site NGR is what the public register surfaces as "the"
+#     discharge location, so the store reproduces what a consumer of that register actually gets - and
+#     app/points.html uses it as the worked example of why a spatial join cannot be trusted to
+#     reconstruct a link an identifier already states. Scored over the 64 discharge points matchable to
+#     a register row, a nearest-sampling-point join gets 38/64 right from the site ref, 56/64 from the
+#     outlet ref and 54/64 from the effluent ref (finer is not even monotonically better), against
+#     64/64 for water:monitoredAt. To publish finer geometry instead, join OUTLET_GRID_REF or
+#     EFFLUENT_GRID_REF on (PERMIT_NUMBER, OUTLET_NUMBER[, EFFLUENT_NUMBER]) rather than permit_ref.
+#
+#     ANY_VALUE collapses the register's duplicate version rows.
 #     Fallback: the second WHEN keeps the sampling point's WGS84 coordinates for any discharge point
 #     that still lacks an NGR (a new permit missing from both extracts), so it still maps rather than
 #     vanishing. To publish ONLY real NGRs, delete that second WHEN branch. ---

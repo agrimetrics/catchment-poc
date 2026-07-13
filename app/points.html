@@ -39,9 +39,19 @@
           them deterministically by identifier (<code>monitoredAt</code>, <code>targetPermit</code>); a
           GIS "join what's nearby" cannot, without either missing them or sweeping in unrelated neighbours.
         </p>
+        <p>
+          <b>The opposite failure is just as bad.</b> Outlets that are different things often share one
+          coordinate. At <b>Brockhill Watercress Farm</b>, seven outlets belonging to four permits
+          (<a href="#" data-permit="043245" class="pts-jump">043245</a>, 043244, 401057, 401058) sit on
+          a single point — but the EA samples them at four <i>different</i> points, 120–265&nbsp;m apart.
+        </p>
+        <p>
+          A nearest-point join has to give all seven outlets the same answer, so it gets <b>one</b> of
+          them right. <code>monitoredAt</code> gets all <b>seven</b> right.
+        </p>
         <p class="pts-stats" id="pts-stats">Loading the store…</p>
-        <p class="pts-hint">Pick a permit to draw its spider and measure the gaps. Hover any dot for its
-          identifier &amp; CRS.</p>
+        <p class="pts-hint">Pick a permit to draw its spider and measure the gaps. Hover a dot for its
+          identifier; a dashed halo means more than one outlet is hiding under it.</p>
       </section>
 
       <div class="pts-legend" id="pts-legend"></div>

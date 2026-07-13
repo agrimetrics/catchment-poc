@@ -15,6 +15,7 @@ const DOCS = [
   ]},
   { group: "Concepts", items: [
     { href: "points.html", title: "Points apart — spatial vs. identifier" },
+    { href: "points.html#043245", title: "…worked example: 7 outlets, 1 coordinate" },
   ]},
   { group: "Datasets", items: [
     { path: "/ttl/regulation/README.md", title: "Regulation" },

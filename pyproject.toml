@@ -38,6 +38,16 @@ dependencies = [
 ]
 
 
+[tool.poetry.group.dev.dependencies]
+# Browser-driving for verifying the app/ pages end-to-end (e.g. app/points.html) against a running
+# `python app/server.py`. Selenium waits on the page's SPARQL fetch resolving, which a plain
+# `firefox --screenshot` races -- it captures "Loading the store..." and silently looks like a bug.
+# Drive FIREFOX only; this project does not use Chrome/Chromium. selenium-manager fetches geckodriver.
+# Not needed to build or run the demonstrator, so it lives in the dev group (installed by default;
+# skip it with `poetry install --without dev`).
+selenium = ">=4.46.0,<5.0.0"
+
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

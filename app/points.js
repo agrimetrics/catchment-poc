@@ -1,16 +1,52 @@
 /* Points apart
  * ------------
  * Makes the demonstrator's central argument concrete: EA records about the same regulated thing can
- * be merged reliably only by identifier, not by location.
+ * be merged reliably only by identifier, not by location. There are two failure modes, and they are
+ * mirror images of each other.
  *
- * A permit's discharge point, the monitoring (sampling) point it is `water:monitoredAt`, and any
- * WINEP action `reg:targetPermit`-linked to it all describe the SAME regulated works — yet their
- * source geometries sit hundreds of metres to over a kilometre apart on the ground. All three come
- * from EA sources in British National Grid (EPSG:27700), each captured in that source encoding, so a
- * projection difference is NOT what separates them: they are simply different real-world points — the
- * consented outfall vs. the watercourse location it is sampled at. This page draws each permit's
- * cluster as an identifier-linked "spider" and measures the on-the-ground gaps, so the reader can see
- * what a naive nearest-feature spatial join would get wrong — only the identifier link joins them.
+ * 1. TOO FAR APART TO MERGE. A permit's discharge point, the monitoring (sampling) point it is
+ *    `water:monitoredAt`, and any WINEP action `reg:targetPermit`-linked to it all describe the SAME
+ *    regulated works — yet their source geometries sit hundreds of metres to over a kilometre apart on
+ *    the ground. All three come from EA sources in British National Grid (EPSG:27700), each captured in
+ *    that source encoding, so a projection difference is NOT what separates them: they are simply
+ *    different real-world points — the consented outfall vs. the watercourse location it is sampled at.
+ *    A proximity join misses the link, or has to open its radius so wide it sweeps in the neighbours.
+ *
+ * 2. TOO CLOSE TO SEPARATE. Discharge points that are genuinely DIFFERENT things land on the SAME
+ *    coordinate. The permit register publishes three grid references, at three levels of a hierarchy —
+ *    the discharge SITE (`DISCHARGE_NGR`), the OUTLET (`OUTLET_GRID_REF`) and the EFFLUENT
+ *    (`EFFLUENT_GRID_REF`) — and this store hangs the *site* grid ref on every effluent-level discharge
+ *    point (see ttl/regulation/README.md). There is no such thing as a per-permit NGR: a site can carry
+ *    many permits, so the same coordinate is inherited across permit boundaries. At Brockhill Watercress
+ *    Farm that collapses 7 outlets belonging to 4 permits (043244, 043245, 401057, 401058) onto one dot,
+ *    while the EA genuinely samples them at 4 different sampling points 120–265 m away. Proximity cannot
+ *    separate what proximity has already merged. `water:monitoredAt` names the right one every time.
+ *
+ * The second mode is the more uncomfortable, because it is not a data-quality accident — it is a
+ * modelling choice, and a different, equally defensible choice flips the answer. At Brockhill, rank the
+ * sampling points by distance from the SITE grid ref and a nearest-neighbour join gets 1 of those 7
+ * outlets right (and that one by luck); rank them from the EFFLUENT grid ref and it gets 7 of 7. The
+ * join reports the same confidence either way, so nothing in its output tells you which regime you are
+ * in. `monitoredAt` scores 7/7 under every choice.
+ *
+ * Nor does "just use finer coordinates" rescue the spatial join. Scored across all 64 monitored
+ * discharge points that this store can match to a register row:
+ *
+ *     geometry hung on the discharge point   distinct coords   nearest-neighbour correct
+ *     site grid ref  (what this store uses)       32              38 / 64   (59%)
+ *     outlet grid ref                             61              56 / 64   (88%)
+ *     effluent grid ref                           60              54 / 64   (84%)
+ *     water:monitoredAt                            –              64 / 64  (100%)
+ *
+ * Note the effluent ref — the FINEST geometry available — scores WORSE than the outlet ref. Accuracy is
+ * not even monotonic in coordinate precision, so there is no "just pick the most precise one" rule that
+ * saves you. The spatial join tops out around seven in eight and its accuracy is set by a schema
+ * decision taken two levels above the feature being joined. The identifier is 64/64 and does not depend
+ * on the geometry being right, or on there being any geometry at all. That is the argument for linked
+ * data, in one catchment.
+ *
+ * (The outlet/effluent grid refs are shown for comparison only — this store ingests the site ref alone;
+ * see ttl/regulation/README.md. The scores above come from the register extracts in raw_datasets/.)
  *
  * Data comes live from the same /sparql endpoint as the map app; geometry is reprojected client-side
  * with proj4 (EPSG:27700 → WGS84) exactly as app.js does.
@@ -41,7 +77,9 @@ const PREFIXES = `
 PREFIX water: <http://environment.data.gov.uk/ontology/water/>
 PREFIX reg:   <http://environment.data.gov.uk/ontology/regulation/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
-PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>`;
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
+PREFIX sosa:  <http://www.w3.org/ns/sosa/>`;
 
 // One row per (discharge point × sampling point × action) for a permit; deduped into sets below.
 const Q = `${PREFIXES}
@@ -51,6 +89,15 @@ SELECT ?permit ?dp ?dpw ?sp ?spw ?action ?al ?aw WHERE {
   OPTIONAL { ?dp water:monitoredAt ?sp . ?sp geo:hasGeometry/geo:asWKT ?spw . }
   OPTIONAL { ?action reg:targetPermit ?permit ; rdfs:label ?al ; reg:actionSite ?s .
              ?s geo:hasGeometry/geo:asWKT ?aw . }
+}`;
+
+// EVERY sampling point in the store, not just the ones a given permit is monitored at. This is what
+// a GIS would have in its layer, and it is what a nearest-feature join would be free to pick from —
+// so we need the whole set to work out which one proximity WOULD choose, right or wrong.
+const Q_SP = `${PREFIXES}
+SELECT ?sp ?spw ?spl WHERE {
+  ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?spw .
+  OPTIONAL { ?sp skos:prefLabel ?spl }
 }`;
 
 // The "what GIS sees" query, per permit — a provenance deep-link into the SPARQL editor.
@@ -66,10 +113,48 @@ SELECT ?role ?feature ?wkt WHERE {
     ?feature geo:hasGeometry/geo:asWKT ?wkt . BIND("WINEP action site" AS ?role) }
 } ORDER BY ?role`;
 
+// The "what GIS sees when the points collide" query — a permit's outlets ranked against EVERY sampling
+// point by straight-line distance, next to the sampling point the identifier actually names. Deep-links
+// into the SPARQL editor from the stack panel so the reader can run the nearest-neighbour join herself.
+//
+// EPSG:27700 is a PROJECTED CRS in metres, so plain Pythagoras on easting/northing is the true ground
+// distance — no reprojection, no geodesic. SPARQL 1.1 has no SQRT (and this store's geof:distance
+// assumes degrees, so it is useless on grid metres), but nearest-neighbour only needs the RANKING, and
+// ranking by squared distance is identical. Metres are recovered in the page, which uses haversine on
+// the same points and agrees to within a metre at these ranges.
+const collisionQuery = (permit) => `${PREFIXES}
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# Every outlet of this permit, ranked against every sampling point by distance. Outlets that share a
+# coordinate get an IDENTICAL ranking — proximity has no way to tell them apart. Compare the top row
+# (what a nearest-neighbour join would pick) with ?identifierSaysThisOne (what monitoredAt names).
+SELECT ?outlet ?samplingPoint ?label ?distanceSquared ?identifierSaysThisOne WHERE {
+  <${permit}> reg:permitSite ?dp .
+  ?dp geo:hasGeometry/geo:asWKT ?dpWkt .
+  ?sp a sosa:FeatureOfInterest ; skos:prefLabel ?label ; geo:hasGeometry/geo:asWKT ?spWkt .
+
+  BIND(xsd:decimal(STRBEFORE(STRAFTER(STR(?dpWkt), "POINT("), " ")) AS ?dpE)
+  BIND(xsd:decimal(STRBEFORE(STRAFTER(STR(?dpWkt), " "), ")"))      AS ?dpN)
+  BIND(xsd:decimal(STRBEFORE(STRAFTER(STR(?spWkt), "POINT("), " ")) AS ?spE)
+  BIND(xsd:decimal(STRBEFORE(STRAFTER(STR(?spWkt), " "), ")"))      AS ?spN)
+  BIND((?dpE - ?spE) * (?dpE - ?spE) + (?dpN - ?spN) * (?dpN - ?spN) AS ?distanceSquared)
+
+  BIND(EXISTS { ?dp water:monitoredAt ?sp } AS ?identifierSaysThisOne)
+  BIND(REPLACE(STR(?dp), "^.*/permit/", "") AS ?outlet)
+  BIND(REPLACE(STR(?sp), "^.*/sampling-point/", "") AS ?samplingPoint)
+
+  # Sampling points within 500 m, to keep the ranking readable. Delete this line to rank the whole
+  # layer -- a nearest-feature join is choosing from all of it, which is precisely the problem.
+  FILTER(?distanceSquared < 250000)
+}
+ORDER BY ?outlet ?distanceSquared`;
+
 // Permits highlighted in the docs argument; pinned to the top of the list as worked examples.
 const FEATURED = {
   "042451": "Blackheath WRC — discharge, monitoring & two WINEP actions, ~1.4 km across",
   "EPRBB3593EG": "Largest discharge↔monitoring gap in the catchment (~1 km)",
+  "043245": "Both outlets on one coordinate, shared with 3 other permits — so the nearest sampling " +
+            "point is the wrong one",
 };
 
 // ---------------------------------------------------------------------------
@@ -88,9 +173,13 @@ async function sparql(query) {
   });
 }
 
-// WKT literal -> { ll:[lat,lon], crs }. Mirrors app.js parseWkt: an EPSG:27700 tag means the numbers
-// are BNG easting/northing (reproject); otherwise they are WGS84 lon lat. Only the first coordinate
-// pair is used (a POINT), so the CRS-URI digits that trail a BNG literal are ignored.
+// WKT literal -> { ll:[lat,lon], crs, key }. Mirrors app.js parseWkt: an EPSG:27700 tag means the
+// numbers are BNG easting/northing (reproject); otherwise they are WGS84 lon lat. Only the first
+// coordinate pair is used (a POINT), so the CRS-URI digits that trail a BNG literal are ignored.
+//
+// `key` is the coordinate AS PUBLISHED (source CRS, source numbers) — never the reprojected pair. Two
+// features are "on the same point" only if the store says so exactly; that keeps collision detection a
+// fact about the data rather than an artefact of proj4 rounding.
 function wktLatLng(wkt) {
   const bng = wkt.includes("27700");
   const src = bng ? wkt.slice(0, wkt.indexOf("<") === -1 ? wkt.length : wkt.indexOf("<")) : wkt;
@@ -98,7 +187,11 @@ function wktLatLng(wkt) {
   let lon, lat;
   if (bng) { [lon, lat] = proj4("EPSG:27700", "EPSG:4326", [nums[0], nums[1]]); }
   else { lon = nums[0]; lat = nums[1]; }
-  return { ll: [lat, lon], crs: bng ? "EPSG:27700 · British National Grid" : "EPSG:4326 · WGS84" };
+  return {
+    ll: [lat, lon],
+    crs: bng ? "EPSG:27700 · British National Grid" : "EPSG:4326 · WGS84",
+    key: `${bng ? "BNG" : "WGS84"}:${nums[0]} ${nums[1]}`,
+  };
 }
 
 function haversine([la1, lo1], [la2, lo2]) {
@@ -111,11 +204,16 @@ const fmtM = (m) => (m >= 1000 ? (m / 1000).toFixed(2) + " km" : Math.round(m) +
 const shortDp = (iri) => iri.split("/permit/")[1];
 const shortSp = (iri) => iri.split("sampling-point/")[1] || iri;
 const shortAct = (iri) => iri.split("/action/")[1] || iri;
+// "043245/outlet/1/effluent/1" -> "043245 · o1/e1". The stack table lists outlets from several permits
+// side by side in a narrow card, so the permit must stay visible while the row stays on one line.
+const tinyDp = (iri) => shortDp(iri).replace(/^([^/]+)\/outlet\/(\d+)\/effluent\/(\d+)$/, "$1 · o$2/e$3");
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------------------
-// State
-let map, combos = [], byId = {}, selected = null;
+// State. `stacks` maps a source coordinate -> every discharge point published at it (only the
+// coordinates carrying more than one are kept); `allSp` is every sampling point in the store, i.e. the
+// candidate set a nearest-feature spatial join would be choosing from.
+let map, combos = [], byId = {}, selected = null, stacks = {}, allSp = [];
 
 async function boot() {
   map = L.map("map", { zoomControl: true }).setView(CENTER, 11);
@@ -123,23 +221,58 @@ async function boot() {
 
   renderLegend();
 
-  let rows;
-  try { rows = await sparql(Q); }
+  let rows, spRows;
+  try { [rows, spRows] = await Promise.all([sparql(Q), sparql(Q_SP)]); }
   catch (e) {
     document.getElementById("pts-stats").innerHTML =
       `<span style="color:var(--red)">Could not load from <code>${esc(ENDPOINT)}</code>: ${esc(e.message)}</span>`;
     return;
   }
 
+  allSp = spRows.map((r) => ({ iri: r.sp, id: shortSp(r.sp), label: r.spl || shortSp(r.sp), ...wktLatLng(r.spw) }));
   buildCombos(rows);
+  buildStacks();
   drawAll();
   renderStats();
   renderList();
   wireSearch();
 
-  // Open on the flagship worked example if present.
-  const first = byId["042451"] || combos[0];
-  if (first) select(first.id, false);
+  // A permit is a shareable location: points.html#043245 opens straight onto that worked example, so
+  // the docs (and the prose above) can link to a specific one. Otherwise open on the flagship.
+  const fromHash = decodeURIComponent(location.hash.slice(1));
+  const first = byId[fromHash] || byId["042451"] || combos[0];
+  if (first) select(first.id, !!byId[fromHash]);
+  window.addEventListener("hashchange", () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (byId[id] && (!selected || selected.id !== id)) select(id);
+  });
+}
+
+// Every discharge point in the store, bucketed by the coordinate it is published at. A bucket with
+// more than one member is a COLLISION: two or more distinct regulated outlets that a GIS sees as a
+// single dot. They routinely cross permit boundaries, because the coordinate the store hangs on a
+// discharge point is the discharge SITE's grid reference — and one site can hold many permits.
+function buildStacks() {
+  stacks = {};
+  for (const c of combos)
+    for (const [iri, g] of Object.entries(c.dp))
+      (stacks[g.key] ||= []).push({ permit: c.id, iri, id: shortDp(iri), sp: c.monOf[iri] || null, ll: g.ll });
+  for (const k of Object.keys(stacks)) if (stacks[k].length < 2) delete stacks[k];
+  // Which shared coordinates does each permit sit on? (Usually one; a permit could straddle several.)
+  for (const c of combos)
+    c.stackKeys = [...new Set(Object.values(c.dp).map((g) => g.key))].filter((k) => stacks[k]);
+}
+
+// The sampling point a nearest-feature spatial join would pick for a location — the whole layer is in
+// play, not just the ones this permit happens to be linked to. That is exactly the point: proximity
+// does not know about the permit.
+function nearestSp(ll) {
+  let best = null;
+  for (const sp of allSp) {
+    const d = haversine(ll, sp.ll);
+    if (!best || d < best.d) best = { sp, d };
+  }
+  return best;
 }
 
 // Group the flat rows into one record per permit: sets of discharge / monitoring / action points,
@@ -192,8 +325,13 @@ function buildCombos(rows) {
 function tipHtml(pt) {
   const r = ROLE[pt.role];
   const extra = pt.role === "act" && pt.label ? `<div>${esc(pt.label)}</div>` : "";
+  const st = pt.role === "dp" ? stacks[pt.key] : null;
+  const collide = st
+    ? `<div class="tstack">⊕ ${st.length} discharge points from ` +
+      `${new Set(st.map((s) => s.permit)).size} permits share this exact coordinate</div>`
+    : "";
   return `<div class="tt" style="color:${r.color}">${r.label}</div>` +
-    `<div class="tid">${esc(pt.id)}</div>${extra}<div class="tcrs">${esc(pt.crs)}</div>`;
+    `<div class="tid">${esc(pt.id)}</div>${extra}${collide}<div class="tcrs">${esc(pt.crs)}</div>`;
 }
 
 function drawAll() {
@@ -207,6 +345,13 @@ function drawAll() {
     c.markers = [];
     for (const pt of c.points) {
       const r = ROLE[pt.role];
+      // A collided discharge point is drawn once but IS several outlets. Halo it, so the map does not
+      // quietly show one dot where the register holds many — that silence is the bug being illustrated.
+      if (pt.role === "dp" && stacks[pt.key])
+        c.layer.addLayer(L.circleMarker(pt.ll, {
+          radius: r.r + 5, color: r.color, weight: 1.5, opacity: 0.65,
+          fill: false, dashArray: "3 3", interactive: false,
+        }));
       const mk = L.circleMarker(pt.ll, { radius: r.r, color: "#0b1016", weight: 1.5, fillColor: r.color, fillOpacity: 0.9 })
         .bindTooltip(tipHtml(pt), { className: "pts-tip", direction: "top", offset: [0, -4] });
       mk._pt = pt;
@@ -249,6 +394,7 @@ function select(id, pan = true) {
   if (selected && selected !== c) styleCombo(selected, false);
   selected = c;
   styleCombo(c, true);
+  if (decodeURIComponent(location.hash.slice(1)) !== id) history.replaceState(null, "", `#${encodeURIComponent(id)}`);
 
   if (pan) {
     const b = L.latLngBounds(c.points.map((p) => p.ll));
@@ -275,10 +421,18 @@ function renderStats() {
   const med = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
   const max = gaps.length ? gaps[gaps.length - 1] : 0;
   const withAct = combos.filter((c) => c.nAct).length;
+
+  // Both failure modes, counted live: how far apart the things that belong together are, and how many
+  // things that do NOT belong together are stacked on one indistinguishable coordinate.
+  const nDp = combos.reduce((n, c) => n + Object.keys(c.dp).length, 0);
+  const nCoords = new Set(combos.flatMap((c) => Object.values(c.dp).map((g) => g.key))).size;
+  const stacked = Object.values(stacks).reduce((n, st) => n + st.length, 0);
+
   document.getElementById("pts-stats").innerHTML =
     `<b>${combos.length}</b> permits · <b>${withAct}</b> with WINEP actions. ` +
-    `Median discharge-cluster spread <b>${fmtM(med)}</b>, up to <b>${fmtM(max)}</b> — ` +
-    `every one merged by identifier, none by proximity.`;
+    `A permit's points typically sit <b>${fmtM(med)}</b> apart, and up to <b>${fmtM(max)}</b>.<br>` +
+    `<b>${stacked}</b> of the <b>${nDp}</b> discharge points share their coordinate with another outlet ` +
+    `— all ${nDp} of them fit on just <b>${nCoords}</b> points.`;
 }
 
 function rowHtml(c) {
@@ -313,6 +467,56 @@ function wireSearch() {
       el.style.display = !q || el.dataset.search.includes(q) ? "" : "none";
     });
   });
+
+  // Permit references named in the intro prose are live: clicking one selects it on the map.
+  document.querySelectorAll(".pts-jump").forEach((a) =>
+    a.addEventListener("click", (ev) => { ev.preventDefault(); select(a.dataset.permit); }));
+}
+
+// ---------------------------------------------------------------------------
+// The mirror failure, scored. For each coordinate this permit's outlets are stacked on, work out what
+// a nearest-feature join WOULD pick (one answer, because the outlets are one point to it) and set that
+// against what `water:monitoredAt` actually names for each outlet. The score is the whole argument: the
+// spatial join is not merely uncertain here, it is confidently wrong, and it cannot know that it is.
+function stackHtml(c) {
+  if (!c.stackKeys || !c.stackKeys.length) return "";
+
+  return c.stackKeys.map((k) => {
+    const st = stacks[k];
+    const nPermits = new Set(st.map((s) => s.permit)).size;
+    const near = nearestSp(st[0].ll);             // identical for every member — to a GIS they ARE one point
+    const labelOf = (iri) => (allSp.find((s) => s.iri === iri) || {}).label || "—";
+
+    const rows = st.map((s) => {
+      const hit = s.sp === near.sp.iri;           // would proximity have landed on the right one?
+      return `<tr class="${s.permit === c.id ? "mine" : ""}">
+          <td>${esc(tinyDp(s.iri))}</td>
+          <td>${s.sp ? esc(shortSp(s.sp)) : "—"}</td>
+          <td class="v ${hit ? "ok" : "bad"}">${hit ? "✓" : "✗"}</td>
+        </tr>`;
+    }).join("");
+    const hits = st.filter((s) => s.sp === near.sp.iri).length;
+
+    const deep = `sparql.html#q=${encodeURIComponent(collisionQuery(c.permit))}`;
+    return `
+      <h3>⊕ Stacked on one coordinate</h3>
+      <p class="stack-lede">
+        <b>${st.length}</b> discharge points from <b>${nPermits}</b> permit${nPermits > 1 ? "s" : ""}
+        sit on this <b>one</b> coordinate. To a map they are a single dot, so a nearest-point join
+        picks the same sampling point for every one of them —
+        <b>${esc(near.sp.id)}</b>, ${fmtM(near.d)} away.
+        <code>monitoredAt</code> names a different one per outlet:
+      </p>
+      <table class="stack">
+        <thead><tr><th>outlet</th><th>monitoredAt</th><th class="v">GIS?</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="stack-score">
+        nearest point <b class="bad">${hits} / ${st.length}</b> ·
+        identifier <b class="ok">${st.length} / ${st.length}</b>
+      </p>
+      <a class="sparql-link ext-link" href="${deep}" target="_blank" rel="noopener">◈ Run the nearest-point join in SPARQL</a>`;
+  }).join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +550,7 @@ function renderDetail(c) {
      <h2>Permit ${esc(c.id)}</h2>${note}
      <h3>Points (${c.points.length})</h3>${pts}
      <h3>Distances apart</h3><table class="gaps"><tbody>${gapRows}</tbody></table>
+     ${stackHtml(c)}
      <a class="sparql-link ext-link" href="${deep}" target="_blank" rel="noopener">◈ Open “what GIS sees” in SPARQL</a>`;
   box.classList.remove("hidden");
   box.querySelector(".close").addEventListener("click", () => {

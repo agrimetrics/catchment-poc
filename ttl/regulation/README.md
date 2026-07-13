@@ -53,6 +53,42 @@ Result: 52 permits, 125 permit versions, 342 conditions, 67 discharge points, 10
   `consents_all.csv` (a cut of the *revoked* permits that still carry observations here but are absent
   from the active register); together they cover all 67 monitored discharge points, so every one gets
   a real NGR. Lets breaches/permits appear on the map (the app reprojects EPSG:27700 → WGS84 with proj4).
+
+  > **A coarse coordinate on a fine feature — read this before trusting the geometry.**
+  > The register carries a grid reference at **three** levels: `DISCHARGE_NGR` (the discharge **site**),
+  > `OUTLET_GRID_REF` (the **outlet**) and `EFFLUENT_GRID_REF` (the **effluent**). A discharge point
+  > here is keyed at the *finest* level — `(permit, outlet, effluent)` — but is given the *coarsest*
+  > coordinate. And there is **no such thing as a per-permit NGR**: `DISCHARGE_NGR` belongs to the site,
+  > and one site can hold many permits (across the national register, 1085 grid refs are shared by more
+  > than one permit, and in 1083 of them every permit names the same discharge site — RAF Brize Norton
+  > has 13 permits on a single ref). Joining it on `permit_ref` alone therefore turns a **site** fact
+  > into a **permit** fact, and every outlet of every permit at a site inherits one identical point.
+  >
+  > In this catchment that leaves **67 discharge points on just 32 distinct coordinates**. At *Brockhill
+  > Watercress Farm*, 7 outlets across 4 permits (`043244`, `043245`, `401057`, `401058`) all sit on
+  > `POINT(383690 92820)` — while the EA samples them at 4 different sampling points 120–265 m away.
+  >
+  > This is kept deliberately: the site NGR is what the public register surfaces as "the" discharge
+  > location, so the store reproduces what a consumer of that register actually gets — and it is the
+  > worked example behind [Points apart](../../app/points.html), which shows why a spatial join cannot
+  > be trusted to reconstruct a link that an identifier already states. Scored over the 64 discharge
+  > points matchable to a register row, a nearest-sampling-point join gets:
+  >
+  > | geometry hung on the discharge point | distinct coords | nearest-neighbour correct |
+  > | --- | --- | --- |
+  > | `DISCHARGE_NGR` — site (**what this store uses**) | 32 | **38 / 64** (59%) |
+  > | `OUTLET_GRID_REF` — outlet | 61 | 56 / 64 (88%) |
+  > | `EFFLUENT_GRID_REF` — effluent | 60 | 54 / 64 (84%) |
+  > | `water:monitoredAt` — **the identifier** | — | **64 / 64** (100%) |
+  >
+  > Note the *finest* geometry scores *worse* than the outlet ref: accuracy is not even monotonic in
+  > coordinate precision, so "just use the most precise coordinate" is not a rule that saves you. The
+  > spatial join tops out around seven in eight, and which eighth it drops is decided by a schema choice
+  > taken two levels above the feature being joined. The identifier does not care.
+  >
+  > To publish finer geometry instead, join `OUTLET_GRID_REF` / `EFFLUENT_GRID_REF` on
+  > `(PERMIT_NUMBER, OUTLET_NUMBER[, EFFLUENT_NUMBER])` rather than on `permit_ref` — see the
+  > `discharge_point_geometry` block in `regulation_to_db.py`.
 - **Sampling-point capture & observation linkage.** `enrich_sampling_points.py` dereferences each
   breach-evidencing observation and each sampling point from the WQA as `application/ld+json` and
   writes two things back into `regulation.ttl`: the sampling point's `skos:prefLabel` and its geometry
