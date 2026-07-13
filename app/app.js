@@ -457,12 +457,17 @@ function limitAt(steps, t, fbU, fbL) {
   return { upper: null, lower: null };                // before the first version, or in a gap
 }
 
+// The chart on screen, kept so a window resize can redraw it at the panel's new size (the plot is
+// drawn AT the panel's dimensions, not scaled to them — see chartBox).
+let shownChart = null; // { ctx, obs, meta } | null
+
 async function openChart(subNotation, sp, permit) {
   const chart = document.getElementById("chart");
   const ctx = chartContext(subNotation, permit);
   document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
   const body = document.getElementById("chart-body");
   chart.classList.remove("hidden");
+  body.classList.add("fit"); // the time-series chart sizes itself to the panel; it never scrolls
   collapseLegend();
   // resize the (now narrower) map and zoom it to the charted sampling point's discharge point
   const target = DB.dischargePoints.find((d) => d.permit === permit && d.sp === sp && d.lat != null)
@@ -481,21 +486,49 @@ async function openChart(subNotation, sp, permit) {
       .map((o) => ({ t: Date.parse(o.time), v: parseResult(o.result) }))
       .filter((o) => Number.isFinite(o.t) && o.v != null)
       .sort((a, b) => a.t - b.t);
+    shownChart = { ctx, obs, meta: data };
     body.innerHTML = renderChart(ctx, obs, data);
   } catch (err) {
+    shownChart = null;
     body.innerHTML = `<p class="chart-note">Could not load observations: ${esc(err.message)}</p>`;
   }
 }
 
 function closeChart() {
   document.getElementById("chart").classList.add("hidden");
+  document.getElementById("chart-body").classList.remove("fit");
+  shownChart = null;
   expandLegend();
   setTimeout(() => map.invalidateSize(), 60);
 }
 
+// The panel next to the map is the plot's canvas: draw at ITS size rather than at a fixed aspect
+// scaled to fit, or a wide window (the panel is 44% of the stage) would make the plot taller than
+// the map and the panel would scroll. Height leaves room for the legend above and the note below.
+function chartBox() {
+  const body = document.getElementById("chart-body");
+  const r = body.getBoundingClientRect();
+  return {
+    W: Math.max(360, Math.round(r.width - 14)),   // minus #chart-body's horizontal padding
+    H: Math.max(220, Math.round(r.height - 78)),  // minus its padding + the legend and note lines
+  };
+}
+
+// Redraw at the new panel size so the plot keeps filling the map's height as the window changes.
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!shownChart || document.getElementById("chart").classList.contains("hidden")) return;
+    const { ctx, obs, meta } = shownChart;
+    document.getElementById("chart-body").innerHTML = renderChart(ctx, obs, meta);
+  }, 150);
+});
+
 function renderChart(ctx, obs, meta = {}) {
   if (!obs.length) return `<p class="chart-note">No observations for this substance at this sampling point.</p>`;
-  const W = 640, H = 380, m = { l: 52, r: 16, t: 14, b: 38 };
+  const { W, H } = chartBox();
+  const m = { l: 52, r: 16, t: 14, b: 38 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
   const tMin = obs[0].t, tMax = obs[obs.length - 1].t;
   const propVals = ctx.proposed.map((b) => Number(b.val)).filter(Number.isFinite);
@@ -657,6 +690,10 @@ function groupCountsForApp(appIri) {
 function openAppChart(appIri) {
   const app = DB.appById[appIri];
   document.getElementById("chart-title").textContent = `Application ${app ? app.id : last(appIri)}`;
+  // The farming pie/bars keep their own (scrollable) layout — only the time-series chart is
+  // height-fitted to the panel.
+  document.getElementById("chart-body").classList.remove("fit");
+  shownChart = null;
   renderAppChart(appIri);
   document.getElementById("chart").classList.remove("hidden");
   collapseLegend();
@@ -781,6 +818,9 @@ function clearAppFocus() {
 const subLink = (label, subNotation, sp, permit) =>
   sp ? `<span class="sub-link" onclick="openChart('${subNotation}','${esc(sp)}','${permit}')">${esc(label)}</span>` : esc(label);
 window.openChart = openChart;
+// The sampling point a permit is monitored at — the chart fetches its observations from there. A
+// permit can have several discharge points; the tables all chart the first one that names an sp.
+const spForPermit = (permit) => (DB.dischargePoints.find((d) => d.permit === permit && d.sp) || {}).sp || null;
 
 // clickable permit id that zooms the map to that permit's discharge point(s)
 const permitLink = (iri) =>
@@ -1222,7 +1262,13 @@ function dischargePopup(dp, currentConds, cur, past) {
     <hr><div class="kv"><b>Current limits</b> <span style="color:#777">(v${DB.currentVersion[dp.permit] ?? "?"})</span><br>${limits}</div>`;
 }
 function actionPopup(a, limits) {
-  const l = limits.map((x) => `${esc(x.subLabel || "—")}: ${limitText(x)}`).join("<br>");
+  // Substances here open the time-series chart for the action's target permit, exactly as they do in
+  // the WINEP table — so the proposed limit can be read against the observations it lands on.
+  const sp = spForPermit(a.permit);
+  const l = limits.map((x) => {
+    const name = x.subNotation ? subLink(x.subLabel || x.subNotation, x.subNotation, sp, a.permit) : esc(x.subLabel || "—");
+    return `${name}: ${limitText(x)}`;
+  }).join("<br>");
   return `<h3>${esc(a.label)}</h3><div class="kv"><b>Action:</b> ${esc(a.id)}<br>
     <b>Completion:</b> ${fmtDate(a.completion) || "TBC"}<br>
     <b>Target permit:</b> ${permitRef(a.permit)}</div>
@@ -1397,10 +1443,7 @@ function card(title, count, bodyEl, query) {
     ? ` <a class="sparql-link" href="sparql.html#q=${encodeURIComponent(query)}" target="_blank" rel="noopener" title="Open the SPARQL query behind this table">◈ SPARQL</a>`
     : "";
   c.innerHTML = `<h2>${title} <span class="count">${count}</span>${link}</h2>`;
-  const scroll = document.createElement("div");
-  scroll.className = "scroll";
-  scroll.append(bodyEl);
-  c.append(scroll);
+  c.append(bodyEl);
   return c;
 }
 function emptyBody(msg) {
@@ -1557,6 +1600,9 @@ function actionTable(actions, limByAction) {
   wireExpand(c, sorted.map((a) => a.iri), (iri) => {
     const a = DB.actions.find((x) => x.iri === iri);
     const lines = limitLines(limByAction[iri] || []);
+    // The substance opens the same time-series chart as in the other views, for THIS action's target
+    // permit — so a proposed limit can be read against the observations it would be applied to.
+    const sp = spForPermit(a?.permit);
     // One row per limit line; the substance label + its matching current limit show once per
     // substance (blank on that substance's subsequent tier rows). A "continued" limit is just the
     // pill (it keeps the current limit, shown to the right); a substance with no current limit shows
@@ -1565,13 +1611,20 @@ function actionTable(actions, limByAction) {
       lines.map((ln, idx) => {
         const firstOfSub = idx === 0 || lines[idx - 1].subNotation !== ln.subNotation;
         const cur = firstOfSub ? currentLimitFor(a?.permit, ln.subNotation) : null;
+        // A limit line with no substance (a statement-only limit) has nothing to chart: plain "—".
+        const cell = !firstOfSub ? ""
+          : ln.subNotation ? subLink(ln.subLabel || ln.subNotation, ln.subNotation, sp, a?.permit)
+          : esc(ln.subLabel || "—");
         return `<tr>
-          <td>${firstOfSub ? esc(ln.subLabel || "—") : ""}</td>
+          <td>${cell}</td>
           <td>${ln.carried ? '<span class="pill carried">continued</span>' : ln.text}</td>
           <td>${firstOfSub ? (cur || '<span class="pill none">none</span>') : ""}</td>
         </tr>`;
       }).join("") || `<tr><td colspan="3" class="empty">No structured limits.</td></tr>`);
-    return `${a?.desc ? `<p style="color:#93a4b3">${esc(a.desc)}</p>` : ""}${body.outerHTML}`;
+    const hint = sp
+      ? `<p class="expand-hint">Click a substance to chart its observations at ${esc(sp)} against the current and proposed limits.</p>`
+      : "";
+    return `${a?.desc ? `<p style="color:#93a4b3">${esc(a.desc)}</p>` : ""}${hint}${body.outerHTML}`;
   });
   return c;
 }
