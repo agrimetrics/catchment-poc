@@ -3,22 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Points apart · Poole Harbour Rivers Demonstrator</title>
-  <meta name="description" content="How far apart the discharge point, monitoring point and WINEP action sites really are — the records linked data joins by identifier but a GIS would scatter." />
+  <title>Points apart — why identifiers, not proximity</title>
 
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="points.css" />
-
-  <!-- Endpoint + tile configuration (window.APP_CONFIG), shared with the map app. Classic script in
-       <head> so it runs before points.js. -->
-  <script src="config.js"></script>
 </head>
-<body>
+<body class="pts-body">
   <header>
     <div class="title">
       <h1>Points apart</h1>
-      <span class="subtitle">Discharge point · monitoring point · WINEP action — linked by identifier, scattered on the ground</span>
+      <span class="subtitle">Why this store joins by identifier, and what happens when you join by proximity instead</span>
     </div>
     <div class="header-links">
       <a class="docs-link" href="docs.html" title="Project documentation">Docs</a>
@@ -27,57 +22,17 @@
     </div>
   </header>
 
-  <div class="pts-main">
-    <aside class="pts-side">
-      <section class="pts-intro">
-        <p>
-          A permit's <b>discharge point</b>, the <b>monitoring point</b> it is sampled at, and any
-          <b>WINEP action</b> proposed for it all describe the <i>same regulated works</i> — yet in the
-          source data they sit hundreds of metres to over a kilometre apart. All three are published by
-          EA sources in the <i>same</i> coordinate reference system (British National Grid), so this is
-          no projection artefact: they are genuinely different points on the ground. Linked data joins
-          them deterministically by identifier (<code>monitoredAt</code>, <code>targetPermit</code>); a
-          GIS "join what's nearby" cannot, without either missing them or sweeping in unrelated neighbours.
-        </p>
-        <p>
-          <b>The opposite failure is just as bad.</b> Outlets that are different things often share one
-          coordinate. At <b>Brockhill Watercress Farm</b>, seven outlets belonging to four permits
-          (<a href="#" data-permit="043245" class="pts-jump">043245</a>, 043244, 401057, 401058) sit on
-          a single point — but the EA samples them at four <i>different</i> points, 120–265&nbsp;m apart.
-        </p>
-        <p>
-          A nearest-point join has to give all seven outlets the same answer, so it gets <b>one</b> of
-          them right. <code>monitoredAt</code> gets all <b>seven</b> right.
-        </p>
-        <p>
-          <b>And it need not land on an outfall at all.</b> A GIS layer holds <i>every</i> sampling
-          point, and most of them monitor no discharge — they are rivers, boreholes, bathing waters.
-          At <b>Blackheath WRC</b> (<a href="#" data-permit="042451" class="pts-jump">042451</a>) the
-          nearest sampling point to the works is <i>Sherford at Snails Bridge</i> — a river station,
-          sited <b>upstream</b>, the one place guaranteed to carry none of its effluent. Proximity
-          scores <b>0 of 5</b> there. The identifier scores 5 of 5.
-        </p>
-        <p class="pts-stats" id="pts-stats">Loading the store…</p>
-        <p class="pts-hint">Pick a permit to draw its spider and measure the gaps. Hover a dot for its
-          identifier; a dashed halo means more than one outlet is hiding under it.</p>
-      </section>
+  <!-- The argument in order. Each step is its own screen; the rail is both a progress indicator and
+       a way to jump straight to an example. -->
+  <nav class="pts-rail" id="pts-rail"></nav>
 
-      <div class="pts-legend" id="pts-legend"></div>
-
-      <div class="pts-search-row">
-        <input id="pts-search" class="pts-search" type="search" placeholder="Filter permits…" autocomplete="off" />
-      </div>
-      <div class="pts-list" id="pts-list"></div>
-    </aside>
-
-    <div class="pts-stage">
-      <div id="map"></div>
-      <div class="pts-detail hidden" id="pts-detail"></div>
-    </div>
-  </div>
+  <main id="pts-view">
+    <p class="pts-loading">Loading the store…</p>
+  </main>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="vendor/proj4/proj4.js"></script>
+  <script src="config.js"></script>
   <script src="points.js"></script>
 </body>
 </html>

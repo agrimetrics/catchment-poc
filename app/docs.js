@@ -14,8 +14,11 @@ const DOCS = [
     { path: "/README.md", title: "Project overview" },
   ]},
   { group: "Concepts", items: [
-    { href: "points.html", title: "Points apart — spatial vs. identifier" },
-    { href: "points.html#043245", title: "…worked example: 7 outlets, 1 coordinate" },
+    { href: "points.html#/why", title: "Points apart — why identifiers, not proximity" },
+    { href: "points.html#/blackheath", title: "…1: proximity returns an upstream river" },
+    { href: "points.html#/brockhill", title: "…2: 7 outlets on one coordinate" },
+    { href: "points.html#/doreys", title: "…3: no radius works" },
+    { href: "points.html#/explorer", title: "…the collections, explored" },
   ]},
   { group: "Datasets", items: [
     { path: "/ttl/regulation/README.md", title: "Regulation" },

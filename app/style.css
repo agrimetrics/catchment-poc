@@ -314,11 +314,42 @@ th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); 
 /* Nested tables (an expanded option group) must not sticky-fight with their parent's header. */
 .expand-inner th { position: static; }
 /* The last row's rule would otherwise cut across the card's rounded bottom corners. */
-.card > table > tbody > tr:last-child > td { border-bottom: none; }
+.card > table > tbody > tr:last-child > td,
+.card > .tbl-wrap > table > tbody > tr:last-child > td { border-bottom: none; }
 tbody tr:hover { background: #1b2836; }
 /* Column alignment — applies to BOTH the header and its cells so columns never look skew. */
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ctr { text-align: center; }
+
+/* --- Sortable headers ------------------------------------------------------------------------ */
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--text); }
+/* The caret is always in the layout (transparent when unsorted), so a column's width — and the
+   header row's alignment — does not jump the moment you sort it. */
+th.sortable::after {
+  content: "▾"; margin-left: 5px; font-size: 9px; color: transparent;
+}
+th.sortable:hover::after { color: var(--muted); }
+th.sorted::after { color: var(--accent); }
+th.sorted.asc::after { content: "▴"; color: var(--accent); }
+
+/* --- Pager ---------------------------------------------------------------------------------- */
+.pager {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  padding: 8px 12px; border-top: 1px solid var(--line);
+}
+.pager .pg {
+  min-width: 26px; height: 26px; padding: 0 6px;
+  background: var(--panel-2); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 5px;
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.pager .pg:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.pager .pg:disabled { opacity: .35; cursor: default; }
+.pager .pg.on {
+  background: var(--accent); border-color: var(--accent); color: #06131f; font-weight: 700;
+}
+.pager .pg-info { margin-left: auto; color: var(--muted); font-size: 11.5px; }
 
 .pill { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .pill.current { background: rgba(229,72,77,.18); color: #ff9a9d; }
