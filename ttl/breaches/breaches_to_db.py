@@ -310,7 +310,7 @@ breach_observations = pd.DataFrame(evidence).drop_duplicates() if evidence else 
 
 # --- Each evidencing observation's sampling point. This is the structural edge the app's breach query
 #     joins on (<observation> sosa:hasFeatureOfInterest <sampling-point>), instead of an IRI-prefix
-#     STRSTARTS filter the engine cannot key on. enrich_sampling_points.py used to dereference the
+#     STRSTARTS filter the engine cannot key on. The regulation pipeline used to dereference the
 #     archive for it; we already KNOW it - the compliance fetch carried the sampling point on every
 #     observation - so it is emitted straight from the data, no network round-trip. ---
 observation_sampling_point = (

@@ -2,26 +2,63 @@ from pathlib import Path
 
 import duckdb
 
-# This script shreds the observations-with-permits-and-rules CSV into a small star of
-# tables, one row per instance, so ontop can materialise Permit / Condition / ConditionBreach
+# This script shreds the source registers into a small star of tables, one row per instance, so
+# ontop can materialise Permit / DischargePoint / SamplingPoint / Condition / ConditionBreach
 # individuals against the DEFRA regulation + water ontologies.
 #
-# The whole database is a drop/replace rebuild from the CSV, so regulation.duckdb does not
+# WHAT DEFINES A THING, AND WHAT MERELY DESCRIBES IT
+# --------------------------------------------------
+# Two different registers feed this graph, and which one a table comes from is a modelling
+# decision, not a convenience:
+#
+#   * WHAT EXISTS comes from the REGISTERS. A permit, its outlets, and the sampling point each
+#     outlet is monitored at are facts of the permit register (effluents.csv + consents_*.csv) and
+#     the Water Quality Archive. They are true whether or not anyone sampled there this decade.
+#
+#   * WHAT WAS MEASURED comes from the OBSERVATIONS (the CSV below). Conditions, limit values and
+#     breaches are still derived from the observations-with-rules join.
+#
+# This split is a FIX, not decoration. Everything used to be materialised from the observations
+# CSV, which meant a thing existed only if it had a numeric result that matched a permit rule -
+# so the store quietly lost real regulated outlets. Permit 043231 showed 1 of its 2 outlets and
+# 400114/CF/01 showed 1 of its 3, because the missing outlets' every 2020-2026 sample reads
+# "No flow/discharge at sampling point" (a true and useful fact, dropped by the numeric filter in
+# link_data.py); permit 050922 vanished entirely, its only samples being a site inspection. An
+# outlet that is never sampled is still an outlet, and app/points.html - whose whole argument is
+# about outlets that a map collapses onto one dot - was counting the wrong number of them.
+#
+# KNOWN LIMITATION, same shape, not yet fixed: conditions and their bounds are still observation-
+# sourced (see the `conditions` table below), so a permit limit appears only if that substance was
+# actually sampled at that permit. Sourcing them from determinands.csv instead would take the
+# catchment from 587 conditions over 12 substances to 919 over 38 - and those extra 26 include
+# flow, colour, turbidity and pH, which would reshape the app's "substance" vocabulary. That is a
+# deliberate separate change, not an oversight.
+#
+# The whole database is a drop/replace rebuild from the CSVs, so regulation.duckdb does not
 # need to be committed - just re-run this script. Paths resolve relative to this file so it
 # can be run from any working directory.
 
 HERE = Path(__file__).resolve().parent          # ttl/regulation
 ROOT = HERE.parents[1]                           # repository root
 CSV = ROOT / "output_data" / "observations_with_permits_and_rules.csv"
-# The permit register (a raw source) is the only place the discharge site's own National Grid
-# Reference lives; the observations pipeline (CSV above) drops it. Read straight from here.
+# The permit register. effluents.csv is the outlet-level register: one row per
+# (permit, version, outlet, effluent), naming the sampling point that effluent is monitored at
+# (EFF_SAMPLE_POINT). It is the source of truth for WHICH OUTLETS EXIST and WHERE EACH IS SAMPLED.
+EFFLUENTS_CSV = ROOT / "raw_datasets" / "access_database_csv_files" / "effluents.csv"
+# The consents register is the only place the discharge site's own National Grid Reference lives.
 # consents_active covers in-force permits; consents_all is a hand-cut extract of the *revoked*
-# permits that still carry observations here (absent from the active register), so between them
-# every monitored discharge point gets its own NGR. Both files share the same column layout.
+# permits that still carry observations here (absent from the active register). Both files share
+# the same column layout.
 CONSENTS_CSVS = [
     ROOT / "raw_datasets" / "access_database_csv_files" / "consents_active.csv",
     ROOT / "raw_datasets" / "access_database_csv_files" / "consents_all.csv",
 ]
+# Sampling-point reference data resolved from the EA Water Quality Archive by
+# fetch_sampling_points.py: label, geometry in the SOURCE CRS (EPSG:27700), type and status. Covers
+# both layers the app shows - the effluent points a permit is monitored at, AND the ambient points
+# (rivers, boreholes, bathing waters) that belong to no permit at all and so could never have been
+# reached through the permit join.
+SAMPLING_POINTS_CSV = HERE / "sampling_points.csv"
 
 con = duckdb.connect(str(HERE / "regulation.duckdb"))
 
@@ -86,52 +123,102 @@ SELECT * FROM read_csv(
 );
 """)
 
-# --- Permits (one per PERMIT_REF) -> defra-water:WaterDischargePermit ---
-con.execute("""
-CREATE OR REPLACE TABLE permits AS
-SELECT DISTINCT PERMIT_REF AS permit_ref
-FROM raw;
+# --- Sampling points, from the Water Quality Archive (fetch_sampling_points.py). Every sampling
+#     point the catchment holds observations for, PLUS every one the register names as a permit's
+#     effluent sample point. Geometry is carried verbatim in its published CRS (EPSG:27700). ---
+con.execute(f"""
+CREATE OR REPLACE TABLE sampling_points AS
+SELECT sp_notation, pref_label, wkt, type_notation, type_label, status_label
+FROM read_csv('{SAMPLING_POINTS_CSV}', header=true, types={{'sp_notation': 'VARCHAR',
+    'pref_label': 'VARCHAR', 'wkt': 'VARCHAR', 'type_notation': 'VARCHAR',
+    'type_label': 'VARCHAR', 'status_label': 'VARCHAR'}})
+WHERE wkt IS NOT NULL AND wkt <> '';
 """)
 
-# --- Permit versions (one per PERMIT_REF+VERSION) -> defra-reg:PermitDocument ---
+# --- Sampling-point type vocabulary (rivers / boreholes / watercress farming / storm overflow ...).
+#     The archive nests the type as a blank-node skos:Concept with no resolvable IRI of its own, so
+#     the store mints one from the notation, exactly as it does for substances. This is what the
+#     app's Ambient view colours by. ---
+con.execute("""
+CREATE OR REPLACE TABLE sampling_point_types AS
+SELECT DISTINCT type_notation AS notation, type_label AS pref_label
+FROM sampling_points
+WHERE type_notation IS NOT NULL AND type_notation <> '';
+""")
+
+# --- The permit register, at outlet grain. One row per (permit, version, outlet, effluent), naming
+#     the sampling point that effluent is monitored at. Restricted to the region whose notation
+#     scheme we can reconstruct (see link_data.py: a sampling point is REGION + '-' + code). ---
+con.execute(f"""
+CREATE OR REPLACE TABLE register_effluents AS
+SELECT DISTINCT
+    CAST(PERMIT_REF AS VARCHAR) AS permit_ref,
+    CAST(VERSION AS VARCHAR) AS version,
+    CAST(OUTLET_NUMBER AS VARCHAR) AS outlet,
+    CAST(EFFLUENT_NUMBER AS VARCHAR) AS effluent,
+    EA_REGION || '-' || EFF_SAMPLE_POINT AS sp_notation
+FROM read_csv('{EFFLUENTS_CSV}', header=true, types={{'PERMIT_REF': 'VARCHAR',
+    'VERSION': 'VARCHAR', 'OUTLET_NUMBER': 'VARCHAR', 'EFFLUENT_NUMBER': 'VARCHAR'}})
+WHERE EA_REGION = 'SW' AND EFF_SAMPLE_POINT IS NOT NULL;
+""")
+
+# --- SCOPE. The register is national (59k permits); this demonstrator is one catchment. A permit is
+#     in scope if it is monitored at a sampling point the catchment holds observations for. That is a
+#     property of the REGISTER, not of what happened to be sampled - so once a permit is in, ALL of
+#     its outlets come with it, including the ones that have never produced a numeric result. ---
+con.execute("""
+CREATE OR REPLACE TABLE scoped_permits AS
+SELECT DISTINCT e.permit_ref
+FROM register_effluents e
+WHERE e.sp_notation IN (
+    SELECT DISTINCT "samplingPoint.notation" FROM raw
+    UNION
+    SELECT sp_notation FROM sampling_points
+);
+""")
+
+# --- Permits (one per PERMIT_REF) -> defra-water:WaterDischargePermit.
+#     Union with the observations: a permit we hold breaches for stays in the store even if the
+#     register extracts have since dropped it (a revoked permit still has a history). ---
+con.execute("""
+CREATE OR REPLACE TABLE permits AS
+SELECT permit_ref FROM scoped_permits
+UNION
+SELECT DISTINCT PERMIT_REF AS permit_ref FROM raw;
+""")
+
+# --- Permit versions (one per PERMIT_REF+VERSION) -> defra-reg:PermitDocument.
+#     Still observation-sourced: a PermitDocument's reason to exist here is the Conditions it
+#     carries, and those come from the observations join. A scoped permit with no observed
+#     condition (e.g. 050922) therefore has outlets but no versioned document - which is exactly
+#     what we know about it. ---
 con.execute("""
 CREATE OR REPLACE TABLE permit_versions AS
 SELECT DISTINCT PERMIT_REF AS permit_ref, VERSION AS version
 FROM raw;
 """)
 
-# --- Discharge points (one per PERMIT_REF+OUTLET+EFFLUENT) -> defra-reg:DischargePoint ---
+# --- Discharge points (one per PERMIT_REF+OUTLET+EFFLUENT) -> defra-reg:DischargePoint.
+#     From the REGISTER, so every outlet of an in-scope permit exists, sampled or not. Version is
+#     collapsed: an outlet is one thing in the world across the permit's versions. ---
 con.execute("""
 CREATE OR REPLACE TABLE discharge_points AS
-SELECT DISTINCT PERMIT_REF AS permit_ref, OUTLET_NUMBER AS outlet, EFFLUENT_NUMBER AS effluent
-FROM raw;
+SELECT DISTINCT e.permit_ref, e.outlet, e.effluent
+FROM register_effluents e
+JOIN scoped_permits s USING (permit_ref)
+UNION
+SELECT DISTINCT PERMIT_REF, OUTLET_NUMBER, EFFLUENT_NUMBER FROM raw;
 """)
 
-# --- Discharge point -> sampling point monitoring link (one sampling point per discharge point) ---
+# --- Discharge point -> sampling point (defra-water:monitoredAt). The register states this link;
+#     it is the identifier-borne edge that app/points.html sets against a spatial join. Restricted
+#     to sampling points we could resolve in the archive, so the edge never dangles. ---
 con.execute("""
 CREATE OR REPLACE TABLE discharge_point_monitoring AS
-SELECT DISTINCT
-    PERMIT_REF AS permit_ref,
-    OUTLET_NUMBER AS outlet,
-    EFFLUENT_NUMBER AS effluent,
-    "samplingPoint.notation" AS sp_notation
-FROM raw
-WHERE "samplingPoint.notation" IS NOT NULL AND "samplingPoint.notation" <> '';
-""")
-
-# --- Sampling-point geometry (WGS84). The sampling point owns its own coordinates (lon/lat from
-#     the water-quality observations), so we assert them on the sampling point itself rather than
-#     transcribing them onto the discharge point. WKT is POINT(lon lat), CRS84/WGS84 (EPSG:4326). ---
-con.execute("""
-CREATE OR REPLACE TABLE sampling_point_geometry AS
-SELECT
-    "samplingPoint.notation" AS sp_notation,
-    ANY_VALUE("samplingPoint.longitude") AS lon,
-    ANY_VALUE("samplingPoint.latitude")  AS lat
-FROM raw
-WHERE "samplingPoint.longitude" IS NOT NULL AND "samplingPoint.latitude" IS NOT NULL
-  AND "samplingPoint.notation" IS NOT NULL AND "samplingPoint.notation" <> ''
-GROUP BY "samplingPoint.notation";
+SELECT DISTINCT e.permit_ref, e.outlet, e.effluent, e.sp_notation
+FROM register_effluents e
+JOIN scoped_permits s USING (permit_ref)
+JOIN sampling_points p ON p.sp_notation = e.sp_notation;
 """)
 
 # --- Discharge-point geometry. The discharge point's own #geography, as a ready-made WKT literal
@@ -186,9 +273,10 @@ ngr AS (
     JOIN consents c USING (permit_ref)
 ),
 sp AS (
-    SELECT m.permit_ref, m.outlet, m.effluent, g.lon, g.lat
+    SELECT m.permit_ref, m.outlet, m.effluent, ANY_VALUE(p.wkt) AS wkt
     FROM discharge_point_monitoring m
-    JOIN sampling_point_geometry g ON g.sp_notation = m.sp_notation
+    JOIN sampling_points p ON p.sp_notation = m.sp_notation
+    GROUP BY m.permit_ref, m.outlet, m.effluent
 )
 SELECT permit_ref, outlet, effluent, wkt FROM (
     SELECT
@@ -197,8 +285,8 @@ SELECT permit_ref, outlet, effluent, wkt FROM (
             WHEN ngr.easting IS NOT NULL
                 THEN 'POINT(' || ngr.easting || ' ' || ngr.northing
                      || ') <http://www.opengis.net/def/crs/EPSG/0/27700>'
-            WHEN sp.lon IS NOT NULL
-                THEN 'POINT(' || sp.lon || ' ' || sp.lat || ')'
+            WHEN sp.wkt IS NOT NULL
+                THEN sp.wkt
         END AS wkt
     FROM discharge_points dp
     LEFT JOIN ngr USING (permit_ref, outlet, effluent)
@@ -427,11 +515,41 @@ WHERE notation IN (SELECT notation FROM substances);
 
 # Summary + a couple of integrity checks for the operator
 for tbl in ["permits", "permit_versions", "permit_version_dates", "discharge_points",
-            "discharge_point_monitoring", "sampling_point_geometry", "discharge_point_geometry",
+            "discharge_point_monitoring", "sampling_points", "sampling_point_types",
+            "discharge_point_geometry",
             "substances", "units", "statistics", "conditions", "condition_bounds",
             "limit_statements", "substance_aliases"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>20}: {n}")
+
+# The two failure modes app/points.html is built to show, counted at build time so the page's prose
+# can be checked against the data rather than trusted. (1) How many discharge points share their
+# published coordinate with another outlet - the site NGR is a SITE fact inherited by every outlet of
+# every permit there, so a map collapses them onto one dot. (2) How many outlets fall back to their
+# sampling point's coordinate because the consents extracts carry no NGR for that permit - those sit
+# exactly ON their sampling point, which is not a real discharge location.
+stacked, coords, total_dp = con.execute("""
+    WITH by_coord AS (SELECT wkt, COUNT(*) AS n FROM discharge_point_geometry GROUP BY wkt)
+    SELECT COALESCE(SUM(CASE WHEN n > 1 THEN n END), 0), COUNT(*), COALESCE(SUM(n), 0) FROM by_coord
+""").fetchone()
+print(f"  discharge points: {total_dp} on {coords} distinct coordinates; "
+      f"{stacked} share a coordinate with another outlet")
+
+no_ngr = con.execute("""
+    SELECT COUNT(*) FROM discharge_point_geometry WHERE wkt NOT LIKE '%27700%'
+""").fetchone()[0]
+if no_ngr:
+    print(f"NOTE: {no_ngr} discharge point(s) have no site NGR in the consents extracts and fall back "
+          f"to their sampling point's coordinate.")
+
+unmonitored = con.execute("""
+    SELECT COUNT(*) FROM discharge_points dp
+    WHERE NOT EXISTS (SELECT 1 FROM discharge_point_monitoring m
+                      WHERE m.permit_ref = dp.permit_ref AND m.outlet = dp.outlet
+                        AND m.effluent = dp.effluent)
+""").fetchone()[0]
+if unmonitored:
+    print(f"NOTE: {unmonitored} discharge point(s) name no sampling point we could resolve.")
 
 print("       bounds by statistic:")
 for slug, kind, n in con.execute("""

@@ -142,17 +142,34 @@ to be terminated by the platform's load balancer.
 
 ### The app's views
 
-The page always shows the catchment map with tables beneath it, grouped into **Water** and **Land**:
+The page always shows the catchment map with tables beneath it, grouped into **Water** and **Land**.
+The two water views are the demonstrator's argument in miniature. They are two different worlds:
 
-- **Breaches** — condition breaches as *periods* (a run of consecutive failing observations with no
-  passing result in between). A breach is **current** while its period is still open (nothing has
-  passed since it began), otherwise **past** with a start and end; a lone failure is a period whose
-  start and end are the same day. Each links out to the Water Quality Explorer sampling point.
-- **Substance Views** — pick a substance (defaults to Ammoniacal Nitrogen, `0111`); the map and
-  tables show its in-force permit limits and the WINEP actions proposing future limits, plus a live
-  hit/miss time-series chart per discharge point.
-- **WINEP** — the Water Industry National Environment Programme actions (all Wessex Water here) with
-  completion dates and their proposed / continued limits.
+> **The regulated world** exists because a permit says so. It is knowable in advance, from a register,
+> whether or not anyone ever visits.
+> **The measured world** exists because someone took a sample. Most of it belongs to no permit at all.
+>
+> Neither is a view of the other. A permit is not evidence that anything was measured, and a
+> measurement is not evidence that anything was permitted. Keeping them apart on the screen is what
+> makes it possible to ask where they disagree.
+
+- **The regulated world** — everything that hangs off a permit identifier, in one view: the **limits**
+  in force, the **breaches** of them, and the **WINEP** actions proposing the limits that will replace
+  them. Breaches are *periods* (a run of consecutive failing observations with no passing result in
+  between): **current** while the period is still open, otherwise **past** with a start and end; a
+  lone failure is a period whose start and end are the same day. Pick a substance and the view
+  becomes the story for that substance — its limits, its breaches, its proposed future limits, and a
+  live hit/miss time-series chart per discharge point. (These were three separate tabs — *Breaches*,
+  *Substance Views* and *WINEP* — which made one subject, seen at three points in time, read as
+  three subjects. Old `?view=breaches|substance|wessex` links still resolve here; the view key is
+  still `?view=permits`.)
+- **The measured world** — pollution as actually sampled, **regardless of sampling-point source**.
+  Every one of the catchment's **161 sampling points**, coloured by what the EA samples there, with
+  the same live time-series chart on any of them. **91 of them belong to no permit at all** — rivers,
+  boreholes, bathing waters, investigation points — so the regulated world is structurally blind to
+  them: there is no permit to reach them through. A point that is measured but not regulated has no
+  limit, so its chart shows readings and no pass mark; a river is not "compliant", it is merely
+  measured. (View key: `?view=ambient`.)
 - **Sustainable Farming Incentive** — SFI agreements as convex-hull polygons coloured by programme,
   with a cost-per-intervention pie (or count bar chart), an option-type filter, and per-application
   valuations. See the [SFI data warnings](ttl/sfi/README.md#data-warnings) for the pricing caveats.
@@ -168,11 +185,13 @@ Two utility pages hang off the app chrome (top-right of the header, and the foot
 - **Docs** ([`/docs.html`](app/docs.html)) — an in-app viewer that renders this repo's Markdown (the
   top-level and per-dataset READMEs, the TODOs) with a sidebar and working cross-links.
 
-Geometry notes: regulation discharge points and SFI options carry WGS84 lon/lat; WINEP action sites
-carry EPSG:27700 (British National Grid), reprojected in the browser with proj4. The discharge-point
-geometry is asserted on the discharge point we own (a `#geography` fragment), transcribed from the
-coordinates of the sampling point it is `monitoredAt`; the `environment.data.gov.uk` sampling point
-itself is left as a bare `geo:Feature`.
+Geometry notes: SFI options carry WGS84 lon/lat; discharge points, sampling points and WINEP action
+sites all carry EPSG:27700 (British National Grid), reprojected in the browser with proj4. A
+discharge point's geometry is asserted on the discharge point we own (a `#geography` fragment) and
+comes from the permit register's own site grid reference — **not** transcribed from its sampling
+point, because they are genuinely different places (see [Points apart](app/points.html)). The
+sampling point carries **its own** `#geometry`, captured from the EA Water Quality Archive in the CRS
+the archive publishes, along with its label and its type.
 
 ### Per-table SPARQL provenance links
 
@@ -254,9 +273,16 @@ is in the linked per-dataset READMEs.
 
 - **One catchment, deliberately cut down.** Every dataset is filtered to Poole Harbour Rivers (by
   region, spatial clip, or permit overlap). Counts and the exact filters are in each README.
-- **Regulation is abstracted.** Absolute min/max rules only (no percentile/rolling/load), seasonality
-  collapsed to one limit per (permit, version, substance), numeric results only. Breaches are
-  **periods**, not single failures. → [regulation README](ttl/regulation/README.md).
+- **Regulation is abstracted.** Absolute rules only (`METHOD = ABSOLUTE`, so no comparative
+  inlet-vs-discharge rules), seasonality collapsed to one limit per (permit, version, substance).
+  Breaches are **periods**, not single failures. → [regulation README](ttl/regulation/README.md).
+- **What EXISTS comes from the registers; what was MEASURED comes from the observations.** Permits,
+  outlets, `monitoredAt` and sampling points are sourced from the permit register and the Water
+  Quality Archive, so an outlet that has never produced a numeric result still exists (it used not
+  to, and the store was quietly missing real regulated outlets as a result). *Conditions* are still
+  observation-sourced, though — so a permit limit appears only if that substance was sampled at that
+  permit, which is why 61 permits have outlets but only 58 have limits. Same bug, one level up, not
+  yet fixed. → [regulation README](ttl/regulation/README.md).
 - **WINEP proposed limits are semi-structured text**, interpreted deterministically; 5 cells remain
   verbatim, one generic `chemical` analyte is unresolved, and a permit+substance can carry competing
   proposals from different regulatory drivers (the app lists all). → [WINEP TODO](ttl/winep/TODO.md).

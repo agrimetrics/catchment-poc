@@ -1,12 +1,14 @@
 # Regulation dataset — scope
 
-The regulation graph (permits, conditions, limits, discharge points) for the
-**Poole Harbour Rivers** operational catchment. Built by `regulation_to_db.py` (shreds a CSV
-into a small star schema in `regulation.duckdb`) → ontop (`regulation.obda`) → `../regulation.ttl`.
+The regulation graph (permits, conditions, limits, discharge points, sampling points) for the
+**Poole Harbour Rivers** operational catchment. Built by `regulation_to_db.py` (shreds the source
+registers into a small star schema in `regulation.duckdb`) → ontop (`regulation.obda`) →
+`../regulation.ttl`.
 
 ```
-python link_data.py                             # upstream join → output_data/observations_with_permits_and_rules.csv
-python ttl/regulation/fetch_version_dates.py    # (occasional) refresh permit_version_dates.csv from the EA public register
+python link_data.py                              # upstream join → output_data/observations_with_permits_and_rules.csv
+python ttl/regulation/fetch_version_dates.py     # (occasional) refresh permit_version_dates.csv from the EA public register
+python ttl/regulation/fetch_sampling_points.py   # (occasional) refresh sampling_points.csv from the EA Water Quality Archive
 python ttl/regulation/regulation_to_db.py
 ./ontop/ontop materialize --mapping ttl/regulation/regulation.obda \
     --properties ontop/duckdb-regulation.properties \
@@ -14,11 +16,15 @@ python ttl/regulation/regulation_to_db.py
   && rdfpipe -i turtle -o turtle ttl/regulation/regulation_raw.ttl > ttl/regulation.ttl
 ```
 
+Both `fetch_*` scripts need egress to `environment.data.gov.uk`, and both cache to a committed CSV,
+so the normal build is offline.
+
 ## How the scope was whittled down (for convenience)
 
 The national permitting data is enormous; this demonstrator is deliberately cut to one catchment
-and the simplest defensible model. The narrowing happens mostly upstream in `link_data.py`
-(which writes `output_data/observations_with_permits_and_rules.csv`, the shredder's only input):
+and the simplest defensible model. Conditions, limits and breaches narrow upstream in `link_data.py`
+(which writes `output_data/observations_with_permits_and_rules.csv`); permits, outlets and sampling
+points are scoped from the registers themselves (see *What exists vs. what was measured* below):
 
 - **One catchment.** Observations are the Poole Harbour Rivers water-quality file
   (`poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv`), **2020–2026** only.
@@ -37,15 +43,42 @@ and the simplest defensible model. The narrowing happens mostly upstream in `lin
 - **Seasonality collapsed.** Rows are kept only where the sample month is within the rule's
   `MONTH_FROM..MONTH_TO`, but the model carries **one condition per (permit, version, substance)** —
   summer/winter splits are not represented.
-- **Only permits actually monitored here.** A permit appears only if one of its discharge points
-  is monitored at a sampling point that has observations in the file → **58 permits**.
+- **Only permits monitored here.** A permit is in scope if the register says one of its outlets is
+  sampled at a sampling point this catchment holds observations for → **61 permits**. Note what this
+  scopes on: a fact of the *register*, not of the observations. Once a permit is in, **all** of its
+  outlets come with it.
 
-Result: 58 permits, 170 permit versions, 587 conditions, 800 condition bounds, 75 discharge points,
-12 substances. (Breaches are a derived judgement and live in their own graph — see
-[../breaches/README.md](../breaches/README.md).) Substances keep leading zeros and are padded to 4 digits (`0111`);
-permit refs are 6-digit.
+### What exists vs. what was measured
 
-## Three enrichments this pipeline adds
+The two are sourced from different places, and the split is deliberate:
+
+| | source | why |
+| --- | --- | --- |
+| Permits, outlets, `monitoredAt`, sampling points | the **registers** (`effluents.csv`, `consents_*.csv`) and the **Water Quality Archive** | An outlet is an outlet whether or not anyone sampled it this decade. |
+| Conditions, limit values, breaches | the **observations** join (`observations_with_permits_and_rules.csv`) | These are claims about measurement, so measurement is the right source. |
+
+This was **not** always so, and the bug it caused is worth stating. Everything used to be
+materialised from the observations CSV, so a thing existed only if it had a *numeric result matching
+a permit rule*. That silently deleted real regulated outlets: permit `043231` showed 1 of its 2
+outlets and `400114/CF/01` showed 1 of its 3, because every 2020–2026 sample at the missing ones
+reads *"No flow/discharge at sampling point"* — a true and useful fact, dropped by the numeric filter
+in `link_data.py`. Permit `050922` vanished entirely (its only samples are a site inspection). And
+the store could hold **no ambient sampling point at all** — a river or a borehole has no permit to
+join through, so nothing in the old pipeline could have reached one.
+
+Result: **61 permits, 170 permit versions, 587 conditions, 800 condition bounds, 102 discharge
+points, 161 sampling points, 17 sampling-point types, 12 substances.** (Breaches are a derived
+judgement and live in their own graph — see [../breaches/README.md](../breaches/README.md).)
+Substances keep leading zeros and are padded to 4 digits (`0111`); permit refs are 6-digit.
+
+> **Known limitation — the same bug, one level up, not yet fixed.** *Conditions* are still
+> observation-sourced, so a permit limit appears only if that substance was actually sampled at that
+> permit. That is why 61 permits have outlets but only 58 have limits. Sourcing conditions from
+> `determinands.csv` instead would take the catchment from 587 conditions over 12 substances to **919
+> over 38** — and the extra 26 include flow, colour, turbidity and pH, which would reshape the app's
+> "substance" vocabulary. A deliberate separate change.
+
+## What this pipeline adds on top of the CSVs
 
 - **Discharge-point geometry.** The discharge point gets a `#geography` from the permit register's
   own National Grid Reference (`DISCHARGE_NGR`) — decoded to Easting/Northing and tagged
@@ -58,8 +91,9 @@ permit refs are 6-digit.
   monitored at, sitting hundreds of metres to over a kilometre apart. The NGR is read from two extracts
   in `../../raw_datasets/access_database_csv_files/`: `consents_active.csv` (in-force permits) and
   `consents_all.csv` (a cut of the *revoked* permits that still carry observations here but are absent
-  from the active register); together they cover all 67 monitored discharge points, so every one gets
-  a real NGR. Lets breaches/permits appear on the map (the app reprojects EPSG:27700 → WGS84 with proj4).
+  from the active register); together they cover 100 of the 102 discharge points, so all but two get
+  a real NGR (the two without any geometry are simply not drawn). Lets breaches/permits appear on the
+  map (the app reprojects EPSG:27700 → WGS84 with proj4).
 
   > **A coarse coordinate on a fine feature — read this before trusting the geometry.**
   > The register carries a grid reference at **three** levels: `DISCHARGE_NGR` (the discharge **site**),
@@ -71,41 +105,67 @@ permit refs are 6-digit.
   > has 13 permits on a single ref). Joining it on `permit_ref` alone therefore turns a **site** fact
   > into a **permit** fact, and every outlet of every permit at a site inherits one identical point.
   >
-  > In this catchment that leaves **67 discharge points on just 32 distinct coordinates**. At *Brockhill
-  > Watercress Farm*, 7 outlets across 4 permits (`043244`, `043245`, `401057`, `401058`) all sit on
-  > `POINT(383690 92820)` — while the EA samples them at 4 different sampling points 120–265 m away.
+  > In this catchment that leaves **100 mapped discharge points on just 42 distinct coordinates** — 83
+  > of them share a coordinate with another outlet. At *Brockhill Watercress Farm*, 7 outlets across 4
+  > permits (`043244`, `043245`, `401057`, `401058`) all sit on `POINT(383690 92820)` — while the EA
+  > samples them at 4 different sampling points 120–265 m away.
   >
   > This is kept deliberately: the site NGR is what the public register surfaces as "the" discharge
   > location, so the store reproduces what a consumer of that register actually gets — and it is the
   > worked example behind [Points apart](../../app/points.html), which shows why a spatial join cannot
-  > be trusted to reconstruct a link that an identifier already states. Scored over the 64 discharge
-  > points matchable to a register row, a nearest-sampling-point join gets:
+  > be trusted to reconstruct a link that an identifier already states. Scored over the 69 monitored
+  > discharge points for which the register carries **all three** grid refs (so the rows compare the
+  > same outlets three ways), choosing from the **whole 161-point sampling layer** — which is what a GIS
+  > actually holds:
   >
   > | geometry hung on the discharge point | distinct coords | nearest-neighbour correct |
   > | --- | --- | --- |
-  > | `DISCHARGE_NGR` — site (**what this store uses**) | 32 | **38 / 64** (59%) |
-  > | `OUTLET_GRID_REF` — outlet | 61 | 56 / 64 (88%) |
-  > | `EFFLUENT_GRID_REF` — effluent | 60 | 54 / 64 (84%) |
-  > | `water:monitoredAt` — **the identifier** | — | **64 / 64** (100%) |
+  > | `DISCHARGE_NGR` — site (**what this store uses**) | 37 | **33 / 69** (48%) |
+  > | `OUTLET_GRID_REF` — outlet | 60 | 53 / 69 (77%) |
+  > | `EFFLUENT_GRID_REF` — effluent | 66 | 53 / 69 (77%) |
+  > | `water:monitoredAt` — **the identifier** | — | **69 / 69** (100%) |
   >
-  > Note the *finest* geometry scores *worse* than the outlet ref: accuracy is not even monotonic in
-  > coordinate precision, so "just use the most precise coordinate" is not a rule that saves you. The
-  > spatial join tops out around seven in eight, and which eighth it drops is decided by a schema choice
-  > taken two levels above the feature being joined. The identifier does not care.
+  > Note the *finest* geometry does no better than the outlet ref, despite resolving more distinct
+  > coordinates (66 vs 60): accuracy is not monotonic in coordinate precision, so "just use the most
+  > precise coordinate" is not a rule that saves you. The spatial join tops out around three in four,
+  > and which quarter it drops is decided by a schema choice taken two levels above the feature being
+  > joined. The identifier does not care.
+  >
+  > **Worse: the join need not return an outfall at all.** Only 70 of the 161 sampling points monitor
+  > any discharge; the other 91 are rivers, boreholes and bathing waters. A nearest-feature join picks
+  > from all of them, and for 8 of the scored outlets its nearest hit monitors no discharge whatsoever.
+  > At *Blackheath WRC* (`042451`) the nearest point is `SW-50951085`, **"SHERFORD AT SNAILS BRIDGE US
+  > BLACKHEATH"** — a river station sited *upstream* of the works, the one place guaranteed to carry
+  > none of its effluent. Proximity scores **0 of 5** on that permit's outlets. Restricting the layer to
+  > "just the effluent points" would hide this, but you can only do that if you already know which
+  > points those are — which is what the join was for.
   >
   > To publish finer geometry instead, join `OUTLET_GRID_REF` / `EFFLUENT_GRID_REF` on
   > `(PERMIT_NUMBER, OUTLET_NUMBER[, EFFLUENT_NUMBER])` rather than on `permit_ref` — see the
   > `discharge_point_geometry` block in `regulation_to_db.py`.
-- **Sampling-point capture & observation linkage.** `enrich_sampling_points.py` dereferences each
-  breach-evidencing observation and each sampling point from the WQA as `application/ld+json` and
-  writes two things back into `regulation.ttl`: the sampling point's `skos:prefLabel` and its geometry
-  in the **source EPSG:27700 encoding** (carrying the OGC CRS URI), and the structural edge
-  `<observation> sosa:hasFeatureOfInterest <sampling-point>`. That edge is the real join key the breach
-  query uses **instead of** an IRI-prefix `STRSTARTS` filter — which the engine cannot key on, so it
-  fans out to a Cartesian product and trips *"Size Limit Exceeded"* on any store larger than this demo.
-  Observational *values* (result, unit, determinand, dates) are deliberately **not** stored — they stay
-  federated, pulled live via the `/observations` proxy. WQA IRIs come back `https:` and are normalised
-  to the store's `http:` convention on the way in.
+- **Sampling points, from the archive.** `fetch_sampling_points.py` resolves every sampling point the
+  store needs straight from the WQA as `application/ld+json` and caches the reference facts into the
+  committed `sampling_points.csv`, which `regulation_to_db.py` reads like any other table: the
+  `skos:prefLabel`, the geometry in the **source EPSG:27700 encoding** (carrying the OGC CRS URI, not a
+  convenience reprojection), the `samplingPointType` and the status. The archive nests type and status
+  as blank-node concepts with no resolvable IRI, so the store mints `wr:sampling-point-type/{notation}`
+  from the notation — the same pattern it uses for substances.
+
+  Which points? The union of **every sampling point in the catchment observation download** (149 — the
+  ambient layer: rivers, boreholes, bathing waters, investigation points) and **every point the register
+  names as a permit's effluent sample point** (adding 12 more, including storm overflows the download
+  never mentioned). 161 in all, of which only 70 monitor a discharge. Observational *values* (result,
+  unit, determinand, dates) are deliberately **not** stored — they stay federated, pulled live via the
+  `/observations` proxy. WQA IRIs come back `https:` and are normalised to `http:` on the way in.
+
+  This replaced an earlier `enrich_sampling_points.py`, which patched labels and geometry into the
+  materialised Turtle with regexes. It could only ever *rewrite* facts the observations had already put
+  in the graph, so a sampling point with no observations behind it — every ambient point in the
+  catchment — had nothing to patch and could not be represented at all. Its other job, the
+  `<observation> sosa:hasFeatureOfInterest <sampling-point>` edge, is now emitted by the breaches
+  pipeline (see [../breaches/README.md](../breaches/README.md)); that edge is the real join key the
+  breach query uses **instead of** an IRI-prefix `STRSTARTS` filter, which the engine cannot key on and
+  which fans out to a Cartesian product.
 - **Permit-version effective dates.** Not in any source CSV, so `fetch_version_dates.py` pulls each
   version's `effectiveDate`/`revocationDate` from the EA public register into the committed
   `permit_version_dates.csv` (see that script's header). Only **numeric** permit refs fit the
