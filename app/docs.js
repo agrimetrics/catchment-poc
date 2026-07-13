@@ -18,6 +18,7 @@ const DOCS = [
     { href: "points.html#/blackheath", title: "…1: proximity returns an upstream river" },
     { href: "points.html#/brockhill", title: "…2: 7 outlets on one coordinate" },
     { href: "points.html#/doreys", title: "…3: no radius works" },
+    { href: "points.html#/unlocatable", title: "…4: outlets with no location at all" },
     { href: "points.html#/explorer", title: "…the collections, explored" },
   ]},
   { group: "Datasets", items: [

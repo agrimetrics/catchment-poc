@@ -135,10 +135,15 @@ const Q = {
     } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond
              ?stat ?statLabel ?limit ?unitLabel ?assessment`,
 
+  // Geometry is OPTIONAL: 7 outlets have no site grid reference in the register, and the store
+  // publishes them with no coordinate rather than a guessed one. They cannot be drawn — render()
+  // filters on lat — but they still exist, still belong to their permit, and still name the sampling
+  // point they are monitored at. Requiring ?w here would let the presence of geometry decide what
+  // exists, which is the mistake this whole store is arguing against.
   dischargePoints: `${PREFIXES}
     SELECT ?dp ?permit (SAMPLE(?w) AS ?wkt) ?sp WHERE {
       ?permit a water:WaterDischargePermit ; reg:permitSite ?dp .
-      ?dp geo:hasGeometry/geo:asWKT ?w .
+      OPTIONAL { ?dp geo:hasGeometry/geo:asWKT ?w }
       OPTIONAL { ?dp water:monitoredAt ?sp }
     } GROUP BY ?dp ?permit ?sp`,
 
@@ -1151,8 +1156,10 @@ async function loadAll() {
   });
 
   // Discharge points
+  // ?wkt is unbound for the outlets the register gives no location for; they keep lat/lon null and
+  // are simply not drawn.
   DB.dischargePoints = dps.map((d) => {
-    const p = parseWkt(d.wkt).points[0] || null;
+    const p = d.wkt ? (parseWkt(d.wkt).points[0] || null) : null;
     return { iri: d.dp, permit: d.permit, sp: spOf(d.sp), lat: p ? p[0] : null, lon: p ? p[1] : null };
   });
 

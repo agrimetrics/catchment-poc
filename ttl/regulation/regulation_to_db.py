@@ -250,9 +250,27 @@ JOIN sampling_points p ON p.sp_notation = e.sp_notation;
 #     EFFLUENT_GRID_REF on (PERMIT_NUMBER, OUTLET_NUMBER[, EFFLUENT_NUMBER]) rather than permit_ref.
 #
 #     ANY_VALUE collapses the register's duplicate version rows.
-#     Fallback: the second WHEN keeps the sampling point's WGS84 coordinates for any discharge point
-#     that still lacks an NGR (a new permit missing from both extracts), so it still maps rather than
-#     vanishing. To publish ONLY real NGRs, delete that second WHEN branch. ---
+#
+#     NO FALLBACK. An outlet whose permit carries no site NGR gets NO GEOMETRY, and is simply not
+#     drawn on any map. This used to fall back to the coordinates of the sampling point the outlet is
+#     monitored at, so that it "still mapped rather than vanishing" — and that was a bad trade, for
+#     three reasons:
+#
+#       1. It is a fabricated fact. It places the outfall exactly ON the watercourse location it is
+#          sampled at, asserting the very conflation this store exists to disprove: the outfall and
+#          the sampling point are DIFFERENT PLACES. Publishing a coordinate we do not have, in the
+#          one graph whose argument is "do not trust coordinates", is self-defeating.
+#       2. It corrupts the scoring. Those outlets sat 0 m from their own sampling point, so a
+#          nearest-point join scored them correct for free — flattering proximity with points it did
+#          not earn, in exactly the comparison app/points.html exists to make.
+#       3. It made the map lie. The outlet's marker landed on top of the sampling point's marker, so a
+#          leg drawn from ANOTHER permit's outlet to that shared sampling point appeared to be a link
+#          between two discharge points. (In this catchment: 401025's outlets appeared linked to
+#          040091's.)
+#
+#     An outlet with no coordinate is the truth — the register does not say where it is — and it costs
+#     nothing that matters, because water:monitoredAt still names its sampling point. That is the whole
+#     thesis: the identifier join does not need the geometry to be right, or to exist at all. ---
 consents_reads = " UNION ALL ".join(
     f"SELECT PERMIT_NUMBER, DISCHARGE_NGR FROM read_csv('{p}', header=true, "
     f"types={{'PERMIT_NUMBER': 'VARCHAR'}})"
@@ -265,34 +283,13 @@ WITH consents AS (
     FROM ({consents_reads})
     WHERE DISCHARGE_NGR IS NOT NULL AND DISCHARGE_NGR <> ''
     GROUP BY PERMIT_NUMBER
-),
-ngr AS (
-    SELECT dp.permit_ref, dp.outlet, dp.effluent,
-           ngr_easting(c.ngr) AS easting, ngr_northing(c.ngr) AS northing
-    FROM discharge_points dp
-    JOIN consents c USING (permit_ref)
-),
-sp AS (
-    SELECT m.permit_ref, m.outlet, m.effluent, ANY_VALUE(p.wkt) AS wkt
-    FROM discharge_point_monitoring m
-    JOIN sampling_points p ON p.sp_notation = m.sp_notation
-    GROUP BY m.permit_ref, m.outlet, m.effluent
 )
-SELECT permit_ref, outlet, effluent, wkt FROM (
-    SELECT
-        dp.permit_ref, dp.outlet, dp.effluent,
-        CASE
-            WHEN ngr.easting IS NOT NULL
-                THEN 'POINT(' || ngr.easting || ' ' || ngr.northing
-                     || ') <http://www.opengis.net/def/crs/EPSG/0/27700>'
-            WHEN sp.wkt IS NOT NULL
-                THEN sp.wkt
-        END AS wkt
-    FROM discharge_points dp
-    LEFT JOIN ngr USING (permit_ref, outlet, effluent)
-    LEFT JOIN sp  USING (permit_ref, outlet, effluent)
-)
-WHERE wkt IS NOT NULL;
+SELECT dp.permit_ref, dp.outlet, dp.effluent,
+       'POINT(' || ngr_easting(c.ngr) || ' ' || ngr_northing(c.ngr)
+                || ') <http://www.opengis.net/def/crs/EPSG/0/27700>' AS wkt
+FROM discharge_points dp
+JOIN consents c USING (permit_ref)
+WHERE ngr_easting(c.ngr) IS NOT NULL;
 """)
 
 # --- Permit version effective/revocation dates, fetched from the public register by
@@ -535,12 +532,39 @@ stacked, coords, total_dp = con.execute("""
 print(f"  discharge points: {total_dp} on {coords} distinct coordinates; "
       f"{stacked} share a coordinate with another outlet")
 
-no_ngr = con.execute("""
-    SELECT COUNT(*) FROM discharge_point_geometry WHERE wkt NOT LIKE '%27700%'
+# Outlets the register gives us no location for. They keep their identity and their monitoredAt edge;
+# they simply are not drawn. (The old check here tested `wkt NOT LIKE '%27700%'` to spot the
+# now-deleted sampling-point fallback — which never fired, because the fallback copied a sampling
+# point's WKT and that carries the EPSG:27700 CRS URI too. It reported a clean bill of health while
+# 6 outlets were being published at fabricated coordinates. Compare against the source, not a string.)
+no_geom = con.execute("""
+    SELECT COUNT(*) FROM discharge_points dp
+    WHERE NOT EXISTS (SELECT 1 FROM discharge_point_geometry g
+                      WHERE g.permit_ref = dp.permit_ref AND g.outlet = dp.outlet
+                        AND g.effluent = dp.effluent)
 """).fetchone()[0]
-if no_ngr:
-    print(f"NOTE: {no_ngr} discharge point(s) have no site NGR in the consents extracts and fall back "
-          f"to their sampling point's coordinate.")
+if no_geom:
+    print(f"NOTE: {no_geom} discharge point(s) have no site NGR in the consents extracts, so they are "
+          f"published with NO geometry (never a guessed one). water:monitoredAt still names their "
+          f"sampling point — which is the point.")
+
+# Discharge points that land exactly on their own sampling point. With the fallback gone this can no
+# longer be an artefact of ours — the geometry above is built ONLY from the consents register — so any
+# coincidence left is the register and the archive genuinely agreeing. It still deserves a mention,
+# for two reasons: the site NGR is a coarse (100 m) reference, so agreement may be rounding rather
+# than truth; and such an outlet sits 0 m from its sampling point, which hands a nearest-point join a
+# free correct answer it did not earn. Reported, not fixed — it is what the sources say.
+coincident = con.execute("""
+    SELECT g.permit_ref, g.outlet, g.effluent, m.sp_notation
+    FROM discharge_point_geometry g
+    JOIN discharge_point_monitoring m USING (permit_ref, outlet, effluent)
+    JOIN sampling_points p ON p.sp_notation = m.sp_notation
+    WHERE g.wkt = p.wkt
+""").fetchall()
+if coincident:
+    pairs = ", ".join(f"{p}/{o}/{e} = {sp}" for p, o, e, sp in coincident)
+    print(f"NOTE: {len(coincident)} discharge point(s) coincide with their own sampling point IN THE "
+          f"SOURCES (coarse 100 m site NGR): {pairs}. They score a free hit for any proximity join.")
 
 unmonitored = con.execute("""
     SELECT COUNT(*) FROM discharge_points dp

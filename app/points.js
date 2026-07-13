@@ -49,10 +49,16 @@ PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
 PREFIX sosa:  <http://www.w3.org/ns/sosa/>`;
 
 // One row per (discharge point × sampling point × action) for a permit; deduped into sets below.
+//
+// The discharge point's geometry is OPTIONAL, and that is load-bearing. Seven outlets in this
+// catchment have no published coordinate at all — the consents register simply does not give their
+// permit a site grid reference — and this store refuses to invent one for them. Requiring ?dpw here
+// would delete them from the page, which would be the very bug this page is about: letting the
+// presence of geometry decide what exists. They have no location and their link is still exact.
 const Q_PERMITS = `${PREFIXES}
 SELECT ?permit ?dp ?dpw ?sp ?spw ?action ?al ?aw WHERE {
   ?permit a water:WaterDischargePermit ; reg:permitSite ?dp .
-  ?dp geo:hasGeometry/geo:asWKT ?dpw .
+  OPTIONAL { ?dp geo:hasGeometry/geo:asWKT ?dpw . }
   OPTIONAL { ?dp water:monitoredAt ?sp . ?sp geo:hasGeometry/geo:asWKT ?spw . }
   OPTIONAL { ?action reg:targetPermit ?permit ; rdfs:label ?al ; reg:actionSite ?s .
              ?s geo:hasGeometry/geo:asWKT ?aw . }
@@ -188,6 +194,8 @@ async function sparql(query) {
 // ---------------------------------------------------------------------------
 // State
 let combos = [], byId = {}, allSp = [], stacks = {}, map = null;
+// Explorer layers: the markers, every asserted link drawn faintly, and the selected chain on top.
+let baseLayer = null, linkLayer = null, focusLayer = null;
 
 // The sampling point a nearest-feature join would pick for a location: the closest one in the WHOLE
 // layer. Proximity does not know what a permit is, so it cannot restrict itself to outfalls.
@@ -208,8 +216,11 @@ function buildCombos(rows) {
   const map_ = {};
   for (const r of rows) {
     const id = shortPermit(r.permit);
-    const c = map_[id] ||= { id, permit: r.permit, dp: {}, sp: {}, act: {}, monOf: {} };
-    if (r.dp && !c.dp[r.dp]) c.dp[r.dp] = parseWkt(r.dpw);
+    const c = map_[id] ||= { id, permit: r.permit, dp: {}, noGeom: {}, sp: {}, act: {}, monOf: {} };
+    // An outlet the register gives no coordinate for goes in `noGeom`: it exists, it is monitored at
+    // a sampling point, and it cannot be drawn. It must never be quietly dropped.
+    if (r.dp && r.dpw && !c.dp[r.dp]) c.dp[r.dp] = parseWkt(r.dpw);
+    if (r.dp && !r.dpw) c.noGeom[r.dp] = true;
     if (r.sp) { if (!c.sp[r.sp]) c.sp[r.sp] = parseWkt(r.spw); c.monOf[r.dp] = r.sp; }
     if (r.action && !c.act[r.action]) c.act[r.action] = Object.assign(parseWkt(r.aw), { label: r.al });
   }
@@ -219,18 +230,42 @@ function buildCombos(rows) {
       ...Object.entries(c.sp).map(([iri, g]) => ({ role: "sp", iri, id: shortSp(iri), ...g })),
       ...Object.entries(c.act).map(([iri, g]) => ({ role: "act", iri, id: shortAct(iri), ...g })),
     ];
-    // Each outlet -> the sampling point the identifier names for it.
-    c.edges = [];
+    // THE CHAIN, drawn. Every link here is an ASSERTED one — an IRI naming another IRI — and every
+    // one of them spans a real distance on the ground, which is the entire point of this page:
+    //
+    //   WINEP action --reg:targetPermit--> permit --reg:permitSite--> outlet --water:monitoredAt--> sampling point
+    //
+    // A permit has no geometry of its own (it is a licence, not a place), so the action's leg is
+    // drawn to the permit's PRIMARY outlet — outlet 1 / effluent 1 where there is one. That is a
+    // drawing convention, not a claim: what the data says is that the action targets the permit.
+    const dpIris = Object.keys(c.dp);
+    const anchorIri = dpIris.find((i) => /\/outlet\/1\/effluent\/1$/.test(i)) || dpIris[0];
+    const anchor = anchorIri ? c.dp[anchorIri] : null;
+
+    c.legs = [];
     for (const [dpIri, g] of Object.entries(c.dp)) {
       const spIri = c.monOf[dpIri];
-      if (spIri && c.sp[spIri]) c.edges.push({ a: g, b: c.sp[spIri], d: dist(g, c.sp[spIri]) });
+      if (spIri && c.sp[spIri])
+        c.legs.push({
+          kind: "mon", a: g, b: c.sp[spIri], d: dist(g, c.sp[spIri]),
+          from: tinyDp(dpIri), to: shortSp(spIri), rel: "water:monitoredAt",
+        });
     }
+    if (anchor)
+      for (const [actIri, g] of Object.entries(c.act))
+        c.legs.push({
+          kind: "winep", a: anchor, b: g, d: dist(anchor, g),
+          from: shortAct(actIri), to: c.id, rel: "reg:targetPermit",
+        });
+
     let maxGap = 0;
     for (let i = 0; i < c.points.length; i++)
       for (let j = i + 1; j < c.points.length; j++)
         maxGap = Math.max(maxGap, dist(c.points[i], c.points[j]));
     c.maxGap = maxGap;
-    c.nDp = Object.keys(c.dp).length;
+    c.nDp = Object.keys(c.dp).length + Object.keys(c.noGeom).length;  // outlets that EXIST
+    c.nMapped = Object.keys(c.dp).length;                             // outlets we can draw
+    c.nNoGeom = Object.keys(c.noGeom).length;
     c.nAct = Object.keys(c.act).length;
     return c;
   }).sort((a, b) => b.maxGap - a.maxGap);
@@ -276,11 +311,24 @@ const EXAMPLES = [
           "enough to catch it sweeps in the neighbours.",
   },
 ];
+// Example 4 is a different shape from the other three — it is not one site but a set of outlets, and
+// its subject is the ABSENCE of geometry — so it gets its own renderer rather than the common one.
+const UNLOCATABLE = {
+  id: "unlocatable", site: "Outlets with no location",
+  mode: "And where there is no geometry, it cannot be run at all",
+};
 const ROUTES = [
-  { id: "why", label: "Why identifiers" },
-  ...EXAMPLES.map((e, i) => ({ id: e.id, label: `${i + 1} · ${e.site.split(" ")[0]}`, example: e })),
-  { id: "explorer", label: "Explorer" },
+  { id: "why", label: "Why identifiers", nav: "Why identifiers" },
+  ...EXAMPLES.map((e, i) => ({
+    id: e.id, label: `${i + 1} · ${e.site.split(" ")[0]}`, example: e,
+    nav: `Example ${i + 1}: ${e.site}`,
+  })),
+  { id: UNLOCATABLE.id, label: "4 · No location", nav: "Example 4: outlets with no location" },
+  { id: "explorer", label: "Explorer", nav: "Explore the collections" },
 ];
+// The radii the reader is invited to draw around a sampling point when asked to guess where the
+// outfall is. They are deliberately generous, and still not generous enough — see the scoreboard.
+const RADII = [5, 50, 500];
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -324,6 +372,7 @@ function route() {
 
   if (r.id === "why") renderWhy(view);
   else if (r.id === "explorer") renderExplorer(view);
+  else if (r.id === UNLOCATABLE.id) renderUnlocatable(view);
   else renderExample(view, r.example);
 
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -333,11 +382,9 @@ function route() {
 function nav(currentId) {
   const i = ROUTES.findIndex((r) => r.id === currentId);
   const prev = ROUTES[i - 1], next = ROUTES[i + 1];
-  const label = (r) => r.example ? `Example ${EXAMPLES.indexOf(r.example) + 1}: ${r.example.site}`
-    : r.id === "explorer" ? "Explore the collections" : "Why identifiers";
   return `<nav class="pts-next">
-    ${prev ? `<a class="nx prev" href="#/${prev.id}">‹‹ ${esc(label(prev))}</a>` : "<span></span>"}
-    ${next ? `<a class="nx next" href="#/${next.id}">${esc(label(next))} ››</a>` : "<span></span>"}
+    ${prev ? `<a class="nx prev" href="#/${prev.id}">‹‹ ${esc(prev.nav)}</a>` : "<span></span>"}
+    ${next ? `<a class="nx next" href="#/${next.id}">${esc(next.nav)} ››</a>` : "<span></span>"}
   </nav>`;
 }
 
@@ -362,22 +409,43 @@ function marker(pt, { radius, color, label, dashed = false } = {}) {
   return mk;
 }
 
-// A leg between two points, labelled with its length.
-function leg(a, b, { color = "#f5a623", dash = null, label = null, weight = 3 } = {}) {
+// The two kinds of asserted link, and how each is drawn. Proximity's guess is drawn in red, dashed,
+// so it never reads as one of them.
+const LEG_STYLE = {
+  mon:   { color: "#f5a623", dash: null,  label: "identifier link · monitoredAt" },
+  winep: { color: "#a06bff", dash: "6 4", label: "identifier link · targetPermit" },
+};
+
+// A leg between two points, optionally labelled with its length. `dim` draws it as background: the
+// explorer shows every link in the catchment at once, and 111 bold lines would be a ball of wool.
+function leg(a, b, { kind = "mon", label = null, dim = false, color = null, dash, weight } = {}) {
+  const s = LEG_STYLE[kind] || LEG_STYLE.mon;
   const g = L.layerGroup();
-  L.polyline([a.ll, b.ll], { color, weight, opacity: 0.95, dashArray: dash }).addTo(g);
+  L.polyline([a.ll, b.ll], {
+    color: color || s.color,
+    weight: weight != null ? weight : (dim ? 1.25 : 3),
+    opacity: dim ? 0.35 : 0.95,
+    dashArray: dash !== undefined ? dash : (dim ? "4 4" : s.dash),
+  }).addTo(g);
   if (label)
-    L.tooltip({ permanent: true, direction: "center", className: "pts-leg" })
+    L.tooltip({ permanent: true, direction: "center", className: `pts-leg ${kind}` })
       .setLatLng([(a.ll[0] + b.ll[0]) / 2, (a.ll[1] + b.ll[1]) / 2])
       .setContent(label).addTo(g);
   return g;
+}
+// Every leg of a permit, drawn and labelled with its length.
+function drawLegs(c, target, { dim = false, labels = true } = {}) {
+  for (const l of c.legs)
+    leg(l.a, l.b, { kind: l.kind, dim, label: labels ? fmtM(l.d) : null }).addTo(target);
 }
 
 // ---------------------------------------------------------------------------
 // Screen 1 — Why identifiers, not proximity
 function renderWhy(view) {
   // The scoreboard is a fact about the whole catchment, so compute it here rather than assert it.
-  const nDp = combos.reduce((n, c) => n + c.nDp, 0);
+  const nDp = combos.reduce((n, c) => n + c.nDp, 0);          // outlets that exist
+  const nMapped = combos.reduce((n, c) => n + c.nMapped, 0);  // outlets with a published coordinate
+  const nNoGeom = combos.reduce((n, c) => n + c.nNoGeom, 0);  // outlets with none at all
   const nCoords = new Set(combos.flatMap((c) => Object.values(c.dp).map((g) => g.key))).size;
   const stacked = Object.values(stacks).reduce((n, st) => n + st.length, 0);
   const nAmbient = allSp.filter((s) => !s.monitors).length;
@@ -454,11 +522,17 @@ function renderWhy(view) {
             For <b>${notAnOutfall}</b> outlets, the closest sampling point is one of those.
             → <a href="#/blackheath">Blackheath</a></li>
           <li><b>It cannot separate things that share a coordinate.</b> <b>${stacked}</b> of the
-            <b>${nDp}</b> outlets share their published coordinate with another outlet — all ${nDp} of
-            them fit on just <b>${nCoords}</b> distinct points. → <a href="#/brockhill">Brockhill</a></li>
+            <b>${nMapped}</b> mapped outlets share their published coordinate with another outlet — all
+            ${nMapped} of them fit on just <b>${nCoords}</b> distinct points.
+            → <a href="#/brockhill">Brockhill</a></li>
           <li><b>It cannot be given a radius that works.</b> The gap between an outlet and its own
             sampling point runs from a few metres to over a kilometre, so no single threshold both
             reaches the far ones and excludes the neighbours. → <a href="#/doreys">Doreys</a></li>
+          <li><b>And where there is no geometry, it cannot be run at all.</b> <b>${nNoGeom}</b> of the
+            <b>${nDp}</b> outlets have <b>no coordinate at all</b> — the register gives their permit no
+            grid reference, and this store refuses to invent one. A spatial join has nothing to measure
+            from; the identifier does not notice.
+            → <a href="#/${UNLOCATABLE.id}">Outlets with no location</a></li>
         </ol>
       </section>
 
@@ -562,6 +636,7 @@ function renderExample(view, ex) {
 
       <section class="stage">
         <div id="ex-map" class="ex-map"></div>
+        <div class="fitbar" id="ex-fit"></div>
         <div class="maplegend" id="ex-legend"></div>
       </section>
 
@@ -731,13 +806,13 @@ function drawExample(c, outlets) {
     }).addTo(map).setStyle({ fillOpacity: 0.5 });
   }
 
-  // The identifier's links (solid amber), and proximity's pick (dashed red) where it differs.
-  for (const o of outlets) {
-    if (o.truth && c.sp[o.truth])
-      leg(o.g, c.sp[o.truth], { label: fmtM(o.truthD) }).addTo(map);
+  // Every ASSERTED link of this permit — outlet → sampling point (amber) AND WINEP action → permit
+  // (purple) — each labelled with the distance it spans. Then, in red, what proximity would have
+  // picked instead, wherever that differs. The red lines are the only guesses on the map.
+  drawLegs(c, map);
+  for (const o of outlets)
     if (!o.hit)
-      leg(o.g, o.near, { color: "#e5484d", dash: "5 4", weight: 2 }).addTo(map);
-  }
+      leg(o.g, o.near, { color: "#e5484d", dash: "5 4", weight: 2, kind: "mon" }).addTo(map);
 
   for (const pt of c.points) {
     const stacked = pt.role === "dp" && stacks[pt.key];
@@ -756,30 +831,276 @@ function drawExample(c, outlets) {
     }).addTo(map);
   }
 
-  // Frame on the JOIN — the outlets, the points the identifier names for them, and the points
-  // proximity would have picked instead. WINEP action sites are drawn but deliberately kept OUT of
-  // the bounds: at Blackheath they sit 1.4 km away and would zoom the map out until the 19 m that
-  // decides the whole argument is a single pixel. Context must not set the frame.
-  const pts = [
+  // TWO frames, because they answer two different questions and no single zoom serves both.
+  //
+  //   "the join"  — the outlets, the points the identifier names for them, and the points proximity
+  //                 would have picked instead. This is the argument, and it plays out over metres.
+  //   "everything" — plus the WINEP action sites, which at Blackheath sit 1.4 km away. Fitting them
+  //                 by default zooms out until the 19 m that decides the whole thing is one pixel.
+  //
+  // So the join frames the map, and the WINEP legs run off the edge until you ask for them. That is
+  // itself the lesson: the things a permit ties together do not fit in one comfortable view.
+  const joinPts = [
     ...outlets.map((o) => o.g.ll),
     ...outlets.filter((o) => o.truth).map((o) => c.sp[o.truth].ll),
     ...outlets.map((o) => o.near.ll),
   ];
-  map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 17 });
+  const allPts = [...joinPts, ...Object.values(c.act).map((g) => g.ll)];
+  const fit = (pts) => map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 17 });
+  fit(joinPts);
+
+  const bar = document.getElementById("ex-fit");
+  if (c.nAct) {
+    const far = Math.max(...c.legs.filter((l) => l.kind === "winep").map((l) => l.d));
+    bar.innerHTML =
+      `<button class="fit on" data-fit="join">Frame the join</button>` +
+      `<button class="fit" data-fit="all">Frame everything — the WINEP action${c.nAct > 1 ? "s sit" : " sits"} ${fmtM(far)} away</button>`;
+    bar.querySelectorAll(".fit").forEach((b) => b.addEventListener("click", () => {
+      bar.querySelectorAll(".fit").forEach((x) => x.classList.toggle("on", x === b));
+      fit(b.dataset.fit === "all" ? allPts : joinPts);
+    }));
+  } else bar.innerHTML = "";
 
   document.getElementById("ex-legend").innerHTML = [
     `<span class="key"><span class="sw" style="background:${ROLE.dp.color}"></span>Discharge point</span>`,
     `<span class="key"><span class="sw" style="background:${ROLE.sp.color}"></span>Its sampling point</span>`,
-    `<span class="key"><span class="sw" style="background:${ROLE.act.color}"></span>WINEP action</span>`,
+    ...(c.nAct ? [`<span class="key"><span class="sw" style="background:${ROLE.act.color}"></span>WINEP action</span>`] : []),
     `<span class="key"><span class="sw sm" style="background:#2f6b4f"></span>other outfall points</span>`,
     `<span class="key"><span class="sw sm" style="background:${AMBIENT_COLOR}"></span>points monitoring no discharge</span>`,
-    `<span class="key"><span class="ln amber"></span>identifier link · gap</span>`,
+    `<span class="key"><span class="ln amber"></span><code>monitoredAt</code> · outlet → sampling point</span>`,
+    ...(c.nAct ? [`<span class="key"><span class="ln purple"></span><code>targetPermit</code> · WINEP → permit</span>`] : []),
     `<span class="key"><span class="ln red"></span>what proximity would pick</span>`,
   ].join("");
 }
 
 // ---------------------------------------------------------------------------
-// Screen 5 — the Explorer. The collections themselves, with the map.
+// Screen 5 — Example 4. The outlets the register gives no location for.
+//
+// The other three screens ask "does proximity get the right answer?". This one asks a prior question
+// the other three take for granted: is there anything to measure from at all? For these outlets there
+// is not, and the honest response to "where is the outfall?" is that the sources do not say.
+let unlocatablePermit = null;
+
+// Every gap the store CAN measure — outlet to the sampling point that monitors it. This is the only
+// evidence anyone has about how far an outfall sits from where it is sampled, and it is what decides
+// whether a circle drawn round a sampling point could ever be trusted to contain the outfall.
+function knownGaps() {
+  return combos.flatMap((c) => c.legs.filter((l) => l.kind === "mon").map((l) => l.d)).sort((a, b) => a - b);
+}
+
+function renderUnlocatable(view) {
+  // The permits that own an outlet with no published coordinate.
+  const affected = combos.filter((c) => c.nNoGeom > 0);
+  if (!affected.length) { view.innerHTML = `<p class="pts-error">No unlocatable outlets in the store.</p>`; return; }
+  if (!affected.some((c) => c.id === unlocatablePermit)) unlocatablePermit = affected[0].id;
+
+  const nNoGeom = affected.reduce((n, c) => n + c.nNoGeom, 0);
+  const nDp = combos.reduce((n, c) => n + c.nDp, 0);
+  const gaps = knownGaps();
+  const within = (r) => gaps.filter((d) => d <= r).length;
+  const pct = (n) => Math.round((100 * n) / gaps.length);
+  const beyond500 = gaps.length - within(500);
+  const hectares = Math.round((Math.PI * 500 * 500) / 10000);
+
+  view.innerHTML = `
+    <article class="screen">
+      <section class="hero">
+        <p class="kicker">Example 4 of 4 · ${esc(UNLOCATABLE.site)}</p>
+        <h2>${esc(UNLOCATABLE.mode)}</h2>
+        <p class="lede">
+          <b>${nNoGeom}</b> of this catchment's <b>${nDp}</b> outlets have <b>no coordinate at all</b>.
+          The consents register gives their permit no site grid reference, and this store refuses to
+          invent one — an outlet whose location is unknown is published with <i>no geometry</i>, not
+          with a plausible guess borrowed from somewhere nearby.
+        </p>
+        <p class="lede">
+          So the only fixed points we have for these permits are the <b>sampling points</b> the EA
+          measures them at, and any <b>WINEP action site</b> proposed for them. The question this
+          screen puts to you is the one a spatial join answers silently, every time, without being
+          asked: <b>given only those, where is the outfall?</b>
+        </p>
+        <p class="scoreline">
+          <span class="sc bad">a spatial join can attempt <b>0 of ${nNoGeom}</b></span>
+          <span class="sc ok"><code>monitoredAt</code> names a sampling point for
+            <b>${affected.reduce((n, c) => n + Object.keys(c.noGeom).filter((i) => c.monOf[i]).length, 0)} of ${nNoGeom}</b></span>
+        </p>
+      </section>
+
+      <section class="picker">
+        <span class="pick-label">Permit</span>
+        ${affected.map((c) => `<button class="pick${c.id === unlocatablePermit ? " on" : ""}" data-permit="${esc(c.id)}">
+            ${esc(c.id)} <span class="n">${c.nNoGeom} outlet${c.nNoGeom > 1 ? "s" : ""}</span>
+          </button>`).join("")}
+      </section>
+
+      <section class="stage">
+        <div class="mapwrap">
+          <div id="un-map" class="ex-map"></div>
+          <p class="mapnote">
+            <b>The outfall is not on this map.</b> There is no honest place to put it — so it is not
+            drawn, not even as a guess at the centre of these circles.
+          </p>
+        </div>
+        <div class="maplegend" id="un-legend"></div>
+      </section>
+
+      <section class="split" id="un-panels"></section>
+
+      <section class="board">
+        <h3>So — could the outfall be anywhere in those circles?</h3>
+        <p class="lede">
+          No. And the store can prove it, because it holds <b>${gaps.length}</b> outlets whose location
+          <i>is</i> published, each with a sampling point that monitors it. Measure how far apart those
+          known pairs actually sit, and you have the only honest answer to "how close to its sampling
+          point does an outfall lie?":
+        </p>
+        <table class="tbl">
+          <thead><tr><th class="r">Circle</th><th class="r">Known outlets inside it</th>
+            <th>What that means for the guess</th></tr></thead>
+          <tbody>
+            ${RADII.map((r) => {
+              const k = within(r);
+              return `<tr>
+                <td class="r mono">${r} m</td>
+                <td class="r"><b>${k} / ${gaps.length}</b> <span class="sub">(${pct(k)}%)</span></td>
+                <td>${r === 5
+                  ? `Assume the outfall is here and you would be right for <b class="bad">${pct(k)}%</b> of the outlets we <i>can</i> check.`
+                  : r === 50
+                  ? `Still wrong for <b class="bad">${100 - pct(k)}%</b> of them.`
+                  : `Catches most — but <b class="bad">${beyond500}</b> known outlets lie <i>beyond</i> even this, and the circle is now <b>${hectares} hectares</b> of countryside.`}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+        <p class="lede">
+          The median known gap is <b>${fmtM(gaps[Math.floor(gaps.length / 2)])}</b> and the largest is
+          <b>${fmtM(gaps[gaps.length - 1])}</b>. So a circle small enough to be a useful answer is
+          almost always the wrong one, and a circle large enough to be safe is not an answer at all —
+          it is ${hectares} hectares and a shrug. There is no radius at which "the outfall is somewhere
+          in here" becomes a statement you could put in a permit, a report, or a prosecution.
+        </p>
+        <p class="note">
+          <b>The honest position:</b> without correcting the source data, the location of these
+          ${nNoGeom} outfalls is <b>unknown</b> — not approximate, not uncertain-within-a-tolerance,
+          <i>unknown</i>. A spatial pipeline cannot represent that. It either drops the outlet without
+          telling you, or it fabricates a coordinate that looks exactly like the real ones (which is
+          what this very store used to do — see
+          <code>ttl/regulation/regulation_to_db.py</code>). Neither failure is visible downstream.
+        </p>
+        <p class="note">
+          <b>And what does the identifier lose?</b> Nothing.
+          <code>water:monitoredAt</code> still names the sampling point for these outlets, and
+          <code>reg:targetPermit</code> still ties any WINEP action to the permit. The links were never
+          computed from the geometry, so they do not degrade when it is missing. The right fix is to
+          <b>correct the register</b> — and until someone does, the graph says plainly that it does not
+          know, which is the one thing a coordinate can never say.
+        </p>
+      </section>
+
+      ${nav(UNLOCATABLE.id)}
+    </article>`;
+
+  view.querySelectorAll(".pick").forEach((b) => b.addEventListener("click", () => {
+    unlocatablePermit = b.dataset.permit;
+    renderUnlocatable(view);   // re-render: the map, panels and circles are all per-permit
+  }));
+
+  drawUnlocatable(byId[unlocatablePermit]);
+}
+
+// The map for one such permit: what we DO know (sampling points, WINEP sites), the circles a reader
+// might be tempted to draw round them — and, conspicuously, no outfall.
+function drawUnlocatable(c) {
+  map = newMap(document.getElementById("un-map"));
+  const anchors = Object.values(c.sp);
+  const acts = Object.values(c.act);
+
+  // Concentric rings around every sampling point. Drawn in metres (Leaflet's L.circle takes a radius
+  // in metres and is therefore correct on the ground, unlike a fixed pixel radius).
+  for (const g of anchors)
+    for (const r of RADII)
+      L.circle(g.ll, {
+        radius: r, color: "#e5484d", weight: 1.2, opacity: 0.55,
+        fillColor: "#e5484d", fillOpacity: 0.04, dashArray: "4 4", interactive: false,
+      }).addTo(map).bindTooltip(`${r} m`, { className: "pts-leg", direction: "top" });
+
+  for (const [iri, g] of Object.entries(c.sp))
+    marker({ ...g, role: "sp" }, {
+      radius: 7,
+      label: `<div class="tt" style="color:${ROLE.sp.color}">Sampling point</div>` +
+             `<div class="tid">${esc(shortSp(iri))}</div>` +
+             `<div>${esc((allSp.find((s) => s.iri === iri) || {}).label || "")}</div>` +
+             `<div class="tcrs">This we know. The outfall it samples, we do not.</div>`,
+    }).addTo(map);
+
+  for (const [iri, g] of Object.entries(c.act))
+    marker({ ...g, role: "act" }, {
+      label: `<div class="tt" style="color:${ROLE.act.color}">WINEP action site</div>` +
+             `<div class="tid">${esc(shortAct(iri))}</div><div>${esc(g.label || "")}</div>`,
+    }).addTo(map);
+
+  // NO marker is drawn for the outfall — not even a question mark on the sampling point. There is
+  // nowhere on this map it could honestly go, and putting a glyph at the sampling point would assert
+  // the outfall is there, which is precisely the fabrication this store had to be purged of (the
+  // deleted geometry fallback did exactly that, in data rather than in ink). The absence IS the
+  // finding, so it is stated in words over the map instead of drawn as a pin.
+  const pts = [...anchors.map((g) => g.ll), ...acts.map((g) => g.ll)];
+  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.45), { maxZoom: 16 });
+
+  document.getElementById("un-legend").innerHTML = [
+    `<span class="key"><span class="sw" style="background:${ROLE.sp.color}"></span>Sampling point — known</span>`,
+    ...(acts.length ? [`<span class="key"><span class="sw" style="background:${ROLE.act.color}"></span>WINEP action site — known</span>`] : []),
+    `<span class="key"><span class="ln red"></span>5 m · 50 m · 500 m from the sampling point</span>`,
+    `<span class="key"><span class="sw" style="background:#0b1016;border:1px solid var(--red)"></span>Discharge point — <b>no location published</b></span>`,
+  ].join("");
+
+  // The two panels: what the store knows, and what it refuses to guess.
+  const noGeomIris = Object.keys(c.noGeom);
+  document.getElementById("un-panels").innerHTML = `
+    <div class="panel">
+      <h3>The outlets — and where they are</h3>
+      <table class="tbl">
+        <thead><tr><th>Outlet</th><th>Location</th><th>Monitored at</th></tr></thead>
+        <tbody>${noGeomIris.map((iri) => {
+          const sp = c.monOf[iri] ? allSp.find((s) => s.iri === c.monOf[iri]) : null;
+          return `<tr>
+            <td class="mono">${esc(tinyDp(iri))}</td>
+            <td><span class="tag warn">none published</span></td>
+            <td>${sp
+              ? `<span class="mono">${esc(sp.id)}</span><br><span class="sub">${esc(sp.label)}</span>`
+              : `<span class="sub">the register names none either</span>`}</td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>
+      <p class="note">
+        The outlet exists, it is permitted, and it is sampled. The one thing nobody has written down
+        is where it is.
+      </p>
+    </div>
+    <div class="panel">
+      <h3>Future works on this permit</h3>
+      ${acts.length ? `
+        <table class="tbl">
+          <thead><tr><th>Action</th><th>Name</th></tr></thead>
+          <tbody>${Object.entries(c.act).map(([iri, g]) => `<tr>
+            <td class="mono">${esc(shortAct(iri))}</td><td>${esc(g.label || "—")}</td></tr>`).join("")}</tbody>
+        </table>
+        <p class="note">
+          <code>reg:targetPermit</code> ties this action to the permit — <b>not</b> to a coordinate. It
+          would survive the outfall's location being corrected, or never being known at all.
+        </p>`
+      : `<p class="lede">No WINEP action targets permit <span class="mono">${esc(c.id)}</span>.</p>
+         <p class="note">
+           Worth saying what this does <i>not</i> mean: a WINEP site would not have located the outfall
+           anyway. It marks the <b>works</b>, which is a third place again — as
+           <a href="#/blackheath">Blackheath</a> shows, where the action sites sit 1.35 km from the
+           outlet they are meant to improve. Another known point is not another clue.
+         </p>`}
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Screen 6 — the Explorer. The collections themselves, with the map.
 const COLLECTIONS = [
   { id: "permits", label: "Permits" },
   { id: "outlets", label: "Discharge points" },
@@ -791,6 +1112,7 @@ let explorerTab = "permits";
 function renderExplorer(view) {
   const nDp = combos.reduce((n, c) => n + c.nDp, 0);
   const nAct = combos.reduce((n, c) => n + c.nAct, 0);
+  const nLegs = combos.reduce((n, c) => n + c.legs.length, 0);
   const counts = {
     permits: combos.length, outlets: nDp, sampling: allSp.length, actions: nAct,
   };
@@ -804,7 +1126,14 @@ function renderExplorer(view) {
           Everything the three examples were drawn from. <b>${combos.length}</b> permits own
           <b>${nDp}</b> discharge points, monitored across a layer of <b>${allSp.length}</b> sampling
           points — of which only <b>${allSp.filter((s) => s.monitors).length}</b> monitor a discharge at
-          all. Pick anything to place it on the map.
+          all — and <b>${nAct}</b> WINEP actions target those permits.
+        </p>
+        <p class="lede">
+          The faint lines are the <b>asserted links</b>: every
+          <code>reg:targetPermit</code> and every <code>water:monitoredAt</code> in the catchment,
+          <b>${nLegs}</b> of them. Pick anything and its chain lights up —
+          <b>WINEP action → permit → outlet → sampling point</b> — with the distance each link spans.
+          None of those distances is small, and none of them is used to make the join.
         </p>
       </section>
 
@@ -818,6 +1147,9 @@ function renderExplorer(view) {
         </aside>
         <div class="ex-stage">
           <div id="exp-map" class="exp-map"></div>
+          <p class="focusbar" id="ex-focus">
+            <span class="muted">Pick anything on the left to light up its chain.</span>
+          </p>
           <div class="maplegend" id="exp-legend"></div>
         </div>
       </section>
@@ -826,14 +1158,19 @@ function renderExplorer(view) {
     </article>`;
 
   map = newMap(document.getElementById("exp-map"), { zoom: 11 });
-  const layer = L.layerGroup().addTo(map);
-  drawExplorerBase(layer);
+  baseLayer = L.layerGroup().addTo(map);
+  linkLayer = L.layerGroup().addTo(map);   // every asserted link, drawn faintly
+  focusLayer = L.layerGroup().addTo(map);  // the selected thing's chain, bold and labelled
+  drawExplorerBase(baseLayer);
+  for (const c of combos) drawLegs(c, linkLayer, { dim: true, labels: false });
 
   document.getElementById("exp-legend").innerHTML = [
     `<span class="key"><span class="sw" style="background:${ROLE.dp.color}"></span>Discharge point</span>`,
     `<span class="key"><span class="sw" style="background:${ROLE.sp.color}"></span>Sampling point (an outfall's)</span>`,
     `<span class="key"><span class="sw" style="background:${AMBIENT_COLOR}"></span>Sampling point (monitors no discharge)</span>`,
     `<span class="key"><span class="sw" style="background:${ROLE.act.color}"></span>WINEP action site</span>`,
+    `<span class="key"><span class="ln amber"></span><code>monitoredAt</code> · outlet → sampling point</span>`,
+    `<span class="key"><span class="ln purple"></span><code>targetPermit</code> · WINEP → permit</span>`,
   ].join("");
 
   view.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
@@ -869,44 +1206,79 @@ function drawExplorerBase(layer) {
   if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.05));
 }
 
-// The list for the current tab, filtered. Each row knows where it is, so clicking flies to it.
+// The list for the current tab, filtered. Each row carries the CHAIN it belongs to — not just its
+// own coordinates — because the thing worth seeing is never the point, it is what the point is tied
+// to and how far away that is.
 function fillList(q) {
   const needle = q.trim().toLowerCase();
   let items = [];
 
   if (explorerTab === "permits") {
+    // A permit's whole chain: every WINEP action pointing at it, every outlet it owns, every
+    // sampling point those outlets are monitored at.
     items = combos.map((c) => ({
       id: c.id,
       title: c.id,
       sub: `${c.nDp} outlet${c.nDp === 1 ? "" : "s"} · ${Object.keys(c.sp).length} sampling point${Object.keys(c.sp).length === 1 ? "" : "s"}` +
            (c.nAct ? ` · ${c.nAct} WINEP` : ""),
       tag: c.maxGap ? fmtM(c.maxGap) + " across" : "",
+      legs: c.legs,
       ll: c.points.map((p) => p.ll),
     }));
   } else if (explorerTab === "outlets") {
-    items = combos.flatMap((c) => Object.entries(c.dp).map(([iri, g]) => {
+    const mapped = combos.flatMap((c) => Object.entries(c.dp).map(([iri, g]) => {
       const st = stacks[g.key];
       const sp = c.monOf[iri] ? allSp.find((s) => s.iri === c.monOf[iri]) : null;
+      const legs = c.legs.filter((l) => l.kind === "mon" && l.from === tinyDp(iri));
       return {
         id: shortDp(iri), title: tinyDp(iri),
         sub: sp ? `monitored at ${sp.id} — ${sp.label}` : "no sampling point named",
         tag: st ? `⊕ shares its point with ${st.length - 1} other${st.length === 2 ? "" : "s"}` : "",
         warn: !!st,
-        ll: [g.ll],
+        legs,
+        ll: [g.ll, ...legs.map((l) => l.b.ll)],
       };
     }));
-  } else if (explorerTab === "sampling") {
-    items = allSp.map((s) => ({
-      id: s.id, title: s.id, sub: s.label,
-      tag: s.monitors ? esc(s.type) : "monitors no discharge",
-      warn: !s.monitors,
-      ll: [s.ll],
+    // The outlets with NO coordinate. They belong in this list — leaving them out because they cannot
+    // be drawn is how a map quietly decides what exists.
+    const unmapped = combos.flatMap((c) => Object.keys(c.noGeom).map((iri) => {
+      const sp = c.monOf[iri] ? allSp.find((s) => s.iri === c.monOf[iri]) : null;
+      return {
+        id: shortDp(iri), title: tinyDp(iri),
+        sub: sp ? `monitored at ${sp.id} — ${sp.label}` : "no sampling point named",
+        tag: "no published location",
+        warn: true,
+        legs: [],
+        ll: sp ? [sp.ll] : [],   // we can show where it is SAMPLED; never where it discharges
+      };
     }));
+    items = [...mapped, ...unmapped];
+  } else if (explorerTab === "sampling") {
+    // Read the other way round: a sampling point may be monitored FROM several outlets, across
+    // several permits — so its chain fans out, and every strand of it is drawn.
+    items = allSp.map((s) => {
+      const legs = combos.flatMap((c) => c.legs.filter((l) => l.kind === "mon" && l.to === s.id));
+      return {
+        id: s.id, title: s.id, sub: s.label,
+        tag: s.monitors ? `${legs.length} outlet${legs.length === 1 ? "" : "s"} monitored here` : "monitors no discharge",
+        warn: !s.monitors,
+        legs,
+        ll: [s.ll, ...legs.map((l) => l.a.ll)],
+      };
+    });
   } else {
-    items = combos.flatMap((c) => Object.entries(c.act).map(([iri, g]) => ({
-      id: shortAct(iri), title: shortAct(iri),
-      sub: g.label || "", tag: `permit ${c.id}`, ll: [g.ll],
-    })));
+    items = combos.flatMap((c) => Object.entries(c.act).map(([iri, g]) => {
+      const legs = c.legs.filter((l) => l.kind === "winep" && l.from === shortAct(iri));
+      return {
+        id: shortAct(iri), title: shortAct(iri),
+        sub: g.label || "",
+        tag: `permit ${c.id}`,
+        // An action's chain runs all the way through: action → permit → its outlets → their
+        // sampling points. Showing only action → permit would stop one link short of the point.
+        legs: [...legs, ...c.legs.filter((l) => l.kind === "mon")],
+        ll: [g.ll, ...c.points.map((p) => p.ll)],
+      };
+    }));
   }
 
   const shown = needle
@@ -925,9 +1297,37 @@ function fillList(q) {
   list.querySelectorAll(".row").forEach((el) => el.addEventListener("click", () => {
     const it = shown[Number(el.dataset.k)];
     list.querySelectorAll(".row").forEach((x) => x.classList.toggle("on", x === el));
-    if (it.ll.length === 1) map.setView(it.ll[0], 16);
-    else map.fitBounds(L.latLngBounds(it.ll).pad(0.35), { maxZoom: 16 });
+    focusChain(it);
   }));
+}
+
+// Light up one chain: its links drawn bold and labelled with the distance each one spans, the rest
+// of the catchment left faint behind it. Then frame the whole chain — which is the moment the
+// argument lands, because the frame it needs is usually far wider than the map you were looking at.
+function focusChain(it) {
+  focusLayer.clearLayers();
+  for (const l of it.legs || [])
+    leg(l.a, l.b, { kind: l.kind, label: fmtM(l.d) }).addTo(focusLayer);
+
+  const pts = it.ll.filter(Boolean);
+  if (pts.length > 1) map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 16 });
+  else if (pts.length) map.setView(pts[0], 16);
+
+  // What the chain spans, said in words — the number a spatial join would have had to guess.
+  const spans = (it.legs || []).map((l) => l.d);
+  const bar = document.getElementById("ex-focus");
+  if (!bar) return;
+  const lo = Math.min(...spans), hi = Math.max(...spans);
+  const span = lo === hi ? fmtM(lo) : `${fmtM(lo)}–${fmtM(hi)}`;
+  bar.innerHTML = spans.length
+    ? `<b>${esc(it.title)}</b> — ${spans.length} asserted link${spans.length === 1 ? "" : "s"}, ` +
+      `spanning ${span}. ` +
+      `<span class="muted">Every one stated by an identifier; not one of them inferred from these distances.</span>`
+    : it.tag === "no published location"
+    // No geometry, so no leg can be drawn — and yet the link is not in doubt.
+    ? `<b>${esc(it.title)}</b> — <span class="muted">no published location. Nothing to draw, nothing for a ` +
+      `spatial join to measure — and its sampling point is still named exactly: ${esc(it.sub)}.</span>`
+    : `<b>${esc(it.title)}</b> — <span class="muted">no asserted links: nothing in the register ties this to anything.</span>`;
 }
 
 boot();
