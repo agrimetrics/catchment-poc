@@ -4,14 +4,16 @@
  * be merged reliably only by identifier, not by location.
  *
  * A permit's discharge point, the monitoring (sampling) point it is `water:monitoredAt`, and any
- * WINEP action `reg:targetPermit`-linked to it all describe the SAME regulated works — but their
- * source geometries sit far apart and in different CRS (the discharge/action points are British
- * National Grid, EPSG:27700; the monitoring point is WGS84). This page draws each permit's cluster
- * as an identifier-linked "spider" and measures the on-the-ground gaps, so the reader can see what a
- * naive nearest-feature spatial join would get wrong.
+ * WINEP action `reg:targetPermit`-linked to it all describe the SAME regulated works — yet their
+ * source geometries sit hundreds of metres to over a kilometre apart on the ground. All three come
+ * from EA sources in British National Grid (EPSG:27700), each captured in that source encoding, so a
+ * projection difference is NOT what separates them: they are simply different real-world points — the
+ * consented outfall vs. the watercourse location it is sampled at. This page draws each permit's
+ * cluster as an identifier-linked "spider" and measures the on-the-ground gaps, so the reader can see
+ * what a naive nearest-feature spatial join would get wrong — only the identifier link joins them.
  *
  * Data comes live from the same /sparql endpoint as the map app; geometry is reprojected client-side
- * with proj4 exactly as app.js does.
+ * with proj4 (EPSG:27700 → WGS84) exactly as app.js does.
  */
 
 // --- config (shared with the map app via config.js) ---

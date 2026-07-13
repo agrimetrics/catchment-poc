@@ -38,20 +38,31 @@ Result: 52 permits, 125 permit versions, 342 conditions, 67 discharge points, 10
 64 breaches. Substances keep leading zeros and are padded to 4 digits (`0111`); permit refs are
 6-digit.
 
-## Two enrichments this pipeline adds
+## Three enrichments this pipeline adds
 
 - **Discharge-point geometry.** The discharge point gets a `#geography` from the permit register's
   own National Grid Reference (`DISCHARGE_NGR`) — decoded to Easting/Northing and tagged
   **EPSG:27700**. This is the site's real location, distinct from the sampling point it is
   `monitoredAt`, so we surface it rather than hide it behind the sampling point's coordinates. The
-  sampling point in turn carries **its own** `#geometry` (WGS84 lon/lat from the observations),
-  asserted on the sampling point itself. The NGR is read from two extracts in
-  `../../raw_datasets/access_database_csv_files/`: `consents_active.csv` (in-force permits) and
+  sampling point in turn carries **its own** `#geometry`, captured from the EA Water Quality Archive
+  in the **source CRS the WQA publishes — EPSG:27700** (British National Grid), not a convenience
+  reprojection (see the sampling-point enrichment below). Both points are therefore in the national
+  grid: they differ by *location*, not projection — the discharge outfall vs. the watercourse it is
+  monitored at, sitting hundreds of metres to over a kilometre apart. The NGR is read from two extracts
+  in `../../raw_datasets/access_database_csv_files/`: `consents_active.csv` (in-force permits) and
   `consents_all.csv` (a cut of the *revoked* permits that still carry observations here but are absent
   from the active register); together they cover all 67 monitored discharge points, so every one gets
-  a real NGR. `regulation_to_db.py` keeps a WGS84 sampling-point fallback (the `CASE` second branch)
-  as a safety net for any future permit missing from both extracts. Lets breaches/permits appear on
-  the map (the app reprojects EPSG:27700 with proj4).
+  a real NGR. Lets breaches/permits appear on the map (the app reprojects EPSG:27700 → WGS84 with proj4).
+- **Sampling-point capture & observation linkage.** `enrich_sampling_points.py` dereferences each
+  breach-evidencing observation and each sampling point from the WQA as `application/ld+json` and
+  writes two things back into `regulation.ttl`: the sampling point's `skos:prefLabel` and its geometry
+  in the **source EPSG:27700 encoding** (carrying the OGC CRS URI), and the structural edge
+  `<observation> sosa:hasFeatureOfInterest <sampling-point>`. That edge is the real join key the breach
+  query uses **instead of** an IRI-prefix `STRSTARTS` filter — which the engine cannot key on, so it
+  fans out to a Cartesian product and trips *"Size Limit Exceeded"* on any store larger than this demo.
+  Observational *values* (result, unit, determinand, dates) are deliberately **not** stored — they stay
+  federated, pulled live via the `/observations` proxy. WQA IRIs come back `https:` and are normalised
+  to the store's `http:` convention on the way in.
 - **Permit-version effective dates.** Not in any source CSV, so `fetch_version_dates.py` pulls each
   version's `effectiveDate`/`revocationDate` from the EA public register into the committed
   `permit_version_dates.csv` (see that script's header). Only **numeric** permit refs fit the

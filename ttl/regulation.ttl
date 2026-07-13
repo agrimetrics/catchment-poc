@@ -815,282 +815,315 @@
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410119> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "PUDDLETOWN STW FE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410119#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410119#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3543 50.7536)"^^geo:wktLiteral .
+    geo:asWKT "POINT(375100 94950) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410150> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "PIDDLEHINTON STW FE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410150#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410150#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3961 50.7657)"^^geo:wktLiteral .
+    geo:asWKT "POINT(372165 96316) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430126> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "BROCKHILL WATERCRESS FARM B & C 2" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430126#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430126#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2318 50.7357)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383740 92930) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430127#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2323 50.7359)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383700 92950) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "DODDINGS FARM WATERCRESS SETTLEMENT POND A1" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2094 50.7378)"^^geo:wktLiteral .
+    geo:asWKT "POINT(385320 93150) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440129> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "DODDINGS FARM WATERCRESS B2 BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440129#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440129#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2114 50.7436)"^^geo:wktLiteral .
+    geo:asWKT "POINT(385180 93800) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "SOUTHBROOK CRESS OUTLET FROM BEDS 5 TO 10 BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2164 50.7494)"^^geo:wktLiteral .
+    geo:asWKT "POINT(384830 94450) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "SOUTHBROOK CRESS OUTLET FROM BED 1 BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2181 50.7509)"^^geo:wktLiteral .
+    geo:asWKT "POINT(384710 94610) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "ROKE CRESS SETTLEMENT HOLLYBUSH FARM BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.23 50.76)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383870 95630) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440168> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "ROKE CRESS SOUTH HOLLYBUSH BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440168#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440168#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2303 50.7602)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383850 95650) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440170> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "ROKE CRESS NORTH HOLLYBUSH BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440170#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440170#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2322 50.7613)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383720 95770) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450110> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WAREHAM STW" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450110#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450110#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.0923 50.6979)"^^geo:wktLiteral .
+    geo:asWKT "POINT(393580 88700) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450145> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "EIGHT HATCH FISH FARM EMERGENCY OUTLET" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450145#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450145#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.1516 50.693)"^^geo:wktLiteral .
+    geo:asWKT "POINT(389390 88160) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "OUTLET FROM EIGHT HATCH FISH FARM  TRIGON  WAREHAM" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.1521 50.6929)"^^geo:wktLiteral .
+    geo:asWKT "POINT(389350 88150) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450165#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.1653 50.6962)"^^geo:wktLiteral .
+    geo:asWKT "POINT(388420 88520) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450167#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.1653 50.6966)"^^geo:wktLiteral .
+    geo:asWKT "POINT(388420 88560) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50510190> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "EVERSHOT STW FE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50510190#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50510190#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.6005 50.8373)"^^geo:wktLiteral .
+    geo:asWKT "POINT(357810 104370) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520131> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "TOLLER PORCORUM STW  MAIDEN NEWTON" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520131#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520131#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.6167 50.7801)"^^geo:wktLiteral .
+    geo:asWKT "POINT(356620 98020) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520233> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "HOOKE SPRINGS FISH FARM OUTLET BEAMINSTER" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520233#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520233#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.6612 50.8004)"^^geo:wktLiteral .
+    geo:asWKT "POINT(353500 100300) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50530190> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "MAIDEN NEWTON STW  DORCHESTER" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50530190#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50530190#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.5623 50.7735)"^^geo:wktLiteral .
+    geo:asWKT "POINT(360450 97250) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.5185 50.7631)"^^geo:wktLiteral .
+    geo:asWKT "POINT(363530 96080) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.5181 50.7642)"^^geo:wktLiteral .
+    geo:asWKT "POINT(363560 96200) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540186> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "SYDLING ST NICHOLAS STW FE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540186#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540186#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.5257 50.7876)"^^geo:wktLiteral .
+    geo:asWKT "POINT(363040 98800) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50550330> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "GODMANSTONE STW" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50550330#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50550330#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.4751 50.7667)"^^geo:wktLiteral .
+    geo:asWKT "POINT(366590 96450) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50550374> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "CERNE ABBAS STW FE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50550374#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50550374#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.4757 50.7982)"^^geo:wktLiteral .
+    geo:asWKT "POINT(366570 99960) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WOODSFORD QUARRY" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3526 50.7081)"^^geo:wktLiteral .
+    geo:asWKT "POINT(375202 89895) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WADDOCK CROSS WATERCRESS SETTLEMENT LAGOON" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2885 50.7163)"^^geo:wktLiteral .
+    geo:asWKT "POINT(379730 90780) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570155> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WADDOCK CROSS WATERCRESS B2" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570155#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570155#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2902 50.7169)"^^geo:wktLiteral .
+    geo:asWKT "POINT(379610 90850) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570220> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "ILSINGTON CRESS SETTLEMENT OUTLET" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570220#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570220#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.347 50.7237)"^^geo:wktLiteral .
+    geo:asWKT "POINT(375600 91620) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570239#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.4131 50.7111)"^^geo:wktLiteral .
+    geo:asWKT "POINT(370930 90240) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570386> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "TINCLETON EAST WATERCRESS BEDS 2" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570386#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570386#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.331 50.7243)"^^geo:wktLiteral .
+    geo:asWKT "POINT(376730 91680) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570388#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3326 50.7243)"^^geo:wktLiteral .
+    geo:asWKT "POINT(376620 91680) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3319 50.7246)"^^geo:wktLiteral .
+    geo:asWKT "POINT(376670 91720) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3322 50.7244)"^^geo:wktLiteral .
+    geo:asWKT "POINT(376650 91700) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3531 50.6849)"^^geo:wktLiteral .
+    geo:asWKT "POINT(375150 87310) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50590008> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "DOREYS BALL CLAY WORKS EFFLUENT" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50590008#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50590008#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.1235 50.6604)"^^geo:wktLiteral .
+    geo:asWKT "POINT(391370 84538) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50590229#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2528 50.6857)"^^geo:wktLiteral .
+    geo:asWKT "POINT(382240 87370) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50900722> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "CORFE CASTLE STW" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50900722#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50900722#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.056 50.6478)"^^geo:wktLiteral .
+    geo:asWKT "POINT(396140 83130) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "BROWNSEA ISLAND SEWAGE TREATMENT WORKS (NATIONAL TRUST)" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-1.9638 50.6894)"^^geo:wktLiteral .
+    geo:asWKT "POINT(402650 87750) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950351> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "LYTCHETT MINSTER STW  POOLE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950351#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950351#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.047 50.7308)"^^geo:wktLiteral .
+    geo:asWKT "POINT(396780 92360) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-1.9912 50.7418)"^^geo:wktLiteral .
+    geo:asWKT "POINT(400720 93580) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50951080#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.1463 50.7388)"^^geo:wktLiteral .
+    geo:asWKT "POINT(389770 93260) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3671 50.6829)"^^geo:wktLiteral .
+    geo:asWKT "POINT(374160 87090) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7010000> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "SOUTHBROOK CRESS SETTLEMENT BERE REGIS" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7010000#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7010000#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2128 50.7454)"^^geo:wktLiteral .
+    geo:asWKT "POINT(385080 94000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7018000#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3591 50.6851)"^^geo:wktLiteral .
+    geo:asWKT "POINT(374730 87330) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7019001> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WARMWELL WATERCRESS FARM D" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7019001#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7019001#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3562 50.6845)"^^geo:wktLiteral .
+    geo:asWKT "POINT(374930 87270) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7021001> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WARMWELL WATERCRESS FARM B" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7021001#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7021001#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.3606 50.6856)"^^geo:wktLiteral .
+    geo:asWKT "POINT(374620 87390) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022000#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2346 50.7353)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383540 92880) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022001> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "BROCKHILL WATERCRESS FARM A RELEASE 2" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022001#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022001#geometry> a geo:Geometry ;
-    geo:asWKT "POINT(-2.2362 50.7352)"^^geo:wktLiteral .
+    geo:asWKT "POINT(383430 92870) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
 
 <http://example.com/water-regulation/breach/126d808fdc3cbe2b6da62753e2aa89f0#applicability> a ns2:Applicability ;
     ns2:applicabilityPeriod <http://example.com/water-regulation/breach/126d808fdc3cbe2b6da62753e2aa89f0#period> .
@@ -7076,58 +7109,72 @@
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450165> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "PURBECK FISHERIES EARTHPONDS 2" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450165#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450167> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "PURBECK FISHERIES RACEWAY 1" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450167#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "LOWER MAGISTON WATERCRESS FARM C" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "LOWER MAGISTON WATERCRESS FARM B" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570239> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "DORCHESTER (LOUDS MILL) STW" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570239#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570388> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "TINCLETON WEST WATERCRESS BEDS 2" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570388#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "TINCLETON EAST WATERCRESS BEDS 1" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "TINCLETON WEST WATERCRESS BEDS 1" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WARMWELL WATERCRESS FARM A (PREVIOUSLY SETTLEMENT OUTLET 043241)" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50590229> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WOOL STW FE" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50590229#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50951080> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "BLACKHEATH STW  BLOXWORTH  WAREHAM" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50951080#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WATERGATES FISH FARM" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7018000> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "WARMWELL WATERCRESS FARM C (PREVIOUSLY WATERCRESS A, 043238)" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7018000#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022000> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "BROCKHILL WATERCRESS FARM A RELEASE 1" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022000#geometry> .
 
 <http://example.com/water-regulation/permit/041444/version/1/condition/0085> a ns1:Condition ;
@@ -7423,10 +7470,12 @@
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430127> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "BROCKHILL WATERCRESS FARM B & C 1" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430127#geometry> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709> a geo:Feature,
         sosa:FeatureOfInterest ;
+    skos:prefLabel "POOLE STW FE OUTFALLS 1 AND 2 COMBINED" ;
     geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709#geometry> .
 
 <http://example.com/water-regulation/permit/041444/version/1/condition/0135> a ns1:Condition ;
@@ -7809,3 +7858,77 @@
 <http://example.com/water-regulation/unit/ph-units> a ns3:Unit ;
     skos:prefLabel "PH UNITS" .
 
+# Observation -> sampling point (sosa:FeatureOfInterest), captured from the EA Water
+# Quality Archive as application/ld+json. This is the join key the breach query uses in
+# place of an IRI-prefix STRSTARTS filter; observational values are NOT stored (they stay
+# federated via the /observations proxy).
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122/sample/3535626/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122/sample/3562212/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122/sample/3562212/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440122> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149/sample/3401223/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166/sample/3421560/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166/sample/3431258/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166/sample/3577300/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137/sample/3419623/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139/sample/3506267/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139/sample/3540955/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001/sample/3570717/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001/sample/3581312/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570001> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150/sample/3400919/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150/sample/3570200/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570388/sample/3480054/observation/0061> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570388> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390/sample/3449853/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390/sample/3540974/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570390> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392/sample/3449850/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170/sample/3424940/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170/sample/3475604/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147/sample/3424376/observation/0085> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147/sample/3441074/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147/sample/3467313/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950147> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3436578/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3452445/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3470020/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3476934/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3490441/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3519022/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3579830/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000/sample/3582173/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C0844000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C7010000/sample/3452104/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7010000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C7018000/sample/3551175/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7018000> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C7019001/sample/3403017/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7019001> .
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022001/sample/3524917/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-C7022001> .

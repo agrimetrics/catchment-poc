@@ -64,6 +64,7 @@ PREFIX qudt:  <http://qudt.org/schema/qudt/>
 PREFIX iop:   <http://w3id.org/iadopt/ont/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
 PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
+PREFIX sosa:  <http://www.w3.org/ns/sosa/>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 `;
@@ -91,7 +92,7 @@ const Q = {
       ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
       ?dp water:monitoredAt ?sp ; geo:hasGeometry/geo:asWKT ?w .
       ?breach reg:evidencedByObservation ?obs .
-      FILTER(STRSTARTS(STR(?obs), STR(?sp)))
+      ?obs sosa:hasFeatureOfInterest ?sp .
     } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond`,
 
   dischargePoints: `${PREFIXES}
@@ -201,7 +202,10 @@ const CUR_VERSION = `      { SELECT ?permit (MAX(xsd:integer(REPLACE(STR(?c), ".
 
 const PQ = {
   // Breaches — one row per breach period. This is the single runtime query (Q.breaches): SAMPLE +
-  // GROUP BY collapse the permit→discharge-point→sampling-point fan-out to one row per breach.
+  // GROUP BY collapse the permit→discharge-point→sampling-point fan-out to one row per breach. The
+  // observation is joined to its sampling point through the captured sosa:hasFeatureOfInterest edge
+  // (see ttl/regulation/enrich_sampling_points.py), a real keyed join — not an IRI-prefix STRSTARTS
+  // filter, which the engine can't key on and which fans out to a Cartesian product at scale.
   breaches: (sub) => `${PREFIXES}
     SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit (SAMPLE(?sp) AS ?sp) WHERE {
       ?breach reg:breachesCondition ?cond ;
@@ -214,7 +218,7 @@ const PQ = {
       ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
       ?dp water:monitoredAt ?sp .
       ?breach reg:evidencedByObservation ?obs .
-      FILTER(STRSTARTS(STR(?obs), STR(?sp)))${sub ? `\n      FILTER(?subNotation = "${sub}")` : ""}
+      ?obs sosa:hasFeatureOfInterest ?sp .${sub ? `\n      FILTER(?subNotation = "${sub}")` : ""}
     } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit`,
 
   // Permits & limits — one row per permit: current version, and counts of current-version limits,

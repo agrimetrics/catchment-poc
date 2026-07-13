@@ -33,10 +33,11 @@
         <p>
           A permit's <b>discharge point</b>, the <b>monitoring point</b> it is sampled at, and any
           <b>WINEP action</b> proposed for it all describe the <i>same regulated works</i> — yet in the
-          source data they sit hundreds of metres to over a kilometre apart, in
-          <i>different coordinate reference systems</i>. Linked data joins them
-          deterministically by identifier (<code>monitoredAt</code>, <code>targetPermit</code>); a GIS
-          "join what's nearby" cannot, without either missing them or sweeping in unrelated neighbours.
+          source data they sit hundreds of metres to over a kilometre apart. All three are published by
+          EA sources in the <i>same</i> coordinate reference system (British National Grid), so this is
+          no projection artefact: they are genuinely different points on the ground. Linked data joins
+          them deterministically by identifier (<code>monitoredAt</code>, <code>targetPermit</code>); a
+          GIS "join what's nearby" cannot, without either missing them or sweeping in unrelated neighbours.
         </p>
         <p class="pts-stats" id="pts-stats">Loading the store…</p>
         <p class="pts-hint">Pick a permit to draw its spider and measure the gaps. Hover any dot for its
