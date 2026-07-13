@@ -32,6 +32,35 @@ const DESIGNATIONS = [
   { key: "spa", label: "SPA", full: "Special Protection Areas", file: "spa.geojson", color: "#9a5eae" },
 ];
 
+// Sampling-point FAMILIES for the Ambient view.
+//
+// The archive types every sampling point, but with 17 distinct types in this catchment alone
+// ("FRESHWATER - COMPARATIVE INLET POINTS", "SEWAGE DISCHARGES - STW STORM OVERFLOW/STORM TANK -
+// WATER COMPANY", …) — far too many to tell apart as 17 map colours. The types are already
+// hierarchical though: the EA's own label is "FAMILY - detail", so splitting on the first " - "
+// recovers the archive's top-level split rather than inventing one. The exact type is never lost —
+// it is on the marker's popup and in the table.
+//
+// Colours are the validated 8-slot categorical palette for a dark surface (worst adjacent CVD ΔE
+// sits in the floor band, which is why the legend is always on and the table names every point's
+// exact type — colour is never the only encoding).
+const SP_FAMILIES = [
+  { key: "FRESHWATER",                    label: "Freshwater — rivers, lakes, inlets", color: "#3987e5" },
+  { key: "GROUNDWATER",                   label: "Groundwater — boreholes, springs",   color: "#199e70" },
+  { key: "AGRICULTURE",                   label: "Agriculture — watercress, fish farms", color: "#c98500" },
+  { key: "SALINE WATER",                  label: "Saline — bathing waters, estuary",   color: "#008300" },
+  { key: "SEWAGE DISCHARGES",             label: "Sewage discharges",                  color: "#9085e9" },
+  { key: "SEWAGE & TRADE COMBINED",       label: "Sewage & trade combined",            color: "#e66767" },
+  { key: "TRADE DISCHARGES",              label: "Trade discharges",                   color: "#d55181" },
+  { key: "POLLUTION/INVESTIGATION POINTS", label: "Pollution / investigation",         color: "#d95926" },
+];
+const OTHER_FAMILY = { key: "", label: "Other / untyped", color: "#8a94a0" };
+// "SEWAGE DISCHARGES - FINAL/TREATED EFFLUENT - WATER COMPANY" -> the Sewage discharges family.
+function familyOf(typeLabel) {
+  const head = String(typeLabel || "").split(" - ")[0].trim();
+  return SP_FAMILIES.find((f) => f.key === head) || OTHER_FAMILY;
+}
+
 // SFI programmes (schemes). Only the Expanded Offer has published option rates in our source
 // workbook, so SFI 2023 agreements are shown unpriced. Applications colour-code by programme.
 const PROGRAMMES = {
@@ -165,6 +194,21 @@ const Q = {
       OPTIONAL { ?limit reg:continuesCondition ?continues }
     }`,
 
+  // Every sampling point in the catchment, permitted or not. This is the Ambient view's whole
+  // dataset, and it is deliberately NOT reached through a permit: `monitoredAt` is OPTIONAL here, so
+  // a river, a borehole or a bathing water — which no permit will ever name — comes back alongside
+  // the effluent points. (Before the store took its sampling points from the archive rather than
+  // from the observations that happened to match a permit rule, only the 54 permit-monitored points
+  // existed at all, and this query could not have been written.)
+  samplingPoints: `${PREFIXES}
+    SELECT ?sp ?label ?typeLabel ?status (SAMPLE(?w) AS ?wkt) (SAMPLE(?p) AS ?permit) WHERE {
+      ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?w .
+      OPTIONAL { ?sp skos:prefLabel ?label }
+      OPTIONAL { ?sp water:samplingPointType/skos:prefLabel ?typeLabel }
+      OPTIONAL { ?sp water:samplingPointStatus ?status }
+      OPTIONAL { ?dp water:monitoredAt ?sp . ?p reg:permitSite ?dp }
+    } GROUP BY ?sp ?label ?typeLabel ?status`,
+
   // Farming: one row per application with its option count and TOTAL annual payment summed live.
   // COALESCE(?c,0): an application's options are OPTIONALly priced, so unpriced options leave ?c
   // unbound — and SUM over a group containing an unbound value yields unbound (not 0). Coalescing to
@@ -218,6 +262,18 @@ const CUR_VERSION = `      { SELECT ?permit (MAX(xsd:integer(REPLACE(STR(?c), ".
         WHERE { ?permit reg:hasCondition ?c } GROUP BY ?permit }`;
 
 const PQ = {
+  // Ambient sampling points — every place the EA samples in the catchment, with what is sampled
+  // there and (only if there is one) the permit that discharges into it. The OPTIONAL is the whole
+  // point: make it a plain join and the 95 points that belong to no permit vanish, which is exactly
+  // the blind spot this view exists to remove.
+  samplingPoints: () => `${PREFIXES}
+    SELECT ?sp ?label ?typeLabel ?permit WHERE {
+      ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?wkt .
+      OPTIONAL { ?sp skos:prefLabel ?label }
+      OPTIONAL { ?sp water:samplingPointType/skos:prefLabel ?typeLabel }
+      OPTIONAL { ?dp water:monitoredAt ?sp . ?permit reg:permitSite ?dp }
+    } ORDER BY ?typeLabel ?label`,
+
   // Breaches — one row per breach period. This is the single runtime query (Q.breaches): SAMPLE +
   // GROUP BY collapse the permit→discharge-point→sampling-point fan-out to one row per breach. The
   // observation is joined to its sampling point through the captured sosa:hasFeatureOfInterest edge
@@ -404,7 +460,14 @@ function hullPolygon(points) {
 // Small helpers
 // ---------------------------------------------------------------------------
 const last = (iri) => iri.split("/").pop();
-const permitRef = (iri) => (iri ? last(iri) : "—");
+// Some permit references contain slashes — "400114/CF/01" is a real permit in this catchment — so the
+// IRI carries them percent-encoded inside the path segment: .../permit/400114%2FCF%2F01. That IRI is
+// CORRECT and must stay: a raw slash would fake a path hierarchy and collide with the outlet IRIs
+// minted under it (.../permit/{ref}/outlet/{n}/effluent/{n}). But %2F is an artefact of IRI syntax,
+// not part of the permit's name, so it must never reach a human. Decode at the display boundary —
+// the result is exactly the core:identifierValue the store carries alongside the IRI.
+const unescIri = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+const permitRef = (iri) => (iri ? unescIri(last(iri)) : "—");
 // version number embedded in a condition/permit-document IRI: .../version/{v}/...
 const verOf = (iri) => {
   const m = /\/version\/([^/#]+)/.exec(iri || "");
@@ -526,7 +589,10 @@ function limitAt(steps, t, fb) {
 // drawn AT the panel's dimensions, not scaled to them — see chartBox).
 let shownChart = null; // { ctx, obs, meta } | null
 
-async function openChart(subNotation, sp, permit) {
+// `permit` may be null — an ambient sampling point has no permit, so no limit line, no proposed
+// limit and no version history: chartContext returns an empty frame and the chart is just the
+// observations. `at` pins the map on the point itself when there is no discharge point to fly to.
+async function openChart(subNotation, sp, permit, at) {
   const chart = document.getElementById("chart");
   const ctx = chartContext(subNotation, permit);
   document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
@@ -535,12 +601,13 @@ async function openChart(subNotation, sp, permit) {
   body.classList.add("fit"); // the time-series chart sizes itself to the panel; it never scrolls
   collapseLegend();
   // resize the (now narrower) map and zoom it to the charted sampling point's discharge point
-  const target = DB.dischargePoints.find((d) => d.permit === permit && d.sp === sp && d.lat != null)
-    || DB.dischargePoints.find((d) => d.permit === permit && d.lat != null);
+  const dp = permit && (DB.dischargePoints.find((d) => d.permit === permit && d.sp === sp && d.lat != null)
+    || DB.dischargePoints.find((d) => d.permit === permit && d.lat != null));
+  const target = dp ? [dp.lat, dp.lon] : at;
   document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "start" });
   setTimeout(() => {
     map.invalidateSize();
-    if (target) map.setView([target.lat, target.lon], 13);
+    if (target) map.setView(target, 13);
   }, 80);
   body.innerHTML = `<p class="chart-note">Loading observations…</p>`;
   try {
@@ -619,11 +686,15 @@ function renderChart(ctx, obs, meta = {}) {
     return "hit";
   };
 
+  // Tick decimals come from the AXIS RANGE, not from each tick's own magnitude. Ambient river
+  // readings run around 0.03 mg/l, where a fixed 1-decimal format prints five ticks as
+  // "0.1, 0.1, 0.1, 0.0, 0.0" — an axis that appears to repeat itself and cannot be read.
+  const dp = yMax >= 10 ? 0 : yMax >= 1 ? 1 : yMax >= 0.1 ? 2 : 3;
   let grid = "";
   for (let i = 0; i <= 5; i++) {
     const val = (yMax * i) / 5, yy = y(val);
     grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#2b3a49"/>` +
-      `<text x="${m.l - 6}" y="${yy + 3}" fill="#93a4b3" font-size="10" text-anchor="end">${val.toFixed(val < 10 ? 1 : 0)}</text>`;
+      `<text x="${m.l - 6}" y="${yy + 3}" fill="#93a4b3" font-size="10" text-anchor="end">${val.toFixed(dp)}</text>`;
   }
   const yr1 = new Date(tMin).getFullYear(), yr2 = new Date(tMax).getFullYear();
   const step = Math.max(1, Math.ceil((yr2 - yr1) / 8));
@@ -741,14 +812,25 @@ function renderChart(ctx, obs, meta = {}) {
     }
   }
   const excLabel = ctx.upperStatLabel ? esc(ctx.upperStatLabel).toLowerCase() : "period limit";
-  const legend = `<div class="chart-legend">
-    <span class="item" style="color:#e5484d">✕ miss (${nMiss})</span>
-    ${nExc || ctx.maxUpper != null ? `<span class="item" style="color:${EXC}">△ over ${excLabel} (${nExc})</span>` : ""}
-    <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss - nExc})</span>
-    <span class="item" style="color:#e5484d">– – enforced limit${hasSteps ? " (by version)" : ""}</span>
-    ${ctx.maxUpper != null ? `<span class="item" style="color:${TIER}">– – upper tier</span>` : ""}
-    ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
-  </div>`;
+  // A point in the measured world but not the regulated one has no limit to hit or miss — the
+  // readings are just readings. Saying "hit (52)" there would invent a pass mark nobody set: a river
+  // is not "compliant", it is merely measured. So when the context carries no bound, the legend says
+  // what the chart actually shows and nothing more.
+  const regulated = hasSteps || ctx.upper != null || ctx.maxUpper != null || ctx.lower != null;
+  const legend = regulated
+    ? `<div class="chart-legend">
+        <span class="item" style="color:#e5484d">✕ miss (${nMiss})</span>
+        ${nExc || ctx.maxUpper != null ? `<span class="item" style="color:${EXC}">△ over ${excLabel} (${nExc})</span>` : ""}
+        <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss - nExc})</span>
+        <span class="item" style="color:#e5484d">– – enforced limit${hasSteps ? " (by version)" : ""}</span>
+        ${ctx.maxUpper != null ? `<span class="item" style="color:${TIER}">– – upper tier</span>` : ""}
+        ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
+      </div>`
+    : `<div class="chart-legend">
+        <span class="item" style="color:#3aa0ff">◯ observation (${obs.length})</span>
+        <span class="item muted">measured, not regulated — no permit limit here</span>
+        ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
+      </div>`;
   return `${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
     ${grid}
     <text transform="translate(13 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="11" text-anchor="middle">${esc(prettyUnit(ctx.unit) || "value")}</text>
@@ -957,7 +1039,7 @@ const DB = {};       // raw + derived caches
 let map, base, catchmentLayer;
 const layers = {};   // name -> L.LayerGroup / MarkerClusterGroup
 const DES = {};      // designation key -> { label, full, color, sites: Map(name -> {layer, on}) }
-let currentView = "breaches";
+let currentView = "permits";
 let currentSubstance = ""; // notation or ""
 let currentOptionType = ""; // farming: broader option-group code filter, or ""
 let selectedApp = null;    // farming: selected application IRI (or null)
@@ -990,12 +1072,26 @@ function styleActionMarker(mk, on) {
 // Load everything once
 // ---------------------------------------------------------------------------
 async function loadAll() {
-  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory] =
+  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory, samplingPoints] =
     await Promise.all([
       sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
       sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed),
       sparql(Q.applications), sparql(Q.groupLabels), sparql(Q.sfiOptions), sparql(Q.limitHistory),
+      sparql(Q.samplingPoints),
     ]);
+
+  // Sampling points (the Ambient view). `permit` is a SAMPLE: a point can be monitored by more than
+  // one outlet, and all we need here is whether it is permitted at all, plus one permit to hang the
+  // chart's limit lines off when it is.
+  DB.samplingPoints = samplingPoints.map((r) => {
+    const p = parseWkt(r.wkt).points[0] || null;
+    return {
+      iri: r.sp, id: spOf(r.sp), label: r.label || spOf(r.sp),
+      type: r.typeLabel || "", family: familyOf(r.typeLabel),
+      status: r.status || "", permit: r.permit || null,
+      lat: p ? p[0] : null, lon: p ? p[1] : null,
+    };
+  }).filter((s) => s.lat != null);
 
   // Canonical broader-group label map (code -> label), for the option-type fallback below.
   DB.groupLabels = {};
@@ -1215,6 +1311,7 @@ function initMap() {
   layers.breachPast = L.layerGroup();
   layers.dischargePoints = L.layerGroup();
   layers.actions = L.layerGroup();
+  layers.samplingPoints = L.layerGroup();
   layers.sfi = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45 });
   layers.appHulls = L.layerGroup();
   layers.spider = L.layerGroup();
@@ -1257,10 +1354,43 @@ const matchSub = (n) => !currentSubstance || n === currentSubstance;
 // ---------------------------------------------------------------------------
 // View rendering
 // ---------------------------------------------------------------------------
+// The two water views are two different worlds, and the gap between them is the demonstrator's
+// argument in miniature.
+//
+// THE REGULATED WORLD exists because a permit says so. Everything in it hangs off a permit
+// identifier — the limits in force, the breaches of those limits, the WINEP works that will replace
+// them — and it is knowable in advance, from a register, whether anyone ever visits.
+//
+// THE MEASURED WORLD exists because someone took a sample. Most of it belongs to no permit at all,
+// so no permit-shaped query can reach it; and a river in it has no limit to pass or fail, only
+// readings.
+//
+// Neither is a view of the other. A permit is not evidence that anything was measured, and a
+// measurement is not evidence that anything was permitted. Keeping the two apart on the screen is
+// what makes it possible to ask the question that matters — where do they disagree?
 const LEDE = {
-  breaches: (n, cur) => `<b>${n} condition breaches</b> — each a run of failing observations with no passing result in between. <b>${cur} current</b> (open: nothing has passed since the breach began); the rest are <b>past</b> (closed, with a start and end). Click a marker to open the sampling point in the Water Quality Explorer.`,
-  substance: (n, lbl) => `Solving for <b>${esc(lbl)}</b>: <b>${n.limits} current permit limits</b> in force and <b>${n.works} improvement actions</b> proposing future limits across the catchment.`,
-  wessex: (n) => `<b>Wessex Water</b> has <b>${n} WINEP actions</b> in this catchment — investments with a completion date and the new (or continued) permit limits they will bring.`,
+  permits: (n, lbl) => {
+    const sub = n.substance ? ` for <b>${esc(lbl)}</b>` : "";
+    // The store holds outlets for every scoped permit but limits only for the ones whose substances
+    // were actually sampled (see ttl/regulation/regulation_to_db.py). Say so rather than let the
+    // table's count silently disagree with the headline.
+    const withLimits = n.permitsWithLimits < n.permits
+      ? ` <span class="muted">(${n.permitsWithLimits} with limits in the store)</span>` : "";
+    return `<b>The regulated world</b> — what the register permits, and what has failed it. ` +
+      `<b>${n.permits} discharge permits</b>${sub}${withLimits}: <b>${n.limits} limits</b> in force, ` +
+      `<b>${n.breaches} condition breaches</b> of them (<b>${n.current} current</b> — nothing has passed since the breach began), ` +
+      `and <b>${n.works} WINEP actions</b> proposing the limits that will replace them. ` +
+      `Each is linked to its permit by identifier, not by location: the ${n.outlets} outlets sit on just ` +
+      `<b>${n.coords} distinct coordinates</b>, so a map alone cannot tell them apart ` +
+      `(<a href="points.html" target="_blank" rel="noopener">why that matters</a>).`;
+  },
+  ambient: (n, lbl) =>
+    `<b>The measured world</b> — what the sampling actually finds, whatever the source. ` +
+    `<b>${n.total} sampling points</b> in the catchment, of which <b>${n.unpermitted}</b> belong to ` +
+    `<b>no permit at all</b> (rivers, boreholes, bathing waters), so the regulated world is ` +
+    `structurally blind to them — there is no permit to reach them through. Coloured by what the EA ` +
+    `samples there. Click a point for its <b>${esc(lbl)}</b> time series, pulled live from the Water ` +
+    `Quality Archive.`,
 };
 
 function clearLayers() {
@@ -1269,6 +1399,7 @@ function clearLayers() {
   layers.breachPast.clearLayers();
   layers.dischargePoints.clearLayers();
   layers.actions.clearLayers();
+  layers.samplingPoints.clearLayers();
   layers.sfi.clearLayers();
   layers.appHulls.clearLayers();
   layers.spider.clearLayers();
@@ -1490,31 +1621,48 @@ function render() {
   // (permit|version|substance) tuples that were actually breached, to flag them in the history
   const breachedKey = new Set(DB.breaches.map((b) => `${b.permit}|${b.version}|${b.subNotation}`));
 
-  // Which permits/actions are relevant to the substance
-  const permitsWithSub = new Set(conditions.map((c) => c.permit));
+  // Which actions are relevant to the substance
   const actionIdsWithSub = new Set(proposedForSub.map((l) => l.action));
 
-  const show = { breach: false, discharge: false, action: false, sfi: false };
+  const show = { breach: false, discharge: false, action: false, sfi: false, sampling: false };
 
-  if (currentView === "breaches") {
-    show.breach = show.discharge = true;
-    setLegend([{ c: "#e5484d", t: "Discharge point — current breach" }, { c: "#f5a623", t: "past breach" }, { c: "#3aa0ff", t: "no breach" }]);
-    document.getElementById("lede").innerHTML = LEDE.breaches(breaches.length, breaches.filter((b) => b.current).length);
-    tables.append(breachTable(breaches), permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit));
-  } else if (currentView === "substance") {
+  if (currentView === "ambient") {
+    show.sampling = true;
+    renderAmbient(tables);
+  } else if (currentView === "permits") {
+    // ONE view over the regulated world: the limits, the breaches of them, and the works that will
+    // change them. They used to be three tabs, which made them read as three subjects; they are one
+    // subject — a permit — seen at three points in time (in force / failed / proposed).
     show.breach = show.discharge = show.action = true;
-    setLegend([{ c: "#3aa0ff", t: "Current limit (no breach)" }, { c: "#e5484d", t: "current breach" }, { c: "#f5a623", t: "past breach" }, { c: "#a06bff", t: "Future works (action)" }]);
-    const limitCount = conditions.length, workCount = actionIdsWithSub.size;
-    document.getElementById("lede").innerHTML = LEDE.substance({ limits: limitCount, works: workCount }, subLbl);
+    setLegend([
+      { c: "#3aa0ff", t: "Discharge point — no breach" },
+      { c: "#e5484d", t: "current breach" },
+      { c: "#f5a623", t: "past breach" },
+      { c: "#a06bff", t: "WINEP action site (future works)" },
+    ]);
+    // The outlet/coordinate counts are the points.html argument, stated where the map is drawn: the
+    // markers below are FEWER than the outlets they stand for, because outlets share a coordinate.
+    const drawnDps = DB.dischargePoints.filter((d) => d.lat != null);
+    const coords = new Set(drawnDps.map((d) => `${d.lat},${d.lon}`)).size;
+    document.getElementById("lede").innerHTML = LEDE.permits({
+      permits: new Set(DB.dischargePoints.map((d) => d.permit)).size,
+      permitsWithLimits: new Set(DB.conditionsCurrent.map((c) => c.permit)).size,
+      limits: conditions.length,
+      breaches: breaches.length,
+      current: breaches.filter((b) => b.current).length,
+      works: currentSubstance ? actionIdsWithSub.size : DB.actions.length,
+      outlets: drawnDps.length,
+      coords,
+      substance: !!currentSubstance,
+    }, subLbl);
+    // Substance chosen -> the limit/proposal story for it; otherwise the permit register at large.
     tables.append(
-      substanceStoryTable(conditions, proposedForSub, dpByPermit),
+      currentSubstance
+        ? substanceStoryTable(conditions, proposedForSub, dpByPermit)
+        : permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit),
       breachTable(breaches),
+      actionTable(currentSubstance ? DB.actions.filter((a) => actionIdsWithSub.has(a.iri)) : DB.actions, limByAction),
     );
-  } else if (currentView === "wessex") {
-    show.action = true;
-    setLegend([{ c: "#a06bff", t: "Wessex Water action site" }]);
-    document.getElementById("lede").innerHTML = LEDE.wessex(DB.actions.length);
-    tables.append(actionTable(DB.actions, limByAction));
   }
 
   // Draw layers. Breaches live AT their discharge point, so a discharge point is a single marker
@@ -1547,18 +1695,30 @@ function render() {
     layers.dischargePoints.addTo(map);
   }
   if (show.action) {
-    const winep = currentView === "wessex"; // only the WINEP table has rows to focus/sync with
     for (const k in actionMarkers) delete actionMarkers[k];
     for (const a of DB.actions) {
       if (a.lat == null) continue;
-      if (currentView === "substance" && currentSubstance && !actionIdsWithSub.has(a.iri)) continue;
+      if (currentSubstance && !actionIdsWithSub.has(a.iri)) continue;
       const on = a.iri === selectedAction;
       const mk = circle(a.lat, a.lon, dot(on ? "#c9aaff" : "#a06bff", on ? 9 : 7, on ? 1 : 0.85), actionPopup(a, limByAction[a.iri] || []));
-      if (winep) { mk.on("click", () => focusAction(a.iri, true)); actionMarkers[a.iri] = mk; }
+      // The WINEP table is on this view, so a marker click can focus its row (and vice versa).
+      mk.on("click", () => focusAction(a.iri, true));
+      actionMarkers[a.iri] = mk;
       mk.addTo(layers.actions);
       drawnBounds.push([a.lat, a.lon]);
     }
     layers.actions.addTo(map);
+  }
+  // Ambient: every sampling point, coloured by the family of thing the EA samples there. No permit
+  // status is encoded — that is the Permits view's job, and most of these have no permit at all.
+  if (show.sampling) {
+    for (const s of ambientPoints()) {
+      const mk = circle(s.lat, s.lon, dot(s.family.color, s.permit ? 6 : 7, 0.9), samplingPointPopup(s));
+      mk.on("click", () => openChart(currentSubstance || NITROGEN, s.id, s.permit, [s.lat, s.lon]));
+      mk.addTo(layers.samplingPoints);
+      drawnBounds.push([s.lat, s.lon]);
+    }
+    layers.samplingPoints.addTo(map);
   }
   if (show.sfi) {
     for (const s of DB.sfi)
@@ -1792,6 +1952,84 @@ function actionTable(actions, limByAction) {
       ? `<p class="expand-hint">Click a substance to chart its observations at ${esc(sp)} against the current and proposed limits.</p>`
       : "";
     return `${a?.desc ? `<p style="color:#93a4b3">${esc(a.desc)}</p>` : ""}${hint}${body.outerHTML}`;
+  });
+  return c;
+}
+
+// ---------------------------------------------------------------------------
+// The measured world: pollution as sampled, wherever it was sampled.
+// ---------------------------------------------------------------------------
+// The regulated world can only ever show you a place a permit points at. This one shows every place
+// the EA actually samples — and in this catchment most of them (rivers, boreholes, bathing waters,
+// investigation points) belong to no permit at all, so they are invisible to a permit-shaped query.
+// That is the "regardless of sampling-point source" bit: the effluent points are here too, drawn the
+// same size and read the same way, because a nitrate reading is a nitrate reading.
+//
+// Sampling points are NOT filtered by the chosen substance. A point with no ammonia record is not a
+// point with no ammonia — it is a point nobody sampled for it, and hiding it would quietly turn an
+// absence of measurement into an absence of pollution. Instead every point is drawn, and the chart
+// tells you (per point) whether the archive has anything for that substance.
+const ambientPoints = () => DB.samplingPoints;
+
+function samplingPointPopup(s) {
+  const permitted = s.permit
+    ? `<div class="pp-row">Permit <span class="mono">${esc(permitRef(s.permit))}</span> discharges here` +
+      ` <span class="muted">— this point is in the regulated world too</span></div>`
+    : `<div class="pp-row muted">No permit discharges here — measured only, never regulated.</div>`;
+  const sub = currentSubstance || NITROGEN;
+  const subLbl = (DB.substances.find((x) => x.notation === sub) || {}).label || sub;
+  return `<b>${esc(s.label)}</b><br>
+    <span class="mono">${esc(s.id)}</span>
+    <div class="pp-row"><span class="dot" style="background:${s.family.color}"></span>${esc(s.type || "untyped")}</div>
+    ${s.status && s.status !== "OPEN" ? `<div class="pp-row muted">Status: ${esc(s.status)}</div>` : ""}
+    ${permitted}
+    <div class="pp-row"><span class="sub-link">Charting ${esc(subLbl)}…</span></div>
+    <a href="${WQE}${encodeURIComponent(s.id)}" target="_blank" rel="noopener">Water Quality Explorer ↗</a>`;
+}
+
+function renderAmbient(tables) {
+  const pts = ambientPoints();
+  const unpermitted = pts.filter((s) => !s.permit);
+  // With no substance chosen, clicking a point charts the default (ammoniacal nitrogen) — so the
+  // lede has to name THAT, not "all substances", which is not something a time series can be of.
+  const sub = currentSubstance || NITROGEN;
+  const subLbl = (DB.substances.find((s) => s.notation === sub) || {}).label || sub;
+
+  // Legend: one entry per family PRESENT, in the palette's fixed slot order — the order is the
+  // colourblind-safety mechanism, so it never re-sorts by count.
+  const present = [...SP_FAMILIES, OTHER_FAMILY].filter((f) => pts.some((s) => s.family.key === f.key));
+  setLegend(present.map((f) => ({ c: f.color, t: `${f.label} (${pts.filter((s) => s.family.key === f.key).length})` })));
+
+  document.getElementById("lede").innerHTML =
+    LEDE.ambient({ total: pts.length, unpermitted: unpermitted.length }, subLbl);
+
+  tables.append(ambientTable(pts));
+}
+
+// Every sampling point, with its EXACT archive type (the map colours by family, so the precise type
+// has to be legible somewhere — colour is never the only encoding). Sorted with the unpermitted
+// first: they are the ones the rest of this app cannot see.
+function ambientTable(pts) {
+  const sorted = [...pts].sort((a, b) =>
+    (!!a.permit - !!b.permit) || a.family.label.localeCompare(b.family.label) || a.label.localeCompare(b.label));
+  const rows = sorted.map((s) => `
+    <tr class="sp-row" data-sp="${esc(s.id)}" data-permit="${esc(s.permit || "")}">
+      <td class="mono"><span class="sub-link">${esc(s.id)}</span></td>
+      <td>${esc(s.label)}</td>
+      <td>${swatch(s.family.color)}${esc(s.type || "untyped")}</td>
+      <td class="mono">${s.permit ? permitRef(s.permit) : '<span class="pill none">none</span>'}</td>
+    </tr>`).join("");
+  const c = card(
+    `Sampling points <span class="count">— ${pts.filter((s) => !s.permit).length} measured but never regulated</span>`,
+    pts.length,
+    tableEl(["Point", "Name", "What is sampled here", "Permit"], rows),
+    PQ.samplingPoints());
+  // Same gesture as the map: open the substance time series for this point.
+  c.addEventListener("click", (e) => {
+    const tr = e.target.closest(".sp-row");
+    if (!tr) return;
+    const s = DB.samplingPoints.find((x) => x.id === tr.dataset.sp);
+    if (s) openChart(currentSubstance || NITROGEN, s.id, s.permit, [s.lat, s.lon]);
   });
   return c;
 }
@@ -2043,11 +2281,7 @@ function setView(v) {
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   if (v !== "farming") { selectedApp = null; closeChart(); } // drop the pie when leaving farming
-  if (v !== "wessex") selectedAction = null; // drop the WINEP action focus when leaving
-  if (v === "substance" && !currentSubstance) {
-    currentSubstance = NITROGEN;
-    document.getElementById("substance").value = NITROGEN;
-  }
+  if (v !== "permits") selectedAction = null; // drop the WINEP action focus when leaving
   render();
 }
 
@@ -2084,15 +2318,18 @@ async function main() {
     else if (!document.getElementById("chart").classList.contains("hidden")) closeChart();
   });
 
-  // Deep-link support: ?view=breaches|substance|wessex|overall & ?sub=<notation>
+  // Deep-link support: ?view=permits|ambient|farming & ?sub=<notation>. The three old water views
+  // (breaches / substance / wessex) are now one Permits view, so their links land there rather than
+  // 404-ing into the default.
+  const ALIAS = { breaches: "permits", substance: "permits", wessex: "permits" };
   const params = new URLSearchParams(location.search);
   const sub = params.get("sub");
   if (sub && DB.substances.some((s) => s.notation === sub)) {
     currentSubstance = sub;
     document.getElementById("substance").value = sub;
   }
-  const view = params.get("view");
-  setView(["breaches", "substance", "wessex", "farming"].includes(view) ? view : "breaches");
+  const view = ALIAS[params.get("view")] || params.get("view");
+  setView(["permits", "ambient", "farming"].includes(view) ? view : "permits");
 }
 
 main();

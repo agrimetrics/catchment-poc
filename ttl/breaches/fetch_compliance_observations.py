@@ -86,7 +86,7 @@ def fetch(sp: str, determinand: str) -> list[dict]:
             o = json.loads(ln)
             out.append({
                 # The archive serves https:; the store's convention is http:. Normalise on the way
-                # in so breach evidence IRIs match the observations enrich_sampling_points captured.
+                # in so breach evidence IRIs match the sampling-point IRIs the regulation graph mints.
                 "id": str(o.get("id", "")).replace("https://", "http://"),
                 "samplingPoint.notation": (o.get("samplingPoint") or {}).get("notation"),
                 "phenomenonTime": o.get("phenomenonTime"),

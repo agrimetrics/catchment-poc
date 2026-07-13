@@ -48,13 +48,26 @@ target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} rdf:type 
 mappingId   DischargePointMonitoring
 source      SELECT permit_ref, outlet, effluent, sp_notation FROM discharge_point_monitoring
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> .
-            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest, geo:Feature .
 
-mappingId   SamplingPointGeometry
-source      SELECT sp_notation, lon, lat FROM sampling_point_geometry
-target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> .
+mappingId   SamplingPoints
+source      SELECT sp_notation, pref_label, wkt, status_label FROM sampling_points
+target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest, geo:Feature .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> skos:prefLabel {pref_label} .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> defra-water:samplingPointStatus {status_label} .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> rdf:type geo:Geometry .
-            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> geo:asWKT "POINT({lon} {lat})"^^geo:wktLiteral .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> geo:asWKT "{wkt}"^^geo:wktLiteral .
+
+mappingId   SamplingPointTypes
+source      SELECT sp_notation, type_notation FROM sampling_points WHERE type_notation <> ''
+target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> defra-water:samplingPointType wr:sampling-point-type/{type_notation} .
+
+mappingId   SamplingPointTypeConcepts
+source      SELECT notation, pref_label FROM sampling_point_types
+target      wr:sampling-point-type/{notation} rdf:type skos:Concept .
+            wr:sampling-point-type/{notation} skos:inScheme wr:sampling-point-type .
+            wr:sampling-point-type/{notation} skos:notation {notation} .
+            wr:sampling-point-type/{notation} skos:prefLabel {pref_label} .
 
 mappingId   DischargePointGeometry
 source      SELECT permit_ref, outlet, effluent, wkt FROM discharge_point_geometry

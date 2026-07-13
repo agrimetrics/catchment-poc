@@ -29,21 +29,36 @@
  * join reports the same confidence either way, so nothing in its output tells you which regime you are
  * in. `monitoredAt` scores 7/7 under every choice.
  *
- * Nor does "just use finer coordinates" rescue the spatial join. Scored across all 64 monitored
- * discharge points that this store can match to a register row:
+ * Nor does "just use finer coordinates" rescue the spatial join. Scored across the 69 monitored
+ * discharge points for which the register carries ALL THREE grid refs (so the three rows are the same
+ * outlets, judged three ways), against the whole 161-point sampling layer:
  *
  *     geometry hung on the discharge point   distinct coords   nearest-neighbour correct
- *     site grid ref  (what this store uses)       32              38 / 64   (59%)
- *     outlet grid ref                             61              56 / 64   (88%)
- *     effluent grid ref                           60              54 / 64   (84%)
- *     water:monitoredAt                            –              64 / 64  (100%)
+ *     site grid ref  (what this store uses)       37              33 / 69   (48%)
+ *     outlet grid ref                             60              53 / 69   (77%)
+ *     effluent grid ref                           66              53 / 69   (77%)
+ *     water:monitoredAt                            –              69 / 69  (100%)
  *
- * Note the effluent ref — the FINEST geometry available — scores WORSE than the outlet ref. Accuracy is
- * not even monotonic in coordinate precision, so there is no "just pick the most precise one" rule that
- * saves you. The spatial join tops out around seven in eight and its accuracy is set by a schema
- * decision taken two levels above the feature being joined. The identifier is 64/64 and does not depend
- * on the geometry being right, or on there being any geometry at all. That is the argument for linked
- * data, in one catchment.
+ * Note the effluent ref — the FINEST geometry available — does no better than the outlet ref, despite
+ * resolving 66 distinct coordinates to the outlet's 60. Accuracy is not monotonic in coordinate
+ * precision, so there is no "just pick the most precise one" rule that saves you. The spatial join tops
+ * out around three in four and its accuracy is set by a schema decision taken two levels above the
+ * feature being joined. The identifier is 69/69 and does not depend on the geometry being right, or on
+ * there being any geometry at all. That is the argument for linked data, in one catchment.
+ *
+ * 3. AND IT CAN LAND ON SOMETHING THAT IS NOT AN OUTFALL AT ALL. The candidate set below is EVERY
+ *    sampling point the EA holds here — 161 of them, and only 70 monitor a discharge. The other 91 are
+ *    rivers, boreholes, bathing waters and investigation points (the app's "measured world"). A GIS
+ *    layer contains all of them, and a nearest-feature join is free to pick any one. For 8 of the
+ *    scored outlets it does exactly that: the closest sampling point is one that monitors no discharge
+ *    whatsoever. Blackheath WRC (042451) — the worked example at the top of this list — is one. Its
+ *    nearest sampling point is SW-50951085, "SHERFORD AT SNAILS BRIDGE US BLACKHEATH": a river station,
+ *    and one sited UPSTREAM of the works — i.e. the one place in the catchment guaranteed to carry none
+ *    of its effluent. The points the EA actually samples it at (SW-50951080, the final effluent, and
+ *    SW-50951082, the storm overflow) are further away. The join returns the upstream river as the
+ *    works' effluent monitoring point, with no error and no warning. Restricting the candidate layer to
+ *    "just the effluent points" would hide this — but you can only restrict it that way if you already
+ *    know which points those are, which is the very thing the join was for.
  *
  * (The outlet/effluent grid refs are shown for comparison only — this store ingests the site ref alone;
  * see ttl/regulation/README.md. The scores above come from the register extracts in raw_datasets/.)
@@ -91,14 +106,20 @@ SELECT ?permit ?dp ?dpw ?sp ?spw ?action ?al ?aw WHERE {
              ?s geo:hasGeometry/geo:asWKT ?aw . }
 }`;
 
-// EVERY sampling point in the store, not just the ones a given permit is monitored at. This is what
-// a GIS would have in its layer, and it is what a nearest-feature join would be free to pick from —
-// so we need the whole set to work out which one proximity WOULD choose, right or wrong.
+// EVERY sampling point in the store — all 161, of which only 70 monitor a discharge. The rest are
+// rivers, boreholes and bathing waters that belong to no permit at all. That is deliberately the
+// candidate set: a GIS layer holds all of them, and a nearest-feature join is free to pick any one,
+// so this is what proximity WOULD actually choose from. Scoring against only the effluent points
+// would flatter the join by handing it the answer (see mode 3 in the header).
+//
+// ?type is carried so the panel can say WHAT proximity landed on when it lands on a non-outfall.
 const Q_SP = `${PREFIXES}
-SELECT ?sp ?spw ?spl WHERE {
+SELECT ?sp ?spw ?spl ?type (COUNT(?dp) AS ?nMon) WHERE {
   ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?spw .
   OPTIONAL { ?sp skos:prefLabel ?spl }
-}`;
+  OPTIONAL { ?sp water:samplingPointType/skos:prefLabel ?type }
+  OPTIONAL { ?dp water:monitoredAt ?sp }
+} GROUP BY ?sp ?spw ?spl ?type`;
 
 // The "what GIS sees" query, per permit — a provenance deep-link into the SPARQL editor.
 const gisQuery = (permit) => `${PREFIXES}
@@ -151,7 +172,8 @@ ORDER BY ?outlet ?distanceSquared`;
 
 // Permits highlighted in the docs argument; pinned to the top of the list as worked examples.
 const FEATURED = {
-  "042451": "Blackheath WRC — discharge, monitoring & two WINEP actions, ~1.4 km across",
+  "042451": "Blackheath WRC — 5 outlets, 2 monitoring points & two WINEP actions, ~1.4 km across. " +
+            "Proximity's nearest point is an UPSTREAM RIVER station, so it scores 0 of 5",
   "EPRBB3593EG": "Largest discharge↔monitoring gap in the catchment (~1 km)",
   "043245": "Both outlets on one coordinate, shared with 3 other permits — so the nearest sampling " +
             "point is the wrong one",
@@ -201,12 +223,19 @@ function haversine([la1, lo1], [la2, lo2]) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 const fmtM = (m) => (m >= 1000 ? (m / 1000).toFixed(2) + " km" : Math.round(m) + " m");
-const shortDp = (iri) => iri.split("/permit/")[1];
-const shortSp = (iri) => iri.split("sampling-point/")[1] || iri;
-const shortAct = (iri) => iri.split("/action/")[1] || iri;
+// Some permit references contain slashes ("400114/CF/01" is real), so the IRI percent-encodes them
+// inside its path segment: .../permit/400114%2FCF%2F01/outlet/2/effluent/2. The IRI is right — a raw
+// slash there would fake a path hierarchy and collide with the outlet path minted under it — but %2F
+// is IRI syntax, not part of the permit's name, so it is decoded on the way to the screen.
+const unescIri = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+const shortDp = (iri) => unescIri(iri.split("/permit/")[1]);
+const shortSp = (iri) => unescIri(iri.split("sampling-point/")[1] || iri);
+const shortAct = (iri) => unescIri(iri.split("/action/")[1] || iri);
 // "043245/outlet/1/effluent/1" -> "043245 · o1/e1". The stack table lists outlets from several permits
 // side by side in a narrow card, so the permit must stay visible while the row stays on one line.
-const tinyDp = (iri) => shortDp(iri).replace(/^([^/]+)\/outlet\/(\d+)\/effluent\/(\d+)$/, "$1 · o$2/e$3");
+// The permit part is matched greedily because it may itself contain slashes once decoded, and the
+// outlet/effluent numbers are NOT digits-only — Blackheath has an outlet "1a".
+const tinyDp = (iri) => shortDp(iri).replace(/^(.+)\/outlet\/([^/]+)\/effluent\/([^/]+)$/, "$1 · o$2/e$3");
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------------------------------------------------------------------------
@@ -229,7 +258,13 @@ async function boot() {
     return;
   }
 
-  allSp = spRows.map((r) => ({ iri: r.sp, id: shortSp(r.sp), label: r.spl || shortSp(r.sp), ...wktLatLng(r.spw) }));
+  // `monitors` = does this sampling point monitor any discharge at all? A point with none is an
+  // AMBIENT station (a river, a borehole) — still in the layer, still pickable by proximity.
+  allSp = spRows.map((r) => ({
+    iri: r.sp, id: shortSp(r.sp), label: r.spl || shortSp(r.sp),
+    type: r.type || "", monitors: Number(r.nMon || 0) > 0,
+    ...wktLatLng(r.spw),
+  }));
   buildCombos(rows);
   buildStacks();
   drawAll();
@@ -428,11 +463,17 @@ function renderStats() {
   const nCoords = new Set(combos.flatMap((c) => Object.values(c.dp).map((g) => g.key))).size;
   const stacked = Object.values(stacks).reduce((n, st) => n + st.length, 0);
 
+  // And the third: the layer proximity chooses FROM. Most of it monitors no discharge at all, so the
+  // join's nearest hit is not even guaranteed to be an outfall.
+  const nAmb = allSp.filter((s) => !s.monitors).length;
+
   document.getElementById("pts-stats").innerHTML =
     `<b>${combos.length}</b> permits · <b>${withAct}</b> with WINEP actions. ` +
     `A permit's points typically sit <b>${fmtM(med)}</b> apart, and up to <b>${fmtM(max)}</b>.<br>` +
     `<b>${stacked}</b> of the <b>${nDp}</b> discharge points share their coordinate with another outlet ` +
-    `— all ${nDp} of them fit on just <b>${nCoords}</b> points.`;
+    `— all ${nDp} of them fit on just <b>${nCoords}</b> points.<br>` +
+    `A proximity join picks from the whole sampling layer: <b>${allSp.length}</b> points, of which ` +
+    `<b>${nAmb}</b> monitor no discharge at all.`;
 }
 
 function rowHtml(c) {
@@ -497,6 +538,14 @@ function stackHtml(c) {
     }).join("");
     const hits = st.filter((s) => s.sp === near.sp.iri).length;
 
+    // The sharpest case: proximity's pick is not a discharge monitoring point at all, but an ambient
+    // station (a river, a borehole). It is in the layer, so the join can return it — and does.
+    const ambient = !near.sp.monitors
+      ? `<p class="stack-warn">⚠ And its pick monitors <b>no discharge at all</b> —
+           <b>${esc(near.sp.label)}</b> is ${esc(near.sp.type || "an ambient station")}.
+           A nearest-feature join chooses from the whole sampling layer, not just the outfalls in it.</p>`
+      : "";
+
     const deep = `sparql.html#q=${encodeURIComponent(collisionQuery(c.permit))}`;
     return `
       <h3>⊕ Stacked on one coordinate</h3>
@@ -507,6 +556,7 @@ function stackHtml(c) {
         <b>${esc(near.sp.id)}</b>, ${fmtM(near.d)} away.
         <code>monitoredAt</code> names a different one per outlet:
       </p>
+      ${ambient}
       <table class="stack">
         <thead><tr><th>outlet</th><th>monitoredAt</th><th class="v">GIS?</th></tr></thead>
         <tbody>${rows}</tbody>
