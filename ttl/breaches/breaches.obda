@@ -1,0 +1,47 @@
+[PrefixDeclaration]
+wr:             http://example.com/water-regulation/
+defra-reg:      http://environment.data.gov.uk/ontology/regulation/
+defra-core:     http://environment.data.gov.uk/ontology/core/
+sosa:           http://www.w3.org/ns/sosa/
+rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
+rdfs:           http://www.w3.org/2000/01/rdf-schema#
+xsd:            http://www.w3.org/2001/XMLSchema#
+
+[MappingDeclaration] @collection [[
+
+mappingId   Breaches
+source      SELECT breach_id, permit_ref, version, substance, statistic, applicable_from FROM breaches
+target      wr:breach/{breach_id} rdf:type defra-reg:ConditionBreach .
+            wr:breach/{breach_id} defra-reg:breachesCondition wr:permit/{permit_ref}/version/{version}/condition/{substance} .
+            wr:breach/{breach_id} defra-reg:breachesBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} .
+            wr:breach/{breach_id} defra-core:hasApplicability wr:breach/{breach_id}#applicability .
+            wr:breach/{breach_id}#applicability rdf:type defra-core:Applicability .
+            wr:breach/{breach_id}#applicability defra-core:applicabilityPeriod wr:breach/{breach_id}#period .
+            wr:breach/{breach_id}#period rdf:type defra-core:ApplicabilityPeriod .
+            wr:breach/{breach_id}#period defra-core:applicableFrom {applicable_from}^^xsd:dateTime .
+
+mappingId   BreachApplicableTo
+source      SELECT breach_id, applicable_to FROM breaches WHERE applicable_to IS NOT NULL
+target      wr:breach/{breach_id}#period defra-core:applicableTo {applicable_to}^^xsd:dateTime .
+
+mappingId   BreachAssessment
+source      SELECT breach_id, detail FROM breaches WHERE detail IS NOT NULL
+target      wr:breach/{breach_id} rdfs:comment {detail} .
+
+mappingId   ExceedanceBreachTypes
+source      SELECT breach_id FROM breaches WHERE breach_class = 'ExceedanceBreach'
+target      wr:breach/{breach_id} rdf:type defra-reg:ExceedanceBreach .
+
+mappingId   ShortfallBreachTypes
+source      SELECT breach_id FROM breaches WHERE breach_class = 'ShortfallBreach'
+target      wr:breach/{breach_id} rdf:type defra-reg:ShortfallBreach .
+
+mappingId   BreachEvidence
+source      SELECT breach_id, observation_id FROM breach_observations
+target      wr:breach/{breach_id} defra-reg:evidencedByObservation <{observation_id}> .
+
+mappingId   EvidenceFeatureOfInterest
+source      SELECT observation_id, sp_notation FROM observation_sampling_point
+target      <{observation_id}> rdf:type sosa:Observation .
+            <{observation_id}> sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> .
+]]

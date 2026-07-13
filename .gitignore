@@ -42,3 +42,11 @@ __pycache__/
 # back into the tree — they keep that from ever being committed.
 /.obs_cache/
 /.tile_cache/
+
+# Regenerable: breaches.duckdb is rebuilt from compliance_observations.csv by
+# ttl/breaches/breaches_to_db.py and breaches_raw.ttl is the ontop materialisation
+# intermediate (canonicalised into ttl/breaches.ttl by rdfpipe).
+# compliance_observations.csv IS committed - it is a fetched input, not a rebuild artefact,
+# so the breach build runs offline.
+ttl/breaches/breaches.duckdb
+ttl/breaches/breaches_raw.ttl

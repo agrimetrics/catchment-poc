@@ -4,6 +4,8 @@ defra-reg:      http://environment.data.gov.uk/ontology/regulation/
 defra-water:    http://environment.data.gov.uk/ontology/water/
 defra-core:     http://environment.data.gov.uk/ontology/core/
 qudt:           http://qudt.org/schema/qudt/
+iop:            http://w3id.org/iadopt/ont/
+dcterms:        http://purl.org/dc/terms/
 sosa:           http://www.w3.org/ns/sosa/
 geo:            http://www.opengis.net/ont/geosparql#
 skos:           http://www.w3.org/2004/02/skos/core#
@@ -77,6 +79,28 @@ mappingId   UnitQudtLinks
 source      SELECT unit_slug, qudt_iri FROM units WHERE qudt_iri IS NOT NULL
 target      wr:unit/{unit_slug} owl:sameAs <{qudt_iri}> .
 
+mappingId   StatisticalModifiers
+source      SELECT slug, label, definition, source FROM statistics
+target      wr:statistical-modifier/{slug} rdf:type skos:Concept, iop:StatisticalModifier .
+            wr:statistical-modifier/{slug} skos:prefLabel {label} .
+            wr:statistical-modifier/{slug} skos:definition {definition} .
+            wr:statistical-modifier/{slug} dcterms:source <{source}> .
+            wr:statistical-modifier/{slug} skos:inScheme wr:statistical-modifier .
+            wr:statistical-modifier rdf:type skos:ConceptScheme .
+
+mappingId   StatisticalModifierAltLabels
+source      SELECT slug, alt_label FROM statistics WHERE alt_label IS NOT NULL
+target      wr:statistical-modifier/{slug} skos:altLabel {alt_label} .
+
+mappingId   SubstanceAliases
+source      SELECT notation, alias, alias_label, alias_alt_label FROM substance_aliases
+target      wr:substance/{notation} skos:exactMatch wr:substance/{alias} .
+            wr:substance/{alias} skos:exactMatch wr:substance/{notation} .
+            wr:substance/{alias} rdf:type skos:Concept .
+            wr:substance/{alias} skos:notation {alias} .
+            wr:substance/{alias} skos:prefLabel {alias_label} .
+            wr:substance/{alias} skos:altLabel {alias_alt_label} .
+
 mappingId   Conditions
 source      SELECT permit_ref, version, substance FROM conditions
 target      wr:permit/{permit_ref}/version/{version}/condition/{substance} rdf:type defra-reg:Condition .
@@ -85,42 +109,24 @@ target      wr:permit/{permit_ref}/version/{version}/condition/{substance} rdf:t
             wr:permit/{permit_ref}/version/{version}/condition/{substance} defra-reg:hasLimit wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit .
             wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit rdf:type defra-reg:Limit .
 
-mappingId   ConditionUpperBound
-source      SELECT permit_ref, version, substance, max_value, unit_slug FROM conditions WHERE max_value IS NOT NULL
-target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:upperBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max rdf:type qudt:QuantityValue .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max qudt:numericValue {max_value}^^xsd:decimal .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-max qudt:unit wr:unit/{unit_slug} .
+mappingId   ConditionLimitStatements
+source      SELECT permit_ref, version, substance, statement FROM limit_statements
+target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:limitStatement {statement} .
 
-mappingId   ConditionLowerBound
-source      SELECT permit_ref, version, substance, min_value, unit_slug FROM conditions WHERE min_value IS NOT NULL
-target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:lowerBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min rdf:type qudt:QuantityValue .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min qudt:numericValue {min_value}^^xsd:decimal .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-min qudt:unit wr:unit/{unit_slug} .
+mappingId   ConditionUpperBounds
+source      SELECT permit_ref, version, substance, statistic, value, unit_slug FROM condition_bounds WHERE bound_kind = 'upper'
+target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:upperBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} rdf:type qudt:QuantityValue .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:numericValue {value}^^xsd:decimal .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:unit wr:unit/{unit_slug} .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
 
-mappingId   ConditionBreaches
-source      SELECT breach_id, permit_ref, version, substance, applicable_from FROM breaches
-target      wr:breach/{breach_id} defra-reg:breachesCondition wr:permit/{permit_ref}/version/{version}/condition/{substance} .
-            wr:breach/{breach_id} defra-core:hasApplicability wr:breach/{breach_id}#applicability .
-            wr:breach/{breach_id}#applicability rdf:type defra-core:Applicability .
-            wr:breach/{breach_id}#applicability defra-core:applicabilityPeriod wr:breach/{breach_id}#period .
-            wr:breach/{breach_id}#period rdf:type defra-core:ApplicabilityPeriod .
-            wr:breach/{breach_id}#period defra-core:applicableFrom {applicable_from}^^xsd:dateTime .
+mappingId   ConditionLowerBounds
+source      SELECT permit_ref, version, substance, statistic, value, unit_slug FROM condition_bounds WHERE bound_kind = 'lower'
+target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:lowerBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} rdf:type qudt:QuantityValue .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:numericValue {value}^^xsd:decimal .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:unit wr:unit/{unit_slug} .
+            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
 
-mappingId   BreachApplicableTo
-source      SELECT breach_id, applicable_to FROM breaches WHERE applicable_to IS NOT NULL
-target      wr:breach/{breach_id}#period defra-core:applicableTo {applicable_to}^^xsd:dateTime .
-
-mappingId   BreachEvidence
-source      SELECT breach_id, observation_id FROM breach_observations
-target      wr:breach/{breach_id} defra-reg:evidencedByObservation <{observation_id}> .
-
-mappingId   ExceedanceBreachTypes
-source      SELECT breach_id FROM breaches WHERE breach_class = 'ExceedanceBreach'
-target      wr:breach/{breach_id} rdf:type defra-reg:ExceedanceBreach .
-
-mappingId   ShortfallBreachTypes
-source      SELECT breach_id FROM breaches WHERE breach_class = 'ShortfallBreach'
-target      wr:breach/{breach_id} rdf:type defra-reg:ShortfallBreach .
 ]]

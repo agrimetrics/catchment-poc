@@ -79,21 +79,32 @@ const Q = {
          skos:prefLabel ?label ; skos:notation ?notation .
     } ORDER BY ?label`,
 
+  // reg:breachesBound is what makes a breach legible. breachesCondition alone cannot tell a single
+  // sample over an absolute maximum from a year-long 95th-percentile failure — both breach the same
+  // condition. The bound carries the statistic, and ?assessment (rdfs:comment) states the arithmetic
+  // in words ("6 exceedances ... 5 permitted for 48 samples").
   breaches: `${PREFIXES}
     SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond
+           ?stat ?statLabel ?limit ?unitLabel ?assessment
            (SAMPLE(?sp) AS ?sp) (SAMPLE(?w) AS ?wkt) WHERE {
       ?breach reg:breachesCondition ?cond ;
               core:hasApplicability/core:applicabilityPeriod ?period .
       ?period core:applicableFrom ?from .
       OPTIONAL { ?period core:applicableTo ?to }
       OPTIONAL { ?breach a ?type . FILTER(?type IN (reg:ExceedanceBreach, reg:ShortfallBreach)) }
+      OPTIONAL { ?breach rdfs:comment ?assessment }
+      OPTIONAL { ?breach reg:breachesBound ?bound .
+                 OPTIONAL { ?bound qudt:numericValue ?limit }
+                 OPTIONAL { ?bound qudt:unit/skos:prefLabel ?unitLabel }
+                 OPTIONAL { ?bound iop:hasStatisticalModifier ?stat . ?stat skos:prefLabel ?statLabel } }
       ?cond reg:regulatedProperty ?sub .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
       ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
       ?dp water:monitoredAt ?sp ; geo:hasGeometry/geo:asWKT ?w .
       ?breach reg:evidencedByObservation ?obs .
       ?obs sosa:hasFeatureOfInterest ?sp .
-    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond`,
+    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond
+             ?stat ?statLabel ?limit ?unitLabel ?assessment`,
 
   dischargePoints: `${PREFIXES}
     SELECT ?dp ?permit (SAMPLE(?w) AS ?wkt) ?sp WHERE {
@@ -102,18 +113,23 @@ const Q = {
       OPTIONAL { ?dp water:monitoredAt ?sp }
     } GROUP BY ?dp ?permit ?sp`,
 
+  // A condition can carry SEVERAL upper bounds — one per statistic. At a sewage works the 95th
+  // percentile is the binding limit and the MAXIMUM is an upper-tier backstop 2-4x looser, so the
+  // statistic has to come back with the value or the two are indistinguishable. ?stat is the
+  // modifier IRI (…/statistical-modifier/percentile-95); see BINDING below.
   conditions: `${PREFIXES}
-    SELECT ?permit ?cond ?subLabel ?subNotation ?upper ?lower ?unitLabel WHERE {
+    SELECT ?permit ?cond ?subLabel ?subNotation ?upper ?stat ?statLabel ?lower ?unitLabel WHERE {
       ?permit a water:WaterDischargePermit ; reg:hasCondition ?cond .
       ?cond reg:regulatedProperty ?sub .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
       OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?upper .
+                 OPTIONAL { ?ub iop:hasStatisticalModifier ?stat . ?stat skos:prefLabel ?statLabel }
                  OPTIONAL { ?ub qudt:unit/skos:prefLabel ?unitLabel } }
       OPTIONAL { ?cond reg:hasLimit/reg:lowerBound/qudt:numericValue ?lower }
     }`,
 
   limitHistory: `${PREFIXES}
-    SELECT ?permit ?subNotation ?version ?from ?to ?upper ?lower WHERE {
+    SELECT ?permit ?subNotation ?version ?from ?to ?upper ?stat ?lower WHERE {
       ?permit a water:WaterDischargePermit ; reg:hasCondition ?cond .
       ?cond reg:regulatedProperty ?sub .
       ?sub skos:notation ?subNotation .
@@ -122,7 +138,8 @@ const Q = {
       ?doc core:hasApplicability/core:applicabilityPeriod ?p .
       ?p core:applicableFrom ?from .
       OPTIONAL { ?p core:applicableTo ?to }
-      OPTIONAL { ?cond reg:hasLimit/reg:upperBound/qudt:numericValue ?upper }
+      OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?upper .
+                 OPTIONAL { ?ub iop:hasStatisticalModifier ?stat } }
       OPTIONAL { ?cond reg:hasLimit/reg:lowerBound/qudt:numericValue ?lower }
     }`,
 
@@ -204,22 +221,29 @@ const PQ = {
   // Breaches — one row per breach period. This is the single runtime query (Q.breaches): SAMPLE +
   // GROUP BY collapse the permit→discharge-point→sampling-point fan-out to one row per breach. The
   // observation is joined to its sampling point through the captured sosa:hasFeatureOfInterest edge
-  // (see ttl/regulation/enrich_sampling_points.py), a real keyed join — not an IRI-prefix STRSTARTS
-  // filter, which the engine can't key on and which fans out to a Cartesian product at scale.
+  // (see ttl/breaches/breaches_to_db.py), a real keyed join — not an IRI-prefix STRSTARTS filter,
+  // which the engine can't key on and which fans out to a Cartesian product at scale.
+  // reg:breachesBound names the bound that actually failed: breachesCondition alone cannot separate a
+  // single sample over an absolute maximum from a year-long 95th-percentile failure.
   breaches: (sub) => `${PREFIXES}
-    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit (SAMPLE(?sp) AS ?sp) WHERE {
+    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?statLabel ?limit ?assessment ?permit
+           (SAMPLE(?sp) AS ?sp) WHERE {
       ?breach reg:breachesCondition ?cond ;
               core:hasApplicability/core:applicabilityPeriod ?period .
       ?period core:applicableFrom ?from .
       OPTIONAL { ?period core:applicableTo ?to }
       OPTIONAL { ?breach a ?type . FILTER(?type IN (reg:ExceedanceBreach, reg:ShortfallBreach)) }
+      OPTIONAL { ?breach rdfs:comment ?assessment }
+      OPTIONAL { ?breach reg:breachesBound ?bound .
+                 OPTIONAL { ?bound qudt:numericValue ?limit }
+                 OPTIONAL { ?bound iop:hasStatisticalModifier/skos:prefLabel ?statLabel } }
       ?cond reg:regulatedProperty ?sub .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
       ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
       ?dp water:monitoredAt ?sp .
       ?breach reg:evidencedByObservation ?obs .
       ?obs sosa:hasFeatureOfInterest ?sp .${sub ? `\n      FILTER(?subNotation = "${sub}")` : ""}
-    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit`,
+    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?statLabel ?limit ?assessment ?permit`,
 
   // Permits & limits — one row per permit: current version, and counts of current-version limits,
   // discharge points and breaches. The app builds this by grouping conditions and joining three more
@@ -246,13 +270,14 @@ ${CUR_VERSION}
   // and substance. (Simplification: this LEFT-joins from current limits, so it omits the rare
   // proposed-only row — a future limit for a permit/substance with no current limit.)
   substanceStory: (sub) => `${PREFIXES}${XSD_PFX}
-    SELECT ?permit ?subLabel ?currentUpper ?unit ?monitoredAt ?action ?actionName ?completion ?proposedUpper WHERE {
+    SELECT ?permit ?subLabel ?currentUpper ?currentStat ?unit ?monitoredAt ?action ?actionName ?completion ?proposedUpper WHERE {
 ${CUR_VERSION}
       ?permit reg:hasCondition ?cond .
       FILTER(xsd:integer(REPLACE(STR(?cond), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
       ?cond reg:regulatedProperty ?sub . ?sub skos:notation ?subNotation ; skos:prefLabel ?subLabel .${sub ? `
       FILTER(?subNotation = "${sub}")` : ""}
       OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?currentUpper .
+                 OPTIONAL { ?ub iop:hasStatisticalModifier ?currentStat }
                  OPTIONAL { ?ub qudt:unit/skos:prefLabel ?unit } }
       OPTIONAL { ?permit reg:permitSite/water:monitoredAt ?monitoredAt }
       OPTIONAL { ?action reg:targetPermit ?permit ; reg:proposesLimit ?lim ; rdfs:label ?actionName .
@@ -422,6 +447,37 @@ const parseResult = (r) => {
   return m ? parseFloat(m[0]) : null;
 };
 
+// --- Which upper bound is "the limit"? -------------------------------------------------------
+// A condition may hold several upper bounds, one per statistic. They are NOT interchangeable:
+//
+//   percentile-95 / annual-average  the BINDING limit — what the permit actually requires. But a
+//                                   PERIOD statistic: one sample above it is an *exceedance*, not a
+//                                   breach (the EA judges it over a 12-month sample set).
+//   maximum                         an absolute PER-SAMPLE ceiling. One sample above it IS a
+//                                   failure. Where a percentile also exists, this is the looser
+//                                   "upper tier" backstop, typically 2-4x the binding value.
+//
+// So the chart draws the binding limit as THE limit line, and only ever puts a ✕ (miss) on a point
+// that fails a per-sample rule. Marking a lone sample above a 95th-percentile line as a breach
+// would be the same falsehood the data pipeline is careful to avoid.
+const BINDING = ["percentile-95", "annual-average", "median", "maximum"]; // first present wins
+const PER_SAMPLE = ["maximum"];                                           // judgeable from one sample
+
+// From a {statSlug: value} map, the binding bound: {stat, value} | null.
+function bindingBound(uppers) {
+  if (!uppers) return null;
+  for (const stat of BINDING)
+    if (uppers[stat] != null) return { stat, value: Number(uppers[stat]) };
+  const [stat, value] = Object.entries(uppers)[0] || [];
+  return stat ? { stat, value: Number(value) } : null;
+}
+// The per-sample ceiling, if any — the only upper bound a single observation can actually breach.
+const perSampleUpper = (uppers) => {
+  if (!uppers) return null;
+  for (const stat of PER_SAMPLE) if (uppers[stat] != null) return Number(uppers[stat]);
+  return null;
+};
+
 // Current + proposed limits for (permit, substance), and the monitored unit.
 function chartContext(subNotation, permit) {
   const sub = DB.substances.find((s) => s.notation === subNotation);
@@ -432,10 +488,16 @@ function chartContext(subNotation, permit) {
     const act = DB.actions.find((a) => a.iri === l.action);
     if (act && act.permit === permit) for (const b of l.bounds) proposed.push(b);
   }
+  const binding = bindingBound(cond && cond.uppers);
+  const maxUpper = perSampleUpper(cond && cond.uppers);
   return {
     label: sub ? sub.label : subNotation,
     unit: (cond && cond.unit) || (proposed[0] && proposed[0].unit) || "",
-    upper: cond && cond.upper != null ? Number(cond.upper) : null,
+    upper: binding ? binding.value : null,            // THE limit (binding), drawn as the limit line
+    upperStat: binding ? binding.stat : null,
+    upperStatLabel: binding && cond.statLabels ? cond.statLabels[binding.stat] : null,
+    // the per-sample ceiling, only when it is NOT already the binding bound — i.e. the upper tier
+    maxUpper: binding && binding.stat !== "maximum" ? maxUpper : null,
     lower: cond && cond.lower != null ? Number(cond.lower) : null,
     version: DB.currentVersion[permit], // current (latest) version number
     steps: (DB.limitHistory[`${permit}|${subNotation}`] || []), // dated version windows for the step line
@@ -447,14 +509,17 @@ function chartContext(subNotation, permit) {
 // falls outside every dated window there was no limit then (before the first version, or in a gap)
 // -> null, so the observation is not a miss. Two fallbacks to the current limit: when the permit has
 // no dated versions at all, and for times after the last dated window (an undated current version).
-function limitAt(steps, t, fbU, fbL) {
-  if (!steps.length) return { upper: fbU, lower: fbL };
+// `upper` is the BINDING bound, `maxUpper` the per-sample ceiling (see BINDING above) — a point is a
+// miss only against maxUpper/lower; exceeding `upper` when it is a percentile/mean is an exceedance.
+function limitAt(steps, t, fb) {
+  if (!steps.length) return fb;
   for (const s of steps) {
-    if (s.from <= t && (s.to == null || t <= s.to)) return { upper: s.upper, lower: s.lower };
+    if (s.from <= t && (s.to == null || t <= s.to))
+      return { upper: s.upper, upperStat: s.upperStat, maxUpper: s.maxUpper, lower: s.lower };
   }
   const lastEnd = Math.max(...steps.map((s) => (s.to == null ? Infinity : s.to)));
-  if (t > lastEnd) return { upper: fbU, lower: fbL }; // beyond the last dated window
-  return { upper: null, lower: null };                // before the first version, or in a gap
+  if (t > lastEnd) return fb;                                          // beyond the last dated window
+  return { upper: null, upperStat: null, maxUpper: null, lower: null }; // before v1, or in a gap
 }
 
 // The chart on screen, kept so a window resize can redraw it at the panel's new size (the plot is
@@ -532,14 +597,26 @@ function renderChart(ctx, obs, meta = {}) {
   const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
   const tMin = obs[0].t, tMax = obs[obs.length - 1].t;
   const propVals = ctx.proposed.map((b) => Number(b.val)).filter(Number.isFinite);
-  const stepUppers = ctx.steps.map((s) => s.upper).filter(Number.isFinite);
-  const yMax = (Math.max(ctx.upper || 0, ...stepUppers, ...obs.map((o) => o.v), ...propVals) || 1) * 1.1;
+  const stepUppers = ctx.steps.flatMap((s) => [s.upper, s.maxUpper]).filter(Number.isFinite);
+  const yMax = (Math.max(ctx.upper || 0, ctx.maxUpper || 0, ...stepUppers,
+                         ...obs.map((o) => o.v), ...propVals) || 1) * 1.1;
   const x = (t) => m.l + (iw * (t - tMin)) / (tMax - tMin || 1);
   const y = (v) => m.t + ih - (ih * v) / yMax;
-  // miss = value outside the limit that was IN FORCE at that observation's time (per version)
-  const missAt = (o) => {
-    const { upper, lower } = limitAt(ctx.steps, o.t, ctx.upper, ctx.lower);
-    return (upper != null && o.v > upper) || (lower != null && o.v < lower);
+  const fb = { upper: ctx.upper, upperStat: ctx.upperStat, maxUpper: ctx.maxUpper, lower: ctx.lower };
+
+  // How a single observation stands against the limit IN FORCE at its time (per version):
+  //   "miss"       it fails a PER-SAMPLE rule — over the absolute maximum, or under the minimum.
+  //                This is a breach on its own.
+  //   "exceedance" it is over a 95th-percentile / annual-mean limit. NOT a breach: those are judged
+  //                over a 12-month sample set, so one point above the line proves nothing by itself.
+  //                Shown, because a run of them is exactly what tips the annual assessment.
+  //   "hit"        inside everything.
+  const statusAt = (o) => {
+    const { upper, upperStat, maxUpper, lower } = limitAt(ctx.steps, o.t, fb);
+    const ceiling = upperStat === "maximum" ? upper : maxUpper; // the per-sample ceiling, if any
+    if ((ceiling != null && o.v > ceiling) || (lower != null && o.v < lower)) return "miss";
+    if (upper != null && upperStat !== "maximum" && o.v > upper) return "exceedance";
+    return "hit";
   };
 
   let grid = "";
@@ -561,8 +638,8 @@ function renderChart(ctx, obs, meta = {}) {
   // versions (red dashed segment per window, vertical connector at each change); else a flat line.
   let lines = "";
   const hasSteps = ctx.steps.some((s) => s.upper != null || s.lower != null);
-  // plain stepped segments (used for the lower bound; no per-segment labels)
-  const stepLine = (pick, width) => {
+  // plain stepped segments (used for the lower bound and the upper-tier backstop; no per-segment labels)
+  const stepLine = (pick, width, colour = "#e5484d") => {
     let svg = "";
     for (const s of ctx.steps) {
       const v = pick(s);
@@ -570,7 +647,7 @@ function renderChart(ctx, obs, meta = {}) {
       const from = Math.max(s.from, tMin), to = Math.min(s.to == null ? tMax : s.to, tMax);
       if (to < tMin || from > tMax) continue;
       const yy = y(v);
-      svg += `<line x1="${x(from)}" y1="${yy}" x2="${x(to)}" y2="${yy}" stroke="#e5484d" stroke-width="${width}" stroke-dasharray="6 4"/>`;
+      svg += `<line x1="${x(from)}" y1="${yy}" x2="${x(to)}" y2="${yy}" stroke="${colour}" stroke-width="${width}" stroke-dasharray="6 4"/>`;
     }
     return svg;
   };
@@ -600,18 +677,32 @@ function renderChart(ctx, obs, meta = {}) {
     emit();
     return svg;
   };
+  // The statistic the binding limit is expressed in ("95th percentile", "Annual average"), shown on
+  // the line so nobody reads a percentile limit as a value no sample may exceed.
+  const statSuffix = ctx.upperStatLabel && ctx.upperStat !== "maximum"
+    ? ` (${esc(ctx.upperStatLabel)})` : "";
+  // The upper-tier backstop, when the binding limit is a percentile/mean: a looser absolute ceiling.
+  // Drawn darker and thinner than the binding limit — it is the line a single sample can actually fail.
+  const TIER = "#8c2f33";
   if (hasSteps) {
-    lines += stepUpperLine() + stepLine((s) => s.lower, 1.5);
+    lines += stepLine((s) => s.maxUpper, 1.25, TIER) + stepUpperLine() + stepLine((s) => s.lower, 1.5);
     // value + unit on the RIGHT, for the latest (current) enforced limit only
     if (ctx.upper != null)
-      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
+      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}${statSuffix}</text>`;
+    if (ctx.maxUpper != null)
+      lines += `<text x="${W - m.r}" y="${y(ctx.maxUpper) - 4}" fill="${TIER}" font-size="10" text-anchor="end">${fmtNum(ctx.maxUpper)} ${prettyUnit(ctx.unit)} (upper tier)</text>`;
   } else {
     // undated permit: one flat enforced line — version on the left, value + unit on the right
+    if (ctx.maxUpper != null) {
+      const yy = y(ctx.maxUpper);
+      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="${TIER}" stroke-width="1.25" stroke-dasharray="6 4"/>`
+        + `<text x="${W - m.r}" y="${yy - 4}" fill="${TIER}" font-size="10" text-anchor="end">${fmtNum(ctx.maxUpper)} ${prettyUnit(ctx.unit)} (upper tier)</text>`;
+    }
     if (ctx.upper != null) {
       const yy = y(ctx.upper);
       lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>`
         + (ctx.version != null ? `<text x="${m.l + 3}" y="${yy - 4}" fill="#e5484d" font-size="10">v${esc(ctx.version)}</text>` : "")
-        + `<text x="${W - m.r}" y="${yy - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}</text>`;
+        + `<text x="${W - m.r}" y="${yy - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}${statSuffix}</text>`;
     }
     if (ctx.lower != null) {
       const yy = y(ctx.lower);
@@ -630,21 +721,32 @@ function renderChart(ctx, obs, meta = {}) {
       + `<text x="${W - m.r}" y="${yy - 4}" fill="#a06bff" font-size="10" text-anchor="end">${fmtNum(v)} ${prettyUnit(b.unit)}${b.stat ? " (" + esc(b.stat) + ")" : ""}</text>`;
   }
 
-  let pts = "", nMiss = 0;
+  // ✕ miss = fails a per-sample rule (a breach on its own). △ exceedance = over a percentile/mean
+  // limit, which one sample cannot breach. ◯ hit. Keeping these apart is the whole point: a lone
+  // point above a 95th-percentile line is evidence, not a verdict.
+  const EXC = "#e8a33d";
+  let pts = "", nMiss = 0, nExc = 0;
   for (const o of obs) {
-    const px = x(o.t), py = y(o.v);
-    if (missAt(o)) {
+    const px = x(o.t), py = y(o.v), st = statusAt(o);
+    if (st === "miss") {
       nMiss++;
       const s = 3.5;
       pts += `<path d="M${px - s} ${py - s}L${px + s} ${py + s}M${px - s} ${py + s}L${px + s} ${py - s}" stroke="#e5484d" stroke-width="1.7"/>`;
+    } else if (st === "exceedance") {
+      nExc++;
+      const s = 4;
+      pts += `<path d="M${px} ${py - s}L${px + s} ${py + s * 0.75}L${px - s} ${py + s * 0.75}Z" fill="none" stroke="${EXC}" stroke-width="1.5"/>`;
     } else {
       pts += `<circle cx="${px}" cy="${py}" r="3" fill="none" stroke="#3aa0ff" stroke-width="1.5"/>`;
     }
   }
+  const excLabel = ctx.upperStatLabel ? esc(ctx.upperStatLabel).toLowerCase() : "period limit";
   const legend = `<div class="chart-legend">
     <span class="item" style="color:#e5484d">✕ miss (${nMiss})</span>
-    <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss})</span>
+    ${nExc || ctx.maxUpper != null ? `<span class="item" style="color:${EXC}">△ over ${excLabel} (${nExc})</span>` : ""}
+    <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss - nExc})</span>
     <span class="item" style="color:#e5484d">– – enforced limit${hasSteps ? " (by version)" : ""}</span>
+    ${ctx.maxUpper != null ? `<span class="item" style="color:${TIER}">– – upper tier</span>` : ""}
     ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
   </div>`;
   return `${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
@@ -901,13 +1003,29 @@ async function loadAll() {
 
   // Dated limit history per (permit, substance): each permit version's bound(s) over its
   // effective window [from, to] (from the public register). Powers the chart's stepped limit line.
-  DB.limitHistory = {};
+  // One row per (version, upper bound), so collect the bounds per version by statistic first, then
+  // reduce each version to its binding limit + per-sample ceiling — same rule as the conditions above.
+  const histMap = {};
   for (const r of limitHistory) {
     const key = `${r.permit}|${r.subNotation}`;
-    (DB.limitHistory[key] ||= []).push({
-      version: r.version, from: Date.parse(r.from), to: r.to ? Date.parse(r.to) : null,
-      upper: r.upper != null ? Number(r.upper) : null,
-      lower: r.lower != null ? Number(r.lower) : null,
+    const vk = `${key}|${r.version}`;
+    (histMap[vk] ||= {
+      key, version: r.version, from: Date.parse(r.from), to: r.to ? Date.parse(r.to) : null,
+      uppers: {}, lower: null,
+    });
+    if (r.upper != null) histMap[vk].uppers[r.stat ? last(r.stat) : "maximum"] = r.upper;
+    if (r.lower != null) histMap[vk].lower = Number(r.lower);
+  }
+  DB.limitHistory = {};
+  for (const h of Object.values(histMap)) {
+    const b = bindingBound(h.uppers);
+    const mx = perSampleUpper(h.uppers);
+    (DB.limitHistory[h.key] ||= []).push({
+      version: h.version, from: h.from, to: h.to,
+      upper: b ? b.value : null,
+      upperStat: b ? b.stat : null,
+      maxUpper: b && b.stat !== "maximum" ? mx : null,
+      lower: h.lower,
     });
   }
   for (const k in DB.limitHistory) DB.limitHistory[k].sort((a, b) => a.from - b.from);
@@ -921,6 +1039,12 @@ async function loadAll() {
       subLabel: b.subLabel, subNotation: b.subNotation, permit: b.permit,
       version: verOf(b.cond), // the permit version whose limit was breached
       sp: spOf(b.sp), type: b.type ? last(b.type) : "ConditionBreach",
+      // WHICH bound failed — the statistic, the value it breached, and the assessment in words.
+      stat: b.stat ? last(b.stat) : null,
+      statLabel: b.statLabel || null,
+      limit: b.limit != null ? Number(b.limit) : null,
+      unit: b.unitLabel || null,
+      assessment: b.assessment || null,
       lat: p ? p[0] : null, lon: p ? p[1] : null,
     };
   });
@@ -938,11 +1062,28 @@ async function loadAll() {
     const key = c.cond;
     (condMap[key] ||= {
       permit: c.permit, cond: c.cond, version: verOf(c.cond),
-      subLabel: c.subLabel, subNotation: c.subNotation, upper: null, lower: null, unit: null,
+      subLabel: c.subLabel, subNotation: c.subNotation,
+      uppers: {}, statLabels: {}, lower: null, unit: null,
     });
-    if (c.upper != null) condMap[key].upper = c.upper;
+    // Several rows per condition — one per upper bound. Key them by statistic; anything else
+    // (the old `upper = c.upper`) is last-one-wins across bounds that mean different things, so a
+    // permit's binding 95th-percentile limit and its looser upper-tier maximum would race.
+    if (c.upper != null) {
+      const stat = c.stat ? last(c.stat) : "maximum"; // an unqualified bound is an absolute ceiling
+      condMap[key].uppers[stat] = c.upper;
+      if (c.statLabel) condMap[key].statLabels[stat] = c.statLabel;
+    }
     if (c.lower != null) condMap[key].lower = c.lower;
     if (c.unitLabel) condMap[key].unit = c.unitLabel;
+  }
+  // Flatten each condition's bounds to the binding limit + the per-sample ceiling (see BINDING).
+  for (const c of Object.values(condMap)) {
+    const b = bindingBound(c.uppers);
+    c.upper = b ? b.value : null;
+    c.upperStat = b ? b.stat : null;
+    c.upperStatLabel = b ? c.statLabels[b.stat] : null;
+    const mx = perSampleUpper(c.uppers);
+    c.maxUpper = b && b.stat !== "maximum" ? mx : null;
   }
   DB.conditions = Object.values(condMap);
   DB.currentVersion = {};
@@ -1233,12 +1374,22 @@ function breachPeriod(b) {
   if (b.from === b.to) return `${fmtDate(b.from)} (single observation)`;
   return `${fmtDate(b.from)} → ${fmtDate(b.to)}`;
 }
-// Format a condition's bound(s) as "≤ X ≥ Y unit".
-function limitRange(c) {
+// A condition's bound(s) as "≤ X (95th percentile) ≤ Y (upper tier) ≥ Z", the statistic named on each.
+// Without it "≤ 20" and "≤ 48" look like the same kind of promise, and they are not: the first is what
+// the permit requires, the second is the ceiling a single sample may not cross.
+function limitBounds(c) {
   const parts = [];
-  if (c.upper != null) parts.push("≤ " + fmtNum(c.upper));
+  if (c.upper != null) {
+    const stat = c.upperStatLabel && c.upperStat !== "maximum" ? ` (${esc(c.upperStatLabel)})` : "";
+    parts.push("≤ " + fmtNum(c.upper) + stat);
+  }
+  if (c.maxUpper != null) parts.push("≤ " + fmtNum(c.maxUpper) + " (upper tier)");
   if (c.lower != null) parts.push("≥ " + fmtNum(c.lower));
-  return (parts.join(" ") || "—") + (c.unit ? " " + prettyUnit(c.unit) : "");
+  return parts.join(" ") || "—";
+}
+// The same, with the unit appended.
+function limitRange(c) {
+  return limitBounds(c) + (c.unit ? " " + prettyUnit(c.unit) : "");
 }
 // One unified popup per discharge point: identity + WQE link, its breaches (current/past), and
 // the in-force (current-version) limits. Shown whether or not the point has any breaches.
@@ -1465,6 +1616,19 @@ function tableEl(head, rowsHtml) {
   return t;
 }
 
+// Which bound the breach failed, e.g. "≤ 20 mg/l (95th percentile)". A breach of an absolute maximum
+// and a breach of a 95th-percentile limit are very different claims — the first is one bad sample, the
+// second a year-long statistical failure — and they breach the SAME condition, so without the bound's
+// statistic the table would show them identically. Hover gives the assessment in full.
+function breachBound(b) {
+  if (b.limit == null && !b.statLabel) return "—";
+  const cmp = b.stat === "minimum" ? "≥" : "≤";
+  const val = b.limit != null ? `${cmp} ${fmtNum(b.limit)}${b.unit ? " " + prettyUnit(b.unit) : ""}` : "";
+  const stat = b.statLabel ? `<span class="stat">${esc(b.statLabel)}</span>` : "";
+  const title = b.assessment ? ` title="${esc(b.assessment)}"` : "";
+  return `<span${title}>${val}${val && stat ? " " : ""}${stat}</span>`;
+}
+
 function breachTable(breaches) {
   if (!breaches.length) return card("Breaches", "0", emptyBody("No breaches for this selection."), PQ.breaches(currentSubstance));
   // current first, then most-recently-started
@@ -1472,11 +1636,14 @@ function breachTable(breaches) {
     <tr>
       <td>${breachPeriod(b)}</td>
       <td>${subLink(b.subLabel, b.subNotation, b.sp, b.permit)}</td>
+      <td>${breachBound(b)}</td>
       <td>${permitLink(b.permit)}</td>
       <td class="ctr">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
       <td>${wqeLink(b.sp)}</td>
     </tr>`).join("");
-  return card("Breaches", breaches.length, tableEl(["Period", "Substance", "Permit", "Status|c", "Sampling point (WQE)"], rows), PQ.breaches(currentSubstance));
+  return card("Breaches", breaches.length,
+    tableEl(["Period", "Substance", "Limit breached", "Permit", "Status|c", "Sampling point (WQE)"], rows),
+    PQ.breaches(currentSubstance));
 }
 
 function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit) {
@@ -1555,7 +1722,7 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
   const body = rows.map(({ p, cur, sp, ver, f }) => {
     const subNotation = cur ? cur.subNotation : (f ? f.l.subNotation : "");
     const subLabel = cur ? cur.subLabel : (f ? f.l.subLabel : "");
-    const limit = cur ? `${cur.upper ? "≤ " + fmtNum(cur.upper) : ""}${cur.lower ? " ≥ " + fmtNum(cur.lower) : ""}` : "—";
+    const limit = cur ? limitBounds(cur) : "—";
     const proposedCell = !f ? "—"
       : isContinued(f.l) ? '<span class="pill carried">continued</span>'
       : limitText(f.l);

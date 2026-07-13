@@ -84,7 +84,14 @@ SUB_MARK = re.compile(r"\b(Fe|Al|N|P)\b")                       # inline analyte
 SEG = re.compile(rf"({NUM})\s*(mg/l|ug/l)\s*(95%ile|99%ile|max\.?|maximum)?", re.I)  # value+unit(+stat)
 UT = re.compile(rf"^({NUM})\s*UT\s*({NUM})$", re.I)             # "8 UT 30"
 UPPER = re.compile(rf"^({NUM})\s*\(?\s*upper\s*tier", re.I)     # "0.0019 (upper tier ug/l)"
-LETTER_SUB = {"fe": "6051", "al": "6057", "n": "9194", "p": "0348"}
+# The analyte letter a WINEP cell uses ("N 5mg/l") -> EA determinand notation. These are OUR choices:
+# the source names a letter, not a code. For nitrogen that choice is load-bearing. The EA codelist
+# carries Total Nitrogen under TWO notations with the identical prefLabel "Nitrogen, Total as N" -
+# 9194 ("Nitrogen Tot") and 9686 ("Nitrogen - N") - and this map used to pick 9194. But the permit
+# register and the water-quality observations both use 9686, so a proposed limit on 9194 could never
+# meet the current limit or the measurements it is meant to be compared against. Pick the code the
+# DATA uses. regulation.ttl records the duplication with skos:exactMatch so the alias is not lost.
+LETTER_SUB = {"fe": "6051", "al": "6057", "n": "9686", "p": "0348"}
 STAT_TOKEN = {"95%ile": "percentile-95", "99%ile": "percentile-99",
               "max": "maximum", "maximum": "maximum"}
 UNIT_SLUG = {"mg/l": "milligram-per-litre", "ug/l": "microgram-per-litre"}
@@ -237,8 +244,18 @@ for r in it:
 
     emitted = []
     for col, meta in COLS.items():
-        for rec in classify(meta, r[idx[col]], permit_ref, cond_versions):
+        cell = r[idx[col]]
+        for rec in classify(meta, cell, permit_ref, cond_versions):
             rec["action_id"] = action_id
+            # EVERY limit keeps the verbatim source cell as its reg:limitStatement - not just the
+            # ones we failed to parse. defra-reg:limitStatement is defined for use "in place of (OR
+            # ALONGSIDE) a quantity-value bound", and alongside is what matters here: our structured
+            # bounds are an INTERPRETATION of a human-authored cell, and the reader is entitled to
+            # see what the cell actually said. It is also the honest answer to nitrogen - the N cells
+            # read "2025 N = 10 mg/l" and name no statistic, so rather than invent an
+            # iop:hasStatisticalModifier the source never stated, we carry the text and let the gap
+            # be visible.
+            rec["statement"] = ("" if cell is None else str(cell)).strip() or None
             emitted.append(rec)
     if not emitted:
         continue

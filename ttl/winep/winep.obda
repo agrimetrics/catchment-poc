@@ -96,14 +96,13 @@ mappingId   CarriedOverContinuance
 source      SELECT action_id, limit_key, continues_iri FROM proposed_limits WHERE kind = 'carried_over' AND continues_iri IS NOT NULL
 target      wr:action/{action_id}/limit/{limit_key} reg:continuesCondition <{continues_iri}> .
 
-mappingId   CarriedOverStatement
-source      SELECT action_id, limit_key, statement FROM proposed_limits WHERE kind = 'carried_over' AND statement IS NOT NULL
+mappingId   LimitStatements
+source      SELECT action_id, limit_key, statement FROM proposed_limits WHERE statement IS NOT NULL
 target      wr:action/{action_id}/limit/{limit_key} reg:limitStatement {statement} .
 
 mappingId   UninterpretedLimits
-source      SELECT action_id, limit_key, statement FROM proposed_limits WHERE kind = 'uninterpreted'
+source      SELECT action_id, limit_key FROM proposed_limits WHERE kind = 'uninterpreted'
 target      wr:action/{action_id}/limit/{limit_key} rdf:type reg:ProposedLimit .
-            wr:action/{action_id}/limit/{limit_key} reg:limitStatement {statement} .
             wr:action/{action_id}/limit/{limit_key} core:hasApplicability wr:action/{action_id}#applicability .
 
 mappingId   UninterpretedProperty

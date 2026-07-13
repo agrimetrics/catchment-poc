@@ -254,125 +254,213 @@ LEFT JOIN unit_map m ON r.unit = m.unit_label
 WHERE r.unit IS NOT NULL AND r.unit <> '';
 """)
 
-# --- Conditions: one per (permit, version, substance), pivoting the max/min rule rows into a
-#     single limit with an optional upper and/or lower bound. Values -> DECIMAL so they render
-#     in plain notation (no scientific). The unit is constant per condition (validated). ---
-con.execute("""
-CREATE OR REPLACE TABLE conditions AS
-SELECT
-    permit_ref,
-    version,
-    substance,
-    max_value,
-    min_value,
-    lower(replace(replace(replace(unit_label, ' ', '-'), '/', '-'), '.', '')) AS unit_slug
-FROM (
-    SELECT
-        PERMIT_REF AS permit_ref,
-        VERSION AS version,
-        lpad("determinand.notation", 4, '0') AS substance,
-        MAX(CASE WHEN RULE_TYPE = 'MAXIMUM VALUE' THEN CAST(RULE_VALUE AS DECIMAL(18,4)) END) AS max_value,
-        MAX(CASE WHEN RULE_TYPE = 'MINIMUM VALUE' THEN CAST(RULE_VALUE AS DECIMAL(18,4)) END) AS min_value,
-        ANY_VALUE(unit) AS unit_label
-    FROM raw
-    GROUP BY PERMIT_REF, VERSION, "determinand.notation"
-);
+# --- Statistical modifiers: the vocabulary that says WHAT a limit value means.
+#
+#     A permit limit is not just a number. The register's RULE_TYPE says whether "20 mg/l" is a
+#     value no single sample may exceed, or one the discharge must sit under 95% of the time, or
+#     a 12-month mean - three very different obligations that were previously flattened into one
+#     unqualified "upperBound". At a sewage works the 95th percentile is the BINDING limit and the
+#     MAXIMUM is an upper-tier backstop 2-4x looser, so publishing only the maximum made every such
+#     permit read far slacker than it is.
+#
+#     These concepts ALREADY EXIST in the store: ttl/winep mints wr:statistical-modifier/{slug} for
+#     WINEP's *proposed* limits, following the Agrimetrics application profile (iop:StatisticalModifier,
+#     https://agrimetrics.github.io/application-profile/#iop-statisticalmodifier). Regulation adopts the
+#     SAME concepts for *current* limits - that is what makes a current limit and a proposed limit
+#     comparable. prefLabels are therefore kept byte-identical to WINEP's or the concept would end up
+#     with two skos:prefLabels; anything extra goes in altLabel.
+#
+#     MEAN VALUE maps onto 'annual-average' rather than a new concept because the EA defines the mean
+#     compliance limit AS an annual 12-month mean - the same thing WINEP's "annual average" column means.
+#
+#     bound_kind: MAXIMUM / 95 PERCENTILE / MEAN VALUE are all UPPER bounds; only MINIMUM is a lower
+#     bound. The statistic, not the bound direction, is what tells them apart.
+GUIDANCE = ("https://www.gov.uk/government/publications/"
+            "site-specific-quality-numeric-permit-limits-discharges-to-surface-water-and-groundwater/"
+            "site-specific-quality-numeric-permit-limits-discharges-to-surface-water-and-groundwater")
+STATISTICS = [
+    # rule_type,       slug,             bound_kind, label (must match ttl/winep), altLabel, definition
+    ("MAXIMUM VALUE",  "maximum",        "upper", "Maximum (absolute)", None,
+     "A concentration that no sample result must exceed. Assessed per sample: if a result exceeds "
+     "it, that is a failure. Where a permit also carries a 95th-percentile limit for the same "
+     "substance, this maximum is the upper-tier backstop and the percentile is the binding limit."),
+    ("MINIMUM VALUE",  "minimum",        "lower", "Minimum (absolute)", None,
+     "A concentration that no sample result must fall below. Assessed per sample."),
+    ("95 PERCENTILE",  "percentile-95",  "upper", "95th percentile", "95 percentile",
+     "A concentration the discharge must be under at least 95% of the time. NOT a per-sample rule: "
+     "assessed over a 12-month period, where each sample above the value is a look-up-table (LUT) "
+     "exceedance and the permit fails only if the count of exceedances is greater than the maximum "
+     "allowed for that number of samples."),
+    ("MEAN VALUE",     "annual-average", "upper", "Annual average", "Mean value",
+     "The mean of the pre-scheduled sample results over 12 consecutive months, used to limit the "
+     "overall load of a substance with low acute toxicity. NOT a per-sample rule: the permit fails "
+     "if the lower bound of the 90% confidence interval of the mean (mean minus t times the standard "
+     "error of the mean) exceeds the value."),
+    ("MEDIAN",         "median",         "upper", "Median", None,
+     "The middle sample result over the assessment period. NOT a per-sample rule."),
+]
+stats_rows = ",\n    ".join(
+    "(" + ", ".join("NULL" if v is None else "'" + str(v).replace("'", "''") + "'"
+                    for v in (rule, slug, kind, label, alt, defn, GUIDANCE)) + ")"
+    for rule, slug, kind, label, alt, defn in STATISTICS
+)
+con.execute(f"""
+CREATE OR REPLACE TABLE statistics AS
+SELECT * FROM (VALUES
+    {stats_rows}
+) AS t(rule_type, slug, bound_kind, label, alt_label, definition, source);
 """)
 
-# --- Condition breaches as PERIODS, not single failing observations. ---
-# Collapse the raw rows to one status per (permit, version, substance, phenomenonTime): did that
-# observation pass, and if it failed, in which direction(s). GROUPING_PASS_STATUS is constant per
-# grouping, so ANY_VALUE is exact.
+# Every rule type the source actually uses must be known to the vocabulary, or its limits would be
+# silently dropped on the join below. Fail loudly rather than publish a permit missing a limit.
+unknown = con.execute("""
+    SELECT DISTINCT RULE_TYPE FROM raw
+    WHERE RULE_TYPE IS NOT NULL AND RULE_TYPE NOT IN (SELECT rule_type FROM statistics);
+""").fetchall()
+if unknown:
+    raise SystemExit(f"ABORT: RULE_TYPE(s) with no statistical modifier mapped: {[u[0] for u in unknown]}")
+
+# --- Conditions: one per (permit, version, substance). The unit is constant per condition (validated
+#     below). ---
 con.execute("""
-CREATE OR REPLACE TABLE obs_status AS
+CREATE OR REPLACE TABLE conditions AS
 SELECT
     PERMIT_REF AS permit_ref,
     VERSION AS version,
     lpad("determinand.notation", 4, '0') AS substance,
-    CAST(phenomenonTime AS TIMESTAMP) AS t,
-    ANY_VALUE(OBSERVATION_GROUPING_PASS_STATUS) AS passed,
-    BOOL_OR(NOT ROW_PASS_STATUS AND RULE_TYPE = 'MAXIMUM VALUE') AS max_failed,
-    BOOL_OR(NOT ROW_PASS_STATUS AND RULE_TYPE = 'MINIMUM VALUE') AS min_failed,
-    ANY_VALUE(replace(id, 'https://', 'http://')) AS observation_id
+    lower(replace(replace(replace(ANY_VALUE(unit), ' ', '-'), '/', '-'), '.', '')) AS unit_slug
 FROM raw
-GROUP BY PERMIT_REF, VERSION, lpad("determinand.notation", 4, '0'), CAST(phenomenonTime AS TIMESTAMP);
+GROUP BY PERMIT_REF, VERSION, "determinand.notation";
 """)
 
-# A breach is a maximal run of consecutive FAILING observations within a series ordered by time,
-# with no passing observation in between (classic gaps-and-islands: the run is identified by the
-# difference between the all-rows row number and the same-status row number). applicableFrom/To =
-# first/last failing observation in the run. A run is *current* iff it reaches the latest
-# observation for that series - i.e. nothing has passed since it started - and is then modelled as
-# an OPEN period (no applicableTo); otherwise it is closed. Identity is a hash of the run's start
-# (the breach later generalises to rolling percentile-over-period, so it can't be a single-timestamp
-# path). Direction of the failing rule(s) picks the subclass (both -> Exceedance).
+# --- Condition bounds: one per (condition, statistic). This is the shape change - a Limit now carries
+#     ONE BOUND PER STATISTIC rather than a single anonymous upper and lower value. Bounds are keyed by
+#     the statistic slug, never by the source column position: the register puts them in no fixed order
+#     (permit 042451 carries the maximum in CODE_1 and the percentile in CODE_2; permit 401747 does the
+#     reverse), so position carries no meaning.
+#
+#     Values -> DECIMAL so they render in plain notation (no scientific).
+#
+#     KNOWN LIMITATION - the condition grain is coarser than the rule grain. The register sets limits per
+#     (permit, version, OUTLET, EFFLUENT, substance) but a Condition here is keyed at (permit, version,
+#     substance), inherited from the existing model (WINEP's reg:continuesCondition already points at
+#     these IRIs, so re-keying is a separate change). Where one permit's outlets carry DIFFERENT values
+#     for the same statistic, MAX() collapses them to the loosest - preserving the behaviour the store
+#     already had. The count of collapsed conditions is reported at the end of this script. ---
 con.execute("""
-CREATE OR REPLACE TABLE breaches AS
-WITH ranked AS (
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY permit_ref, version, substance ORDER BY t)
-      - ROW_NUMBER() OVER (PARTITION BY permit_ref, version, substance, passed ORDER BY t) AS island
-    FROM obs_status
-),
-periods AS (
-    SELECT permit_ref, version, substance,
-        MIN(t) AS start_t, MAX(t) AS end_t,
-        BOOL_OR(max_failed) AS max_failed, BOOL_OR(min_failed) AS min_failed
-    FROM ranked
-    WHERE NOT passed
-    GROUP BY permit_ref, version, substance, island
-),
-series_max AS (
-    SELECT permit_ref, version, substance, MAX(t) AS last_t FROM obs_status GROUP BY 1, 2, 3
-)
+CREATE OR REPLACE TABLE condition_bounds AS
 SELECT
-    md5(concat_ws('|', p.permit_ref, p.version, p.substance, strftime(p.start_t, '%Y-%m-%dT%H:%M:%S'))) AS breach_id,
-    p.permit_ref, p.version, p.substance,
-    p.start_t, p.end_t,
-    (p.end_t = sm.last_t) AS is_current,
-    strftime(p.start_t, '%Y-%m-%dT%H:%M:%S') AS applicable_from,
-    CASE WHEN p.end_t = sm.last_t THEN NULL
-         ELSE strftime(p.end_t, '%Y-%m-%dT%H:%M:%S') END AS applicable_to,
-    CASE WHEN p.max_failed THEN 'ExceedanceBreach'
-         WHEN p.min_failed THEN 'ShortfallBreach' END AS breach_class
-FROM periods p
-JOIN series_max sm USING (permit_ref, version, substance);
+    r.PERMIT_REF AS permit_ref,
+    r.VERSION AS version,
+    lpad(r."determinand.notation", 4, '0') AS substance,
+    s.slug AS statistic,
+    s.bound_kind,
+    MAX(CAST(r.RULE_VALUE AS DECIMAL(18,4))) AS value,
+    lower(replace(replace(replace(ANY_VALUE(r.unit), ' ', '-'), '/', '-'), '.', '')) AS unit_slug
+FROM raw r
+JOIN statistics s ON s.rule_type = r.RULE_TYPE
+WHERE r.RULE_VALUE IS NOT NULL
+GROUP BY r.PERMIT_REF, r.VERSION, lpad(r."determinand.notation", 4, '0'), s.slug, s.bound_kind;
 """)
 
-# Evidence: every failing observation that falls inside a breach period (the "evidenced set").
+# --- Limit statements: what the register ACTUALLY SAYS, carried verbatim alongside the structured
+#     bounds. defra-reg:limitStatement is defined for use "in place of (or ALONGSIDE) a quantity-value
+#     bound", and alongside is the point: the bounds above are our INTERPRETATION of the register's
+#     CODE_n/VAL_n columns, and a reader is entitled to see the source in the source's own words rather
+#     than take our structuring on trust. Every Limit gets one - not just the ones that resisted parsing.
+#
+#     Rendered from the register's own tokens (RULE_TYPE, VAL_n, UNITS), e.g.
+#         "95 PERCENTILE 20 MILLIGRAM PER LITRE; MAXIMUM VALUE 48 MILLIGRAM PER LITRE"
+#     Ordered by rule type so the string is stable across rebuilds. Trailing zeros are trimmed off the
+#     DECIMAL rendering so a limit of 20 reads "20", not "20.0000". ---
 con.execute("""
-CREATE OR REPLACE TABLE breach_observations AS
-SELECT DISTINCT b.breach_id, o.observation_id
-FROM obs_status o
-JOIN breaches b
-  ON o.permit_ref = b.permit_ref AND o.version = b.version AND o.substance = b.substance
- AND NOT o.passed AND o.t >= b.start_t AND o.t <= b.end_t;
+CREATE OR REPLACE TABLE limit_statements AS
+WITH parts AS (
+    SELECT DISTINCT
+        PERMIT_REF AS permit_ref,
+        VERSION AS version,
+        lpad("determinand.notation", 4, '0') AS substance,
+        RULE_TYPE AS rule_type,
+        RULE_TYPE || ' '
+          || regexp_replace(regexp_replace(
+                 CAST(CAST(RULE_VALUE AS DECIMAL(18,4)) AS VARCHAR), '0+$', ''), '\\.$', '')
+          || ' ' || unit AS part
+    FROM raw
+    WHERE RULE_VALUE IS NOT NULL AND RULE_TYPE IS NOT NULL
+)
+SELECT permit_ref, version, substance,
+       string_agg(part, '; ' ORDER BY rule_type, part) AS statement
+FROM parts
+GROUP BY permit_ref, version, substance;
 """)
+
+# --- Substance alignment. The permit register codes Total Nitrogen 9686; WINEP's proposed-limit columns
+#     code it 9194. The EA determinand codelist gives BOTH the label "Nitrogen, Total as N" - they are the
+#     same observable property under two notations. Without this triple a current nitrogen limit and a
+#     proposed nitrogen limit never meet, and the catchment's whole nitrogen story stays untellable. Only
+#     emitted when the register side is actually present. ---
+#     The alias is minted as a real skos:Concept (notation, labels) so the duplication is documented
+#     rather than left as a bare IRI - but deliberately WITHOUT skos:inScheme, because the app builds
+#     its substance filter from the concept scheme and would otherwise list "Nitrogen, Total as N"
+#     twice, only one of which has any observations behind it. The scheme holds the codes the data
+#     actually uses; the alias hangs off its canonical concept by skos:exactMatch. ---
+con.execute("""
+CREATE OR REPLACE TABLE substance_aliases AS
+SELECT * FROM (VALUES
+    ('9686', '9194', 'Nitrogen, Total as N', 'Nitrogen Tot')
+) AS t(notation, alias, alias_label, alias_alt_label)
+WHERE notation IN (SELECT notation FROM substances);
+""")
+
+# --- Condition breaches have MOVED to ttl/breaches/ -------------------------------------------
+#
+# A permit, a condition and a limit are ASSERTED facts - the EA published them and this graph
+# reproduces them. A breach is a DERIVED judgement: nobody published it, we computed it. Keeping
+# both in one file invites a reader to treat our arithmetic with the register's authority, so the
+# assessment now lives in its own pipeline and its own graph (ttl/breaches.ttl).
+#
+# The code that used to sit here was also wrong in two ways that ttl/breaches/breaches_to_db.py
+# fixes: it judged every observation against EVERY version of the permit (including versions
+# revoked years before the sample was taken - 64 breach rows for 39 real events), and it ran on an
+# observation set with all the 'less than' non-detects dropped, which shrinks the sample count and
+# manufactures 95-percentile failures. See ttl/breaches/README.md.
 
 # Summary + a couple of integrity checks for the operator
 for tbl in ["permits", "permit_versions", "permit_version_dates", "discharge_points",
             "discharge_point_monitoring", "sampling_point_geometry", "discharge_point_geometry",
-            "substances", "units", "conditions", "breaches", "breach_observations"]:
+            "substances", "units", "statistics", "conditions", "condition_bounds",
+            "limit_statements", "substance_aliases"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>20}: {n}")
 
-n_current = con.execute("SELECT COUNT(*) FROM breaches WHERE is_current").fetchone()[0]
-n_multi = con.execute("SELECT COUNT(*) FROM breaches WHERE end_t > start_t").fetchone()[0]
-print(f"    breaches: {n_current} current (open), {n_multi} span multiple observations")
-both = con.execute("""
-    WITH ranked AS (
-        SELECT permit_ref, version, substance, passed, max_failed, min_failed,
-            ROW_NUMBER() OVER (PARTITION BY permit_ref, version, substance ORDER BY t)
-          - ROW_NUMBER() OVER (PARTITION BY permit_ref, version, substance, passed ORDER BY t) AS island
-        FROM obs_status
-    )
+print("       bounds by statistic:")
+for slug, kind, n in con.execute("""
+    SELECT statistic, bound_kind, COUNT(*) FROM condition_bounds GROUP BY 1, 2 ORDER BY 3 DESC
+""").fetchall():
+    print(f"{slug:>26} ({kind}): {n}")
+
+# A condition whose unit is not constant would make its bounds incomparable.
+mixed_units = con.execute("""
     SELECT COUNT(*) FROM (
-        SELECT 1 FROM ranked WHERE NOT passed
-        GROUP BY permit_ref, version, substance, island
-        HAVING BOOL_OR(max_failed) AND BOOL_OR(min_failed))
+        SELECT 1 FROM raw GROUP BY PERMIT_REF, VERSION, "determinand.notation"
+        HAVING COUNT(DISTINCT unit) > 1)
 """).fetchone()[0]
-if both:
-    print(f"NOTE: {both} breach period(s) failed both bounds; classified as ExceedanceBreach.")
+if mixed_units:
+    print(f"WARNING: {mixed_units} condition(s) carry more than one unit; ANY_VALUE picked arbitrarily.")
+
+# Conditions where the register sets DIFFERENT values per outlet/effluent for the same statistic, and the
+# (permit, version, substance) grain collapses them to the loosest. See the condition_bounds note above.
+collapsed = con.execute("""
+    SELECT COUNT(*) FROM (
+        SELECT 1 FROM raw r JOIN statistics s ON s.rule_type = r.RULE_TYPE
+        WHERE r.RULE_VALUE IS NOT NULL
+        GROUP BY r.PERMIT_REF, r.VERSION, r."determinand.notation", s.slug
+        HAVING COUNT(DISTINCT r.RULE_VALUE) > 1)
+""").fetchone()[0]
+if collapsed:
+    print(f"NOTE: {collapsed} bound(s) differ across outlet/effluent within one condition; "
+          f"MAX() published (the loosest). The condition grain is coarser than the rule grain.")
+
 unmapped = con.execute("SELECT unit_label FROM units WHERE qudt_iri IS NULL").fetchall()
 if unmapped:
     print("NOTE: units with no QUDT mapping (local IRI only):", [u[0] for u in unmapped])

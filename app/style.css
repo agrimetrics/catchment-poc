@@ -328,6 +328,11 @@ tbody tr:hover { background: #1b2836; }
 /* "none" — an absent current limit (i.e. a brand-new limit): a faint, quiet pill. */
 .pill.none { background: rgba(147,164,179,.10); color: var(--muted); font-weight: 500; }
 
+/* The statistic a limit is expressed in ("95th percentile", "Annual average"), shown beside the
+   value it bounds. Quiet, because it qualifies the number rather than competing with it — but
+   present, because "≤ 20 (95th percentile)" and "≤ 48 (maximum)" are different obligations. */
+.stat { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
 .expand-row > td { background: #131d27; padding: 0; }
 .expand-inner { padding: 4px 12px 10px 12px; }
 /* Tells the reader the substance in an expanded WINEP action is clickable (it opens the chart). */

@@ -57,8 +57,12 @@ long = (
     })
     .reset_index()
 )
-#Filter for just maximum and minimum rule types
-long = long[long["RULE_TYPE"].isin(["MAXIMUM VALUE", "MINIMUM VALUE"])]
+# Keep every rule type the register carries, not just the per-sample ones. A permit's
+# BINDING limit at a sewage works is usually the 95th percentile; the MAXIMUM is an
+# upper-tier backstop 2-4x looser. Filtering to MAXIMUM/MINIMUM published the backstop and
+# dropped the real limit - and dropped whole determinands (Total Nitrogen is limited only
+# ever by MEAN VALUE, so it never reached the graph at all).
+long = long[long["RULE_TYPE"].notna() & (long["RULE_TYPE"] != "")]
 long=long.drop_duplicates()
 long.to_csv("output_data/filtered_determinands_long.csv",index=False)
 
@@ -80,24 +84,38 @@ observations_with_permits_and_rules = observations_with_permits_and_rules[
     (observations_with_permits_and_rules["observation.month"] <= observations_with_permits_and_rules["MONTH_TO"])
 ]
 
-#Set observation to "FAIL" initially, then check the MAX/MIN to see whether it passes
-observations_with_permits_and_rules["ROW_PASS_STATUS"] = False
-observations_with_permits_and_rules.loc[
-    (observations_with_permits_and_rules["RULE_TYPE"] == "MAXIMUM VALUE") & (observations_with_permits_and_rules["result"] <= observations_with_permits_and_rules["RULE_VALUE"]),
+# Only MAXIMUM/MINIMUM can be judged from a single sample: they are the per-sample rules.
+# 95 PERCENTILE and MEAN VALUE are PERIOD statistics - a lone result above a 95th-percentile
+# limit is an exceedance, not a breach; the EA judges it against a 12-month sample set (see
+# ttl/regulation/README.md). So those rows get pass status NA - "not assessable from this
+# sample" - and are excluded from the grouping below. Leaving them at the old default of
+# False would have poisoned every group they touch (the .all() below), inventing a breach for
+# every ammonia observation at the 26 permits whose ammonia limit is a percentile.
+PER_SAMPLE_RULES = ["MAXIMUM VALUE", "MINIMUM VALUE"]
+owpr = observations_with_permits_and_rules
+per_sample = owpr["RULE_TYPE"].isin(PER_SAMPLE_RULES)
+
+owpr["ROW_PASS_STATUS"] = pd.NA
+owpr.loc[per_sample, "ROW_PASS_STATUS"] = False
+owpr.loc[
+    (owpr["RULE_TYPE"] == "MAXIMUM VALUE") & (owpr["result"] <= owpr["RULE_VALUE"]),
     "ROW_PASS_STATUS"
 ] = True
-observations_with_permits_and_rules.loc[
-    (observations_with_permits_and_rules["RULE_TYPE"] == "MINIMUM VALUE") & (observations_with_permits_and_rules["result"] >= observations_with_permits_and_rules["RULE_VALUE"]),
+owpr.loc[
+    (owpr["RULE_TYPE"] == "MINIMUM VALUE") & (owpr["result"] >= owpr["RULE_VALUE"]),
     "ROW_PASS_STATUS"
 ] = True
 
-# Calculates for a given observation id, permit_number, permit_version and determinand grouping whether the observation passed (True) or failed (False)
-observations_with_permits_and_rules["OBSERVATION_GROUPING_PASS_STATUS"] = (
-    observations_with_permits_and_rules.groupby(
-        ["id", "PERMIT_REF", "VERSION", "determinand.notation"]
-    )["ROW_PASS_STATUS"]
-    .transform("all") 
+# For a given observation id, permit, version and determinand: did it pass EVERY per-sample
+# rule that applies to it? Computed over the per-sample rows only, then broadcast back over
+# the whole group. A group with no per-sample rule at all (e.g. a percentile-only ammonia
+# limit, or a mean-only Total Nitrogen limit) has nothing to assess and stays NA.
+GROUPING = ["id", "PERMIT_REF", "VERSION", "determinand.notation"]
+grouping_status = owpr[per_sample].groupby(GROUPING)["ROW_PASS_STATUS"].all()
+owpr["OBSERVATION_GROUPING_PASS_STATUS"] = (
+    owpr.set_index(GROUPING).index.map(grouping_status)
 )
+observations_with_permits_and_rules = owpr
 #filter for sampling point type?
 #filter for only latest version per determinand?
 #DWF data?

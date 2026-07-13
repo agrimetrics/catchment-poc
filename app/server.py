@@ -43,7 +43,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 # uses relative URLs, so it adapts to whatever prefix the page is loaded under.
 BASE_PATH = "/" + os.environ.get("BASE_PATH", "").strip("/") if os.environ.get("BASE_PATH", "").strip("/") else ""
 
-GRAPHS = ["regulation.ttl", "winep.ttl", "sfi.ttl", "designations.ttl"]
+GRAPHS = ["regulation.ttl", "breaches.ttl", "winep.ttl", "sfi.ttl", "designations.ttl"]
 
 # Environment Agency Water Quality Archive — live observation time series. We proxy it
 # server-side so the browser stays same-origin and we can follow the Link-header pagination.
