@@ -1039,18 +1039,23 @@ const DB = {};       // raw + derived caches
 let map, base, catchmentLayer;
 const layers = {};   // name -> L.LayerGroup / MarkerClusterGroup
 const DES = {};      // designation key -> { label, full, color, sites: Map(name -> {layer, on}) }
-let currentView = "permits";
+let currentView = "regulated";
 let currentSubstance = ""; // notation or ""
 let currentOptionType = ""; // farming: broader option-group code filter, or ""
 let selectedApp = null;    // farming: selected application IRI (or null)
 let selectedAction = null; // WINEP: focused action IRI (or null) — links the table row and map marker
 let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar)
+let actionTableEl = null;  // the WINEP table wrapper, so a map click can page to the action's row
 
 // Focus a WINEP action, keeping the table row and its map marker in sync (the dashed-underlined
 // action id in the table and the marker both call this). fromMap=true means the click came from the
 // marker, so we bring the table row into view; otherwise we pan the map to the marker + open it.
 function focusAction(iri, fromMap) {
   selectedAction = iri;
+  // The table is paged, so the row may not be rendered right now. Turn to its page FIRST — otherwise
+  // clicking a marker would silently do nothing whenever its action happened to be on page 2.
+  if (fromMap && actionTableEl && actionTableEl.revealRow)
+    actionTableEl.revealRow((tr) => tr.dataset.action === iri);
   document.querySelectorAll("#tables tr.action-row").forEach((tr) => tr.classList.toggle("sel", tr.dataset.action === iri));
   for (const k in actionMarkers) styleActionMarker(actionMarkers[k], k === iri);
   const mk = actionMarkers[iri];
@@ -1369,7 +1374,7 @@ const matchSub = (n) => !currentSubstance || n === currentSubstance;
 // measurement is not evidence that anything was permitted. Keeping the two apart on the screen is
 // what makes it possible to ask the question that matters — where do they disagree?
 const LEDE = {
-  permits: (n, lbl) => {
+  regulated: (n, lbl) => {
     const sub = n.substance ? ` for <b>${esc(lbl)}</b>` : "";
     // The store holds outlets for every scoped permit but limits only for the ones whose substances
     // were actually sampled (see ttl/regulation/regulation_to_db.py). Say so rather than let the
@@ -1384,7 +1389,7 @@ const LEDE = {
       `<b>${n.coords} distinct coordinates</b>, so a map alone cannot tell them apart ` +
       `(<a href="points.html" target="_blank" rel="noopener">why that matters</a>).`;
   },
-  ambient: (n, lbl) =>
+  measured: (n, lbl) =>
     `<b>The measured world</b> — what the sampling actually finds, whatever the source. ` +
     `<b>${n.total} sampling points</b> in the catchment, of which <b>${n.unpermitted}</b> belong to ` +
     `<b>no permit at all</b> (rivers, boreholes, bathing waters), so the regulated world is ` +
@@ -1626,10 +1631,10 @@ function render() {
 
   const show = { breach: false, discharge: false, action: false, sfi: false, sampling: false };
 
-  if (currentView === "ambient") {
+  if (currentView === "measured") {
     show.sampling = true;
-    renderAmbient(tables);
-  } else if (currentView === "permits") {
+    renderMeasured(tables);
+  } else if (currentView === "regulated") {
     // ONE view over the regulated world: the limits, the breaches of them, and the works that will
     // change them. They used to be three tabs, which made them read as three subjects; they are one
     // subject — a permit — seen at three points in time (in force / failed / proposed).
@@ -1644,7 +1649,7 @@ function render() {
     // markers below are FEWER than the outlets they stand for, because outlets share a coordinate.
     const drawnDps = DB.dischargePoints.filter((d) => d.lat != null);
     const coords = new Set(drawnDps.map((d) => `${d.lat},${d.lon}`)).size;
-    document.getElementById("lede").innerHTML = LEDE.permits({
+    document.getElementById("lede").innerHTML = LEDE.regulated({
       permits: new Set(DB.dischargePoints.map((d) => d.permit)).size,
       permitsWithLimits: new Set(DB.conditionsCurrent.map((c) => c.permit)).size,
       limits: conditions.length,
@@ -1712,7 +1717,7 @@ function render() {
   // Ambient: every sampling point, coloured by the family of thing the EA samples there. No permit
   // status is encoded — that is the Permits view's job, and most of these have no permit at all.
   if (show.sampling) {
-    for (const s of ambientPoints()) {
+    for (const s of measuredPoints()) {
       const mk = circle(s.lat, s.lon, dot(s.family.color, s.permit ? 6 : 7, 0.9), samplingPointPopup(s));
       mk.on("click", () => openChart(currentSubstance || NITROGEN, s.id, s.permit, [s.lat, s.lon]));
       mk.addTo(layers.samplingPoints);
@@ -1776,6 +1781,134 @@ function tableEl(head, rowsHtml) {
   return t;
 }
 
+// ---------------------------------------------------------------------------
+// Sortable, paginated tables
+// ---------------------------------------------------------------------------
+const PAGE_SIZE = 10;
+
+// A cell's raw sort value. Prefer an explicit `data-sort` — the rendered text is for humans
+// ("Jan 2021 – Mar 2021", "£1,234/yr", "≤ 20 mg/l") and sorting it as text would be wrong.
+const rawKey = (td) =>
+  !td ? "" : String(td.dataset.sort != null ? td.dataset.sort : td.textContent).trim();
+
+// WHETHER A COLUMN IS NUMERIC IS A PROPERTY OF THE COLUMN, NOT OF EACH CELL. Decide it once, over
+// every value in the column, and coerce the whole column the same way.
+//
+// Per-cell coercion looks reasonable and is wrong here. The permit column holds "400505", "040136"
+// and "EPRBB3593EG": judged cell by cell, the first parses as a number and the other two do not, so
+// one column ends up holding two incomparable kinds of key and the order comes out neither numeric
+// nor alphabetical. Permit refs are IDENTIFIERS that merely look like digits — "040136" is a name,
+// not forty thousand — and the giveaway is the leading zero. So a column counts as numeric only if
+// EVERY value in it is a bare, unpadded number; one identifier anywhere makes the whole column text.
+const NUMERIC = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+function columnKeys(groups, col) {
+  const raw = groups.map((g) => rawKey(g[0].cells[col]).replace(/,/g, ""));
+  const numeric = raw.every((s) => s === "" || NUMERIC.test(s));
+  // Empty cells ("—", "TBC", no limit) have no value to compare, so they always sink to the bottom
+  // whichever way the column is sorted — an absent value is not a small one.
+  return raw.map((s) => (s === "" ? null : numeric ? Number(s) : s.toLowerCase()));
+}
+
+// Wraps a table in sorting + paging. Returns the element to hand to card().
+//
+// Rows travel in GROUPS. An expandable summary row OWNS the hidden detail row that follows it, so a
+// sort or a page turn has to move the pair as one unit — otherwise a permit's limits would end up
+// filed under a different permit. Everything below therefore operates on groups, never on <tr>s.
+function pagedTable(head, rowsHtml, { pageSize = PAGE_SIZE, sortCol = null, sortDir = 1 } = {}) {
+  const t = tableEl(head, rowsHtml);
+  const wrap = document.createElement("div");
+  wrap.className = "tbl-wrap";
+  wrap.append(t);
+
+  const tbody = t.tBodies[0];
+  const groups = [];
+  for (const tr of [...tbody.rows]) {
+    if (tr.classList.contains("expand-row") && groups.length) groups[groups.length - 1].push(tr);
+    else groups.push([tr]);
+  }
+  // Nothing to page (or a single "no rows" placeholder): leave the table exactly as it was.
+  if (groups.length < 2) return wrap;
+
+  const pager = document.createElement("div");
+  pager.className = "pager";
+  wrap.append(pager);
+
+  let view = groups.slice();   // groups in current sort order
+  let page = 0;
+  let sort = { col: sortCol, dir: sortDir };
+
+  const pageCount = () => Math.max(1, Math.ceil(view.length / pageSize));
+
+  function draw() {
+    page = Math.min(page, pageCount() - 1);
+    tbody.replaceChildren(...view.slice(page * pageSize, (page + 1) * pageSize).flat());
+
+    // Header state: which column is sorted, and which way.
+    [...t.tHead.rows[0].cells].forEach((th, i) => {
+      th.classList.toggle("sorted", sort.col === i);
+      th.classList.toggle("asc", sort.col === i && sort.dir === 1);
+      th.classList.toggle("desc", sort.col === i && sort.dir === -1);
+    });
+
+    // « ‹ 1 2 3 › » — page numbers windowed around the current page so a 40-page table does not
+    // grow a 40-button pager.
+    const n = pageCount();
+    const from = Math.max(0, Math.min(page - 2, n - 5)), to = Math.min(n, from + 5);
+    const btn = (label, go, cls = "", on = true) =>
+      `<button class="pg ${cls}" ${on ? `data-go="${go}"` : "disabled"}>${label}</button>`;
+    pager.innerHTML =
+      btn("«", 0, "", page > 0) + btn("‹", page - 1, "", page > 0) +
+      Array.from({ length: to - from }, (_, k) => from + k)
+        .map((i) => `<button class="pg num${i === page ? " on" : ""}" data-go="${i}">${i + 1}</button>`).join("") +
+      btn("›", page + 1, "", page < n - 1) + btn("»", n - 1, "", page < n - 1) +
+      `<span class="pg-info">${page * pageSize + 1}–${Math.min((page + 1) * pageSize, view.length)} of ${view.length}</span>`;
+  }
+
+  function applySort() {
+    if (sort.col == null) { view = groups.slice(); return; }
+    const keys = columnKeys(groups, sort.col);
+    const idx = groups.map((_, i) => i);
+    idx.sort((i, j) => {
+      const a = keys[i], b = keys[j];
+      if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;  // empties last, always
+      const c = typeof a === "number" ? a - b : String(a).localeCompare(String(b));
+      return sort.dir * c;
+    });
+    view = idx.map((i) => groups[i]);
+  }
+
+  [...t.tHead.rows[0].cells].forEach((th, i) => {
+    th.classList.add("sortable");
+    th.addEventListener("click", () => {
+      sort = { col: i, dir: sort.col === i ? -sort.dir : 1 };
+      page = 0;                       // a re-sort makes the old page number meaningless
+      applySort();
+      draw();
+    });
+  });
+
+  pager.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-go]");
+    if (!b) return;
+    page = Number(b.dataset.go);
+    draw();
+  });
+
+  // Reveal the page holding a given row — so clicking a map marker can still bring its table row
+  // into view even when that row is paged out of sight.
+  wrap.revealRow = (match) => {
+    const i = view.findIndex((g) => match(g[0]));
+    if (i < 0) return null;
+    page = Math.floor(i / pageSize);
+    draw();
+    return view[i][0];
+  };
+
+  applySort();
+  draw();
+  return wrap;
+}
+
 // Which bound the breach failed, e.g. "≤ 20 mg/l (95th percentile)". A breach of an absolute maximum
 // and a breach of a 95th-percentile limit are very different claims — the first is one bad sample, the
 // second a year-long statistical failure — and they breach the SAME condition, so without the bound's
@@ -1792,17 +1925,19 @@ function breachBound(b) {
 function breachTable(breaches) {
   if (!breaches.length) return card("Breaches", "0", emptyBody("No breaches for this selection."), PQ.breaches(currentSubstance));
   // current first, then most-recently-started
+  // data-sort: the rendered text is human ("Jan 2021 – Mar 2021", "≤ 20 mg/l (95th percentile)") and
+  // sorting it as text would order breaches alphabetically by month name. Sort on the real values.
   const rows = [...breaches].sort((a, b) => (b.current - a.current) || (a.from < b.from ? 1 : -1)).map((b) => `
     <tr>
-      <td>${breachPeriod(b)}</td>
+      <td data-sort="${Date.parse(b.from) || 0}">${breachPeriod(b)}</td>
       <td>${subLink(b.subLabel, b.subNotation, b.sp, b.permit)}</td>
-      <td>${breachBound(b)}</td>
+      <td data-sort="${b.limit != null ? b.limit : ""}">${breachBound(b)}</td>
       <td>${permitLink(b.permit)}</td>
-      <td class="ctr">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
+      <td class="ctr" data-sort="${b.current ? 0 : 1}">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
       <td>${wqeLink(b.sp)}</td>
     </tr>`).join("");
   return card("Breaches", breaches.length,
-    tableEl(["Period", "Substance", "Limit breached", "Permit", "Status|c", "Sampling point (WQE)"], rows),
+    pagedTable(["Period", "Substance", "Limit breached", "Permit", "Status|c", "Sampling point (WQE)"], rows),
     PQ.breaches(currentSubstance));
 }
 
@@ -1814,14 +1949,14 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
     const dps = dpByPermit[p] || [];
     const sp = dps.map((d) => d.sp).filter(Boolean)[0] || null;
     const nB = (breachesByPermit[p] || []).length;
-    return `<tr class="expandable" data-row="${i}"><td><span class="caret">▸</span> ${permitLink(p)}
+    return `<tr class="expandable" data-row="${i}"><td data-sort="${esc(permitRef(p))}"><span class="caret">▸</span> ${permitLink(p)}
           <span style="color:#777"> v${DB.currentVersion[p] ?? "?"}</span></td>
-        <td>${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
-        <td class="ctr">${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${wqeLink(sp)}</td></tr>
+        <td data-sort="${cur.length}">${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
+        <td class="ctr" data-sort="${nB}">${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${wqeLink(sp)}</td></tr>
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
   }).join("");
   const c = card("Permits &amp; limits", permits.length,
-    tableEl(["Permit", "Current limits", "Discharge points", "Breaches|c", "Monitored at"], rows), PQ.permits(currentSubstance));
+    pagedTable(["Permit", "Current limits", "Discharge points", "Breaches|c", "Monitored at"], rows), PQ.permits(currentSubstance));
   wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit));
   return c;
 }
@@ -1887,21 +2022,21 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
       : isContinued(f.l) ? '<span class="pill carried">continued</span>'
       : limitText(f.l);
     return `<tr>
-      <td>${permitLink(p)}${ver != null ? ` <span style="color:#777">v${ver}</span>` : ""}</td>
+      <td data-sort="${esc(permitRef(p))}">${permitLink(p)}${ver != null ? ` <span style="color:#777">v${ver}</span>` : ""}</td>
       <td>${subLink(subLabel, subNotation, sp, p)}</td>
-      <td class="num">${limit}</td>
+      <td class="num" data-sort="${cur && cur.upper != null ? cur.upper : ""}">${limit}</td>
       <td>${cur ? prettyUnit(cur.unit) : ""}</td>
       <td>${wqeLink(sp)}</td>
       <td class="mono">${f ? esc(f.a.id) : "—"}</td>
       <td>${f ? esc(f.a.label) : "—"}</td>
-      <td>${f ? (fmtDate(f.a.completion) || "TBC") : "—"}</td>
+      <td data-sort="${f && f.a.completion ? Date.parse(f.a.completion) || "" : ""}">${f ? (fmtDate(f.a.completion) || "TBC") : "—"}</td>
       <td>${proposedCell}</td>
     </tr>`;
   }).join("");
 
   return card('Current limits &amp; future works <span class="count">— click a substance for its time-series chart</span>',
     `${conditions.length} current · ${proposed.length} proposed`,
-    tableEl(["Permit", "Substance", "Limit|r", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body),
+    pagedTable(["Permit", "Substance", "Limit|r", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body),
     PQ.substanceStory(currentSubstance));
 }
 
@@ -1914,11 +2049,16 @@ function actionTable(actions, limByAction) {
     const nLimits = limitLines(limByAction[a.iri] || []).length; // individual limit lines (matches the expansion)
     return `<tr class="expandable action-row${a.iri === selectedAction ? " sel" : ""}" data-row="${i}" data-action="${esc(a.iri)}">
         <td><span class="caret">▸</span> <span class="sub-link mono">${esc(a.id)}</span></td>
-        <td>${esc(a.party)}</td><td>${esc(a.label)}</td><td>${fmtDate(a.completion) || "TBC"}</td>
+        <td>${esc(a.party)}</td><td>${esc(a.label)}</td>
+        <td data-sort="${a.completion ? Date.parse(a.completion) || "" : ""}">${fmtDate(a.completion) || "TBC"}</td>
         <td class="mono">${permitRef(a.permit)}</td><td class="num">${nLimits}</td></tr>
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="6"><div class="expand-inner"></div></td></tr>`;
   }).join("");
-  const c = card("WINEP Actions", actions.length, tableEl(["Action", "Party", "Name", "Completion", "Target permit", "Limits|r"], rows), PQ.actions());
+  const tbl = pagedTable(["Action", "Party", "Name", "Completion", "Target permit", "Limits|r"], rows, { sortCol: 3 });
+  // The map's WINEP markers focus their table row, and that row may be paged out of sight — so the
+  // table hands render() a way to turn to the page holding it (see focusAction).
+  actionTableEl = tbl;
+  const c = card("WINEP Actions", actions.length, tbl, PQ.actions());
   // Clicking a row focuses the action on the map (marker highlight + pan + popup); it still expands.
   c.addEventListener("click", (e) => {
     const tr = e.target.closest(".action-row");
@@ -1969,7 +2109,7 @@ function actionTable(actions, limByAction) {
 // point with no ammonia — it is a point nobody sampled for it, and hiding it would quietly turn an
 // absence of measurement into an absence of pollution. Instead every point is drawn, and the chart
 // tells you (per point) whether the archive has anything for that substance.
-const ambientPoints = () => DB.samplingPoints;
+const measuredPoints = () => DB.samplingPoints;
 
 function samplingPointPopup(s) {
   const permitted = s.permit
@@ -1987,8 +2127,8 @@ function samplingPointPopup(s) {
     <a href="${WQE}${encodeURIComponent(s.id)}" target="_blank" rel="noopener">Water Quality Explorer ↗</a>`;
 }
 
-function renderAmbient(tables) {
-  const pts = ambientPoints();
+function renderMeasured(tables) {
+  const pts = measuredPoints();
   const unpermitted = pts.filter((s) => !s.permit);
   // With no substance chosen, clicking a point charts the default (ammoniacal nitrogen) — so the
   // lede has to name THAT, not "all substances", which is not something a time series can be of.
@@ -2001,15 +2141,15 @@ function renderAmbient(tables) {
   setLegend(present.map((f) => ({ c: f.color, t: `${f.label} (${pts.filter((s) => s.family.key === f.key).length})` })));
 
   document.getElementById("lede").innerHTML =
-    LEDE.ambient({ total: pts.length, unpermitted: unpermitted.length }, subLbl);
+    LEDE.measured({ total: pts.length, unpermitted: unpermitted.length }, subLbl);
 
-  tables.append(ambientTable(pts));
+  tables.append(measuredTable(pts));
 }
 
 // Every sampling point, with its EXACT archive type (the map colours by family, so the precise type
 // has to be legible somewhere — colour is never the only encoding). Sorted with the unpermitted
 // first: they are the ones the rest of this app cannot see.
-function ambientTable(pts) {
+function measuredTable(pts) {
   const sorted = [...pts].sort((a, b) =>
     (!!a.permit - !!b.permit) || a.family.label.localeCompare(b.family.label) || a.label.localeCompare(b.label));
   const rows = sorted.map((s) => `
@@ -2022,7 +2162,7 @@ function ambientTable(pts) {
   const c = card(
     `Sampling points <span class="count">— ${pts.filter((s) => !s.permit).length} measured but never regulated</span>`,
     pts.length,
-    tableEl(["Point", "Name", "What is sampled here", "Permit"], rows),
+    pagedTable(["Point", "Name", "What is sampled here", "Permit"], rows),
     PQ.samplingPoints());
   // Same gesture as the map: open the substance time series for this point.
   c.addEventListener("click", (e) => {
@@ -2213,14 +2353,14 @@ function applicationsTable() {
       <td class="mono"><span class="sub-link">${esc(a.id)}</span></td>
       <td>${swatch(prog.color)}${esc(prog.label)}</td>
       <td class="num">${a.n}</td>
-      <td class="num">${cost}</td>
+      <td class="num" data-sort="${prog.priced ? a.total : -1}">${cost}</td>
     </tr>`;
   }).join("");
   const hint = selectedApp
     ? '<span class="count">— <span class="sub-link clear-sel" title="Reset focus back to the filters">✕ clear selection</span></span>'
     : '<span class="count">— click one to value it</span>';
   const c = card(`Applications ${hint}`,
-    apps.length, tableEl(["Application", "Programme", "Options|r", "Total cost|r"], rows), PQ.applications());
+    apps.length, pagedTable(["Application", "Programme", "Options|r", "Total cost|r"], rows), PQ.applications());
   c.addEventListener("click", (e) => {
     if (e.target.closest(".clear-sel")) { clearAppFocus(); return; }
     const tr = e.target.closest(".app-row");
@@ -2247,11 +2387,11 @@ function optionsTable(appIri) {
     <tr class="expandable" data-row="${i}">
       <td><span class="caret">▸</span> ${esc(g.label)} <span class="mono">${esc(g.code)}</span></td>
       <td class="num">${g.items.length}</td>
-      <td class="num">${groupCost(g)}</td>
+      <td class="num" data-sort="${g.total || -1}">${groupCost(g)}</td>
     </tr>
     <tr class="expand-row hidden" data-exp="${i}"><td colspan="3"><div class="expand-inner"></div></td></tr>`).join("");
   const c = card(`Options <span class="count">— ${esc(DB.appById[appIri]?.id || "")}</span>`, nOpts,
-    tableEl(["Group", "Options|r", "Cost|r"], rows), PQ.sfiOptions(appIri));
+    pagedTable(["Group", "Options|r", "Cost|r"], rows), PQ.sfiOptions(appIri));
   wireExpand(c, groups, (g) => tableEl(["Option", "Description", "Cost|r"],
     g.items.slice().sort((a, b) => (b.cost || 0) - (a.cost || 0)).map((o) =>
       `<tr><td class="mono">${esc(o.code)}</td><td>${esc(o.def || "—")}</td>` +
@@ -2281,7 +2421,7 @@ function setView(v) {
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   if (v !== "farming") { selectedApp = null; closeChart(); } // drop the pie when leaving farming
-  if (v !== "permits") selectedAction = null; // drop the WINEP action focus when leaving
+  if (v !== "regulated") selectedAction = null; // drop the WINEP action focus when leaving
   render();
 }
 
@@ -2318,18 +2458,16 @@ async function main() {
     else if (!document.getElementById("chart").classList.contains("hidden")) closeChart();
   });
 
-  // Deep-link support: ?view=permits|ambient|farming & ?sub=<notation>. The three old water views
-  // (breaches / substance / wessex) are now one Permits view, so their links land there rather than
-  // 404-ing into the default.
-  const ALIAS = { breaches: "permits", substance: "permits", wessex: "permits" };
+  // Deep-link support: ?view=regulated|measured|farming & ?sub=<notation>. This is a proof of
+  // concept, so the view keys simply say what the views are; nothing outside this repo links here.
   const params = new URLSearchParams(location.search);
   const sub = params.get("sub");
   if (sub && DB.substances.some((s) => s.notation === sub)) {
     currentSubstance = sub;
     document.getElementById("substance").value = sub;
   }
-  const view = ALIAS[params.get("view")] || params.get("view");
-  setView(["permits", "ambient", "farming"].includes(view) ? view : "permits");
+  const view = params.get("view");
+  setView(["regulated", "measured", "farming"].includes(view) ? view : "regulated");
 }
 
 main();

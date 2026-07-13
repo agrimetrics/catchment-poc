@@ -161,15 +161,14 @@ The two water views are the demonstrator's argument in miniature. They are two d
   becomes the story for that substance — its limits, its breaches, its proposed future limits, and a
   live hit/miss time-series chart per discharge point. (These were three separate tabs — *Breaches*,
   *Substance Views* and *WINEP* — which made one subject, seen at three points in time, read as
-  three subjects. Old `?view=breaches|substance|wessex` links still resolve here; the view key is
-  still `?view=permits`.)
+  three subjects. View key: `?view=regulated`.)
 - **The measured world** — pollution as actually sampled, **regardless of sampling-point source**.
   Every one of the catchment's **161 sampling points**, coloured by what the EA samples there, with
   the same live time-series chart on any of them. **91 of them belong to no permit at all** — rivers,
   boreholes, bathing waters, investigation points — so the regulated world is structurally blind to
   them: there is no permit to reach them through. A point that is measured but not regulated has no
   limit, so its chart shows readings and no pass mark; a river is not "compliant", it is merely
-  measured. (View key: `?view=ambient`.)
+  measured. (View key: `?view=measured`.)
 - **Sustainable Farming Incentive** — SFI agreements as convex-hull polygons coloured by programme,
   with a cost-per-intervention pie (or count bar chart), an option-type filter, and per-application
   valuations. See the [SFI data warnings](ttl/sfi/README.md#data-warnings) for the pricing caveats.
@@ -178,12 +177,44 @@ The two water views are the demonstrator's argument in miniature. They are two d
 individually or by category — and render beneath all plotted locations. The legend collapses while
 the chart panel is open.
 
-Two utility pages hang off the app chrome (top-right of the header, and the footer):
+**Every table** is paginated at 10 rows (`« ‹ 1 2 3 › »`) and sortable by clicking any column header.
+Two details worth knowing, because both are easy to get subtly wrong:
 
+- A column is numeric only if **every** value in it is a bare, unpadded number. Permit refs like
+  `040136` are *identifiers that look like digits* — the leading zero is the giveaway — and they share
+  a column with `400114/CF/01` and `EPRBB3593EG`. Coercing them per-cell yields one column holding two
+  incomparable kinds of key, and an order that is neither numeric nor alphabetical.
+- Rows sort and page in **groups**: an expandable summary row carries its hidden detail row with it,
+  so a permit's limits can never end up filed under a different permit.
+
+Three utility pages hang off the app chrome (top-right of the header, and the footer):
+
+- **Points apart** ([`/points.html`](app/points.html)) — the demonstrator's central argument, as five
+  screens: *why* identifiers rather than proximity (with the join drawn as a diagram), then three
+  worked examples — one per way a spatial join fails — then an explorer over the collections
+  themselves. See below.
 - **SPARQL** ([`/sparql.html`](app/sparql.html)) — an embedded [SPARQL editor](https://github.com/sib-swiss/sparql-editor)
   wired to the same-origin `/sparql` endpoint, for running ad-hoc queries against the loaded graphs.
 - **Docs** ([`/docs.html`](app/docs.html)) — an in-app viewer that renders this repo's Markdown (the
   top-level and per-dataset READMEs, the TODOs) with a sidebar and working cross-links.
+
+### Points apart — the argument, in five screens
+
+`points.html` makes the case that these records can be merged reliably **only by identifier**. It is
+five screens, stepped through in order, each with its own map framed on its own subject:
+
+| Screen | What it shows |
+| --- | --- |
+| [Why identifiers](app/points.html) `#/why` | The join this store makes, drawn as a diagram, against the same three things with their identifiers thrown away. Scored over the whole catchment: proximity **47 / 96**, `water:monitoredAt` **96 / 96**. |
+| **1 · Blackheath** `#/blackheath` | *It can return something that is not an outfall at all.* The nearest sampling point to the works is `SW-50951085`, a **river station sited upstream** — the one place guaranteed to carry none of its effluent. It is 19 m away; the works' own sampling points are 188–201 m away. Proximity: **0 / 5**. |
+| **2 · Brockhill** `#/brockhill` | *It cannot separate things that share a coordinate.* Seven outlets across four permits are published at **one identical grid reference** (the discharge *site's*, inherited by every outlet of every permit there). To a map they are one dot, so all seven get the same answer. Proximity: **1 / 7**, and the one it gets right it gets right by luck. |
+| **3 · Doreys** `#/doreys` | *It cannot be given a radius that works.* Here proximity's answer is **right** — it is just **1.01 km away**. Tighten the radius until Brockhill is unambiguous and Doreys silently matches nothing; widen it until Doreys is found and Brockhill's single dot is within reach of 7 candidates. |
+| **Explorer** `#/explorer` | The collections themselves — permits, discharge points, sampling points, WINEP actions — filterable, each placeable on the map. |
+
+Every number on those screens is **computed from the store at render time**, not typed into the prose,
+so the page cannot drift from the data behind it. Each screen deep-links into the SPARQL editor with
+the query that reproduces it — including the nearest-neighbour join itself, so a reader can run the
+mistake and watch it succeed.
 
 Geometry notes: SFI options carry WGS84 lon/lat; discharge points, sampling points and WINEP action
 sites all carry EPSG:27700 (British National Grid), reprojected in the browser with proj4. A
