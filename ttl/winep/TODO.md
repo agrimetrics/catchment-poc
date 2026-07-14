@@ -1,24 +1,35 @@
 # WINEP TODO — remaining proposed-limit curation
 
+> **Most of this file was already done, and it did not know it.** Everything below used to quote the
+> **Wessex-wide** figures the parser sees *before* the catchment clip — 268 proposed limits, 196
+> structured, 67 carried over, ~18 `chemical` limits, 12 competing pairs. The **delivered graph** holds
+> **27** proposed limits. Re-derived against the graph as it actually ships, the backlog is about a
+> quarter of what this file claimed, and several items are simply closed. Corrected below; the numbers
+> now come from `winep.duckdb` and the live endpoint, not from the pre-clip population.
+
 ## What the parser now does
 
 `winep_to_db.py` interprets each proposed-limit cell using the **column header**
 (which fixes substance / unit / statistic) **and the cell contents** (values, inline
-analytes, tiers). Of 268 proposed limits:
+analytes, tiers). Of the **27** proposed limits in the delivered graph:
 
-- **196 structured** — a `ProposedLimit` with one or more `qudt:QuantityValue` bounds,
+- **19 structured** — a `ProposedLimit` with one or more `qudt:QuantityValue` bounds,
   each with its `iop:hasStatisticalModifier`. Tiers are modelled as multiple bounds, e.g.
   `Fe 4mg/l 95%ile 8mg/l Max.` → Iron with a 95th-percentile bound (4 mg/l) and a maximum
   bound (8 mg/l).
-- **67 carried-over** — `CarriedOverLimit` + `continuesCondition` → the in-force condition.
-- **5 uninterpreted** — kept verbatim as `reg:limitStatement` (see below).
+- **6 carried-over** — `CarriedOverLimit` + `continuesCondition` → the in-force condition(s).
+  Note *conditions*, plural: a permit holds one condition per **effluent**, so a carried-over limit
+  now continues **all** of them. Those 6 limits emit **6 continuance triples** across 2 limits — the
+  WINEP sheet names a permit, not an outlet, and the store makes that ambiguity visible rather than
+  picking one outlet and presenting it as the answer.
+- **2 uninterpreted** — kept verbatim as `reg:limitStatement` (see below).
 
-## The 5 that remain uninterpreted
+## The 2 that remain uninterpreted
 
 | Cell          | Why                                                 | Fix                                                       |
 | ------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| `TBC` ×4      | genuinely undecided at source                       | none — stays a statement until the permit is confirmed    |
-| `0.20kg/d` ×1 | a **mass-load** limit (kg/day), not a concentration | add a load unit + model load limits (different dimension) |
+| `TBC`         | genuinely undecided at source                       | none — stays a statement until the permit is confirmed    |
+| `0.20kg/d`    | a **mass-load** limit (kg/day), not a concentration | add a load unit + model load limits (different dimension) |
 
 ## Delivering party (operator) — not yet in the data
 
@@ -38,17 +49,23 @@ before adding other companies' actions:
 
 The parser makes deterministic but *interpretive* choices — confirm these are right:
 
-- **Generic chemical analyte.** The `Proposed_Chemical_*` columns name a parameter *family*,
-  not a determinand, so those limits use `wr:substance/chemical`
-  ("Priority chemical substance (unspecified)"). The specific analyte should be resolved
-  from `Driver_Code_*` / `DrWPA_Substances_addressed_by_Action` — the biggest remaining
-  enrichment (~18 limits).
+- ~~**Generic chemical analyte.**~~ **CLOSED — this does not occur in the delivered graph.** The
+  `Proposed_Chemical_*` columns name a parameter *family* rather than a determinand, so limits parsed
+  from them would use `wr:substance/chemical` ("Priority chemical substance (unspecified)"). In the
+  Poole Harbour clip there are **zero** such limits — the ~18 this file used to cite were Wessex-wide,
+  outside the catchment. The parser branch stays (it is correct, and will fire the moment a chemical
+  action lands here), but there is nothing to enrich today.
 - **`upper-tier` statistic.** The second value in `8 UT 30`, and `(upper tier)` annotations,
   are tagged with a bespoke `upper-tier` modifier. If "upper tier" means a specific
   percentile in permitting terms, remap it.
 - **`Max` → maximum (absolute / 100%ile).** Assumed an absolute not-to-exceed.
-- **Seasonality dropped.** `S=Summer/W=Winter` markers are ignored, consistent with the
-  regulation pipeline (which abstracted `MONTH_FROM..MONTH_TO = 1..12`).
+- **Seasonality dropped — and this one is now a REAL gap, not a consistent simplification.**
+  `S=Summer/W=Winter` markers in the WINEP cells are still ignored. That used to match the regulation
+  pipeline, which collapsed `MONTH_FROM..MONTH_TO` to a single year-round limit. **It no longer does:**
+  regulation now models seasonal limits properly (permit `040067` is capped at BOD 15 mg/l from May to
+  October and 20 mg/l from November to April, as two distinct `reg:Limit`s carrying `wr:appliesFromMonth`
+  / `wr:appliesToMonth`). So the two sides have drifted apart — a *current* limit can be seasonal, a
+  *proposed* one cannot. Parse the S/W markers and emit the same shape.
 
 ## Multiple proposed limits per (permit, substance) — competing drivers
 
@@ -68,11 +85,11 @@ Worked example — permit **401050** (Dorchester WRC), from the raw dataset:
 The Habitats Directive values (0.25 P / 10 N) are tighter **and** complete earlier, so the UWWTR
 backstop (2 P / 15 N) is already superseded — they are alternatives, not a phased sequence.
 
-**Scope:** 12 (permit, substance) pairs have >1 proposed limit, but **7 are the generic
-`wr:substance/chemical` placeholder** (several real analytes lumped as one "chemical" — the
-unresolved-analyte gap above, so multiples there are expected). The genuine competing-driver
-cases are only **401050 (N, P, Fe)** and **401747 (P, Fe)** — the Poole permits hit by both a
-Habitats Directive and a UWWTR driver.
+**Scope (re-derived against the delivered graph):** **5** (permit, substance) pairs have more than
+one proposed limit, and **all five are genuine competing-driver cases** — **401050** (N, P, Fe) and
+**401747** (P, Fe), the Poole permits hit by both a Habitats Directive and a UWWTR driver. This file
+used to say "12 pairs, but 7 are the generic `chemical` placeholder"; both figures were Wessex-wide.
+In the catchment there are **no** `chemical` limits at all, so every competing pair is real.
 
 **Interpretation to add:** capture each proposed limit's **driver** (`Driver_Code_Primary`, not
 currently shredded) so alternatives are distinguishable, and derive an **effective** proposed
@@ -93,12 +110,20 @@ limits still needing attention with:
 SELECT ?l ?stmt WHERE {
   ?l a reg:ProposedLimit ; reg:limitStatement ?stmt .
   FILTER NOT EXISTS { ?l reg:upperBound|reg:lowerBound ?b }
+  FILTER NOT EXISTS { ?l a reg:CarriedOverLimit }      # <- these are NOT a backlog
 }
 ```
 
+> **The `CarriedOverLimit` exclusion is the point.** Without it this query returns **8** rows and
+> reads as an 8-item backlog. Six of those are **carried-over limits**, which have no bound *by design*
+> — they carry an existing condition forward via `reg:continuesCondition` and the bound lives on the
+> condition they continue. They are correctly modelled, not unfinished. The real backlog is **2**, and
+> both are `TBC` — genuinely undecided at source, so there is nothing to do until the permit is
+> confirmed. This file previously advertised its own backlog at **4× its actual size**.
+
 ## Why `limitStatement` is still permanent
 
-Even at 5 remaining, the escape hatch is a permanent part of the model, not a staging area —
+Even at 2 remaining, the escape hatch is a permanent part of the model, not a staging area —
 some source text encodes a "limit" no parser could ever structure:
 
 ```turtle

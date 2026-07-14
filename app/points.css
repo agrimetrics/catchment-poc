@@ -136,6 +136,33 @@
 .modes b { color: var(--text); }
 .modes a { color: var(--accent); }
 
+/* --- the three-grid-reference comparison (the counter-argument, scored) ----------------------- */
+.geo-table { width: 100%; border-collapse: collapse; margin: 6px 0 14px; font-size: 13px; }
+.geo-table th {
+  text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.geo-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: #c3cfda; }
+.geo-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.geo-table code { color: var(--text); font-size: 12px; }
+.geo-table b { color: var(--text); }
+/* the row for the geometry this store actually publishes — the one the argument is built on, so it
+   is marked rather than buried among the alternatives */
+.geo-table tr.ours { background: rgba(58,160,255,.06); }
+.geo-table tr.ours td { border-left: 2px solid var(--accent); }
+.geo-table tr.ours td:first-child { padding-left: 8px; }
+/* the identifier row: not a better coordinate — not a coordinate */
+.geo-table tr.truth td { border-bottom: none; border-top: 1px solid var(--line); }
+.geo-table td.bad b { color: #ff9a9d; }
+.geo-table td.ok b { color: #7ee2a8; }
+.geo-table .tag {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 20px;
+  font-size: 10.5px; font-weight: 600; background: rgba(147,164,179,.16); color: var(--muted);
+}
+.geo-table .tag.ok { background: rgba(70,185,120,.16); color: #7ee2a8; }
+.geo-table .muted { color: var(--muted); }
+
 /* --- diagrams -------------------------------------------------------------------------------- */
 .diagram { width: 100%; height: auto; background: var(--panel-2); border-radius: 8px; }
 .diagram .dn { fill: #e7eef5; font-size: 11px; font-weight: 600; text-anchor: middle; }

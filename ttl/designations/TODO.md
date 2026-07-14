@@ -27,7 +27,7 @@ SELECT DISTINCT ?permit ?site ?siteName ?substance (?d AS ?metres) WHERE {
         geo:hasGeometry/geo:asWKT ?siteWkt .
   # discharge points regulated for a nutrient (Ammoniacal N / Nitrate / Total N / Phosphorus …)
   ?permit a water:WaterDischargePermit ; reg:permitSite ?dp ; reg:hasCondition ?cond .
-  ?dp geo:hasGeometry/geo:asWKT ?dpWkt .
+  ?dp geo:hasDefaultGeometry/geo:asWKT ?dpWkt .        # CRS84 — see the CRS note below
   ?cond reg:regulatedProperty ?sub . ?sub skos:notation ?substance ; skos:prefLabel ?subLabel .
   FILTER(CONTAINS(LCASE(?subLabel), "nitrogen") || CONTAINS(LCASE(?subLabel), "phosph")
          || CONTAINS(LCASE(?subLabel), "nitrate") || CONTAINS(LCASE(?subLabel), "ammonia"))
@@ -37,45 +37,91 @@ SELECT DISTINCT ?permit ?site ?siteName ?substance (?d AS ?metres) WHERE {
 }
 ```
 
-> ⚠️ **This query returns nothing on the bundled `/sparql` — it needs a full GeoSPARQL engine.**
-> The in-memory pyoxigraph store ships only the basic `spargeo` geometry functions (tracking issue for
-> full GeoSPARQL 1.1: [oxigraph#1560](https://github.com/oxigraph/oxigraph/issues/1560)). Verified
-> against the bundled endpoint: `geof:distance` computes **only between two POINTs** — given a
-> POLYGON (or MULTIPOINT) operand it returns *unbound*, so `FILTER(?d …)` drops every row — and
-> `geof:buffer` is not implemented at all. (The `CRS84` prefix is fine; that is **not** the cause.)
-> Every protected site is a MULTIPOLYGON, so this whole query is empty locally. Run it on **GraphDB**
-> (GeoSPARQL plugin + spatial index) for accurate point-to-polygon **boundary** distance.
+> ⚠️ **The polygon form needs a full GeoSPARQL engine.** The in-memory pyoxigraph store ships only the
+> basic `spargeo` geometry functions (tracking issue for full GeoSPARQL 1.1:
+> [oxigraph#1560](https://github.com/oxigraph/oxigraph/issues/1560)). Verified against the bundled
+> endpoint: `geof:distance` computes **only between two POINTs** — given a POLYGON (or MULTIPOINT)
+> operand it returns *unbound*, so `FILTER(?d …)` drops every row — and `geof:buffer` is not
+> implemented at all. Every protected site is a MULTIPOLYGON, so run this on **GraphDB** (GeoSPARQL
+> plugin + spatial index) for accurate point-to-polygon **boundary** distance. Use the centroid form
+> below to demo the same join locally.
 
-### A version that runs on the bundled endpoint (centroid approximation)
+### What this query used to do, and why it is worth reading about
 
-To demonstrate the same join in the app's SPARQL editor today, measure to each site's **centroid** —
-a point, which pyoxigraph *can* handle — instead of its boundary. Swap only the distance `BIND`:
+Until the 2026-07-14 rebuild, the centroid version below **silently returned nothing** — and it did so
+for a reason that had nothing to do with polygons or with oxigraph's limitations. It is the single most
+instructive bug this repo has produced, so it is recorded rather than quietly fixed.
+
+The discharge points were published with the CRS URI in the **wrong place**:
+
+```
+POINT(389950 93850) <http://www.opengis.net/def/crs/EPSG/0/27700>     ← what we emitted
+<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93850)     ← what GeoSPARQL requires
+```
+
+GeoSPARQL says a `wktLiteral` is "an optional URI identifying the coordinate reference system
+**followed by**" the WKT. A *trailing* URI is not part of the literal any parser reads, so every engine
+ignored it and fell back to the default CRS — **CRS84, degrees**. It then read the easting `389950` as
+a longitude, computed a distance of roughly **5,400 km**, and `FILTER(?d <= 1000)` dropped every row.
+
+The result was not an error. It was **an answer**: *"no discharges lie near any protected site."*
+Reassuring, precise-looking, and completely false. A query that crashes is a nuisance; a query that
+confidently reports nothing wrong is a hazard — and this one shipped in a `README` as a worked example.
+It is the same failure this whole project is a warning about, committed by the project itself.
+
+### The fix, and the CRS story as it now stands
+
+Two changes, both in the shredders:
+
+1. **The CRS URI goes first**, everywhere (`ttl/regulation/regulation_to_db.py`, `ttl/winep/winep.obda`,
+   `ttl/sfi/sfi_to_db.py`). The store is now GeoSPARQL-conformant.
+2. **Every point carries TWO geometries.** Fixing (1) alone is not enough: with a *correct* BNG CRS URI,
+   oxigraph returns **unbound** rather than a wrong number — honest, but still no answer. `geof:`
+   functions are defined over CRS84 and most engines will not reproject. So each feature now has:
+
+   | geometry | CRS | what it is |
+   | --- | --- | --- |
+   | `#geography` | EPSG:27700 | the **source** — the EA's own numbers, verbatim |
+   | `#geography-crs84` | CRS84 | **derived** by reprojection, and `geo:hasDefaultGeometry` |
+
+   The CRS84 one is the default because it is the one a consumer can *compute* with. The BNG one is
+   never derived from it; the direction of travel is always source → derived.
+
+So the graph is now in **two** CRSs, deliberately and explicitly, and says which is which on every
+geometry (`rdfs:comment`). The old claim that it was "one CRS across the whole graph" was simply wrong:
+discharge, sampling and WINEP points were BNG; designations were CRS84; SFI options carried no CRS URI
+at all.
+
+### The version that runs on the bundled endpoint (centroid approximation)
+
+Measure to each site's **centroid** — a point, which pyoxigraph *can* handle — instead of its boundary,
+and take the discharge point's **CRS84** geometry so both operands are in the same CRS:
 
 ```sparql
+  ?dp geo:hasDefaultGeometry/geo:asWKT ?dpWkt .        # CRS84, not the BNG #geography
   BIND(geof:distance(?dpWkt, geof:centroid(?siteWkt), uom:metre) AS ?d)
   FILTER(?d <= 1000)
 ```
 
-Caveat: this measures to the site **centre**, so it over-states distance for large sites and can
-misrank them — treat it as a rough "is anything nearby?" screen, not a metric. Worked example:
-permit **042451** (Ammoniacal Nitrogen as N) is **86 m** from the *boundary* of Morden Bog & Hyde
-Heath SSSI (and the co-located Dorset Heaths SAC / Dorset Heathlands SPA) — but that heath's
-*centroid* is ~2.1 km away, so the centroid query instead surfaces 042451 at **948 m from East
-Coppice SSSI**. The permit shows up (which is the point of the demo), just against a farther,
-smaller neighbour. Use the GraphDB boundary query for anything quantitative.
+Caveat, and it is a real one: this measures to the site **centre**, so it over-states distance for large
+sites and can misrank them. Treat it as a rough "is anything nearby?" screen, not a metric. The worked
+example is a good illustration of exactly that — permit **042451** (Ammoniacal Nitrogen as N) is **14 m**
+from the *boundary* of Morden Bog & Hyde Heath SSSI (and the co-located Dorset Heaths SAC / Dorset
+Heathlands SPA), but that heath's *centroid* is ~2.2 km away, so the centroid query instead surfaces
+042451 against **East Coppice SSSI at ~926 m** — a farther, smaller neighbour. The permit shows up, which
+is the point of the demo; the ranking is wrong, which is the point of the caveat. Use the GraphDB
+boundary query for anything quantitative.
 
 **To do:** pin the nutrient determinand set to an explicit codelist (rather than a label match), and
 add this as a first-class app view once the frontend talks to GraphDB.
 
-## 2. CRS / geodesic-distance caveat — verify on GraphDB
+## 2. Geodesic vs planar distance — verify on GraphDB
 
-Separate from the point-only limitation above (which is why the polygon query is empty *locally*),
-this is the caveat for when it runs *on GraphDB*: everything is stored WGS84/CRS84 (one CRS across all
-graphs) on the assumption that GraphDB's GeoSPARQL `geof:distance(…, …, uom:metre)` returns
-**geodesic metres** on geographic coordinates. **Verify this once** against the target GraphDB. If it
-turns out to compute planar degrees instead, the fallback is to also emit a projected **EPSG:27700
-(British National Grid, metres)** geometry on both the designations *and* the discharge points and
-compute distance there — the shredder already has the reprojection machinery.
+The remaining CRS question is not *which* CRS (that is settled above) but what `geof:distance(…, …,
+uom:metre)` **means** on geographic coordinates. We assume GraphDB returns **geodesic metres** on CRS84.
+**Verify this once** against the target GraphDB: if it computes planar degrees and scales them, distances
+will be wrong by a latitude-dependent factor. If it does, switch the analysis to the EPSG:27700
+`#geography` — which is projected, in metres, and already published for exactly this reason.
 
 ## 3. Geometry precision
 

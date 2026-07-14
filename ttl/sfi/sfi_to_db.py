@@ -39,14 +39,22 @@ WHERE ST_Within(
 # into a single MULTIPOINT geometry. The quantities are cast to concrete decimal/integer types so ontop
 # renders them in plain notation (no scientific notation) and the geometry is pre-serialised to WKT text so
 # ontop can read this table without needing the spatial extension loaded on its JDBC connection.
-con.execute("""
+#
+# THE CRS IS NAMED. The source is GeoJSON with no `crs` member, and RFC 7946 is unambiguous about what
+# that means: GeoJSON is ALWAYS WGS84 longitude/latitude (CRS84). So we do know the CRS - it is not
+# missing, it is specified by the format - and the graph should say so rather than leave a reader to
+# infer it. GeoSPARQL happens to default an un-prefixed wktLiteral to CRS84 too, so these coordinates
+# were being read correctly by luck; but "correct by two coincident defaults" is not the same as
+# "stated", and this store is in the business of stating things. The URI goes FIRST, per the spec.
+CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+con.execute(f"""
 CREATE OR REPLACE TABLE option_geometry AS
 SELECT app_id,
        option_code,
        CAST(SUM(area)  AS DECIMAL(18,4))      AS total_area,
        CAST(SUM(mtl)   AS BIGINT)             AS total_mtl,
        CAST(SUM(units) AS BIGINT)             AS total_units,
-       ST_AsText(ST_Collect(array_agg(geom))) AS geom_wkt
+       '<{CRS84}> ' || ST_AsText(ST_Collect(array_agg(geom))) AS geom_wkt
 FROM result
 GROUP BY app_id, option_code;
 """)

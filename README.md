@@ -19,21 +19,26 @@ raw_datasets/ ──► per-dataset pipeline ──► ttl/*.ttl ──► app/s
                    → rdfpipe)                              triplestore)     + tables)
 ```
 
-Each dataset is shredded to one Turtle file — `ttl/regulation.ttl`, `ttl/winep.ttl`, `ttl/sfi.ttl`
-via **DuckDB shred → ontop map → rdfpipe**, and `ttl/designations.ttl` (SSSI/SAC/SPA as GeoSPARQL
-features) straight via **geopandas → rdflib**. `app/server.py` loads all four into a single
-pyoxigraph store and serves, **from one origin (port 8000)**, a SPARQL endpoint, a small proxy to the
-EA Water Quality Archive, the static frontend (map, plus in-app SPARQL editor and docs viewer), and
-the repo's Markdown docs. Serving everything from one origin
+Each dataset is shredded to one Turtle file — `ttl/regulation.ttl`, `ttl/winep.ttl`, `ttl/breaches.ttl`
+and `ttl/sfi.ttl` via **DuckDB shred → ontop map → rdfpipe**, and `ttl/designations.ttl` (SSSI/SAC/SPA
+as GeoSPARQL features) straight via **geopandas → rdflib**. `app/server.py` loads all **five** into a
+single pyoxigraph store and serves, **from one origin (port 8000)**, a SPARQL endpoint, a small proxy
+to the EA Water Quality Archive, the static frontend (map, plus in-app SPARQL editor and docs viewer),
+and the repo's Markdown docs. Serving everything from one origin
 means the browser makes same-origin requests, so there is no CORS to configure. The store is rebuilt
 from the `.ttl` files on every start — nothing is persisted.
+
+`ttl/breaches.ttl` is deliberately its own graph. A permit, a condition and a limit are **asserted**
+facts — the EA published them and this store reproduces them. A breach is a **derived judgement**:
+nobody published it, we computed it. Keeping the two in one file would invite a reader to lend our
+arithmetic the register's authority.
 
 ## Quickstart — run the app
 
 ```bash
 poetry install --no-root
 eval $(poetry env activate)
-python app/server.py          # loads the 4 graphs, then serves on port 8000
+python app/server.py          # loads the 5 graphs, then serves on port 8000
 ```
 
 Then open **http://localhost:8000**. The server runs in the foreground — press **Ctrl-C** in
@@ -59,14 +64,17 @@ static asset loaded before `app.js` — edit it, no rebuild:
 
 ```js
 window.APP_CONFIG = {
-  sparqlEndpoint: "/sparql",                 // every table + the query editor
-  observationsEndpoint: "/observations",     // the substance time-series chart
-  tilesUrl: "/tiles/{z}/{x}/{y}.png",        // basemap tiles (same-origin proxy by default)
+  sparqlEndpoint: "sparql",                  // every table + the query editor
+  observationsEndpoint: "observations",      // the substance time-series chart
+  tilesUrl: "tiles/{z}/{x}/{y}.png",         // basemap tiles (same-origin proxy by default)
 };
 ```
 
-- A **relative** path (`/sparql`) stays same-origin — no CORS. This is the right choice for a static
-  deployment whose reverse proxy forwards that path to an internal triplestore.
+- **No leading slash.** These are resolved against the *page* URL, so the app works both at the origin
+  root and under a sub-path (`/catchment-demo/`). A leading slash (`"/sparql"`) pins the request to the
+  origin root and **breaks any sub-path deployment** — see the pitfall note under *Deploying as a static
+  site*. This block used to show leading slashes and contradict its own warning ten lines later; copying
+  it broke the deploy it was meant to explain.
 - An **absolute** URL (`https://data.internal/sparql`) targets another host directly, which then must
   send `Access-Control-Allow-Origin`, or the browser blocks it.
 - Quick, file-free override for testing: append `?sparql=<url>` (or `?observations=<url>`) to the page
@@ -187,43 +195,67 @@ Two details worth knowing, because both are easy to get subtly wrong:
 - Rows sort and page in **groups**: an expandable summary row carries its hidden detail row with it,
   so a permit's limits can never end up filed under a different permit.
 
-Three utility pages hang off the app chrome (top-right of the header, and the footer):
+**SPARQL** ([`/sparql.html`](app/sparql.html)) and **Docs** ([`/docs.html`](app/docs.html)) hang off the
+app chrome (top-right of the header, and the footer):
 
-- **Points apart** ([`/points.html`](app/points.html)) — the demonstrator's central argument, as five
-  screens: *why* identifiers rather than proximity (with the join drawn as a diagram), then three
-  worked examples — one per way a spatial join fails — then an explorer over the collections
-  themselves. See below.
-- **SPARQL** ([`/sparql.html`](app/sparql.html)) — an embedded [SPARQL editor](https://github.com/sib-swiss/sparql-editor)
-  wired to the same-origin `/sparql` endpoint, for running ad-hoc queries against the loaded graphs.
-- **Docs** ([`/docs.html`](app/docs.html)) — an in-app viewer that renders this repo's Markdown (the
+- **SPARQL** — an embedded [SPARQL editor](https://github.com/sib-swiss/sparql-editor)
+  wired to the same-origin `sparql` endpoint, for running ad-hoc queries against the loaded graphs.
+- **Docs** — an in-app viewer that renders this repo's Markdown (the
   top-level and per-dataset READMEs, the TODOs) with a sidebar and working cross-links.
 
-### Points apart — the argument, in five screens
+**Points apart** ([`/points.html`](app/points.html)) is the demonstrator's central argument. It is
+*not* in the header or the footer — it is reached from an inline link in the regulated world's lede,
+because it is an argument you arrive at from the data, not a utility page.
+
+### Points apart — the argument, in six screens
 
 `points.html` makes the case that these records can be merged reliably **only by identifier**. It is
-five screens, stepped through in order, each with its own map framed on its own subject:
+six screens, stepped through in order, each with its own map framed on its own subject:
 
 | Screen | What it shows |
 | --- | --- |
-| [Why identifiers](app/points.html) `#/why` | The join this store makes, drawn as a diagram, against the same three things with their identifiers thrown away. Scored over the whole catchment: proximity **42 / 91**, `water:monitoredAt` **91 / 91**. And the case that settles it: **7 outlets have no coordinate at all**, so a spatial join cannot be run on them — while `monitoredAt` names their sampling point exactly. |
+| [Why identifiers](app/points.html) `#/why` | The join this store makes, drawn as a diagram, against the same three things with their identifiers thrown away. The catchment holds **122 outlets**; **115** have a coordinate, **102** have a sampling point, and **91** have both — so 91 is the only honest denominator for scoring a guess. Over those 91, proximity recovers **42 / 91 (46%)** of what the register states. The screen then answers its own two best objections **with numbers rather than argument**. *"Restrict the layer to outfall points"* — hand proximity an **oracle** (only the 70 points that genuinely monitor a discharge, a layer you could build only if you already had the answer) and it still gets just **47 / 91 (52%)**. Even cheating, it barely beats a coin toss. *"You used the worst coordinate"* — the register carries a grid reference at **three** levels and the store publishes **all three**, so the same join is scored against each, live: site **41/87 (47%)**, outlet **64/87 (74%)**, effluent **66/87 (76%)**, `water:monitoredAt` **87/87**. The finest coordinate is not reliably the most accurate, and the best of them still files one outlet in four under the wrong watercourse. |
 | **1 · Blackheath** `#/blackheath` | *It can return something that is not an outfall at all.* The nearest sampling point to the works is `SW-50951085`, a **river station sited upstream** — the one place guaranteed to carry none of its effluent. It is 19 m away; the works' own sampling points are 188–201 m away. Proximity: **0 / 5**. |
 | **2 · Brockhill** `#/brockhill` | *It cannot separate things that share a coordinate.* Seven outlets across four permits are published at **one identical grid reference** (the discharge *site's*, inherited by every outlet of every permit there). To a map they are one dot, so all seven get the same answer. Proximity: **1 / 7**, and the one it gets right it gets right by luck. |
 | **3 · Doreys** `#/doreys` | *It cannot be given a radius that works.* Here proximity's answer is **right** — it is just **1.01 km away**. Tighten the radius until Brockhill is unambiguous and Doreys silently matches nothing; widen it until Doreys is found and Brockhill's single dot is within reach of 7 candidates. |
 | **4 · No location** `#/unlocatable` | *Where there is no geometry, it cannot be run at all.* **7 outlets have no coordinate** — the register gives their permit no grid reference, and the store refuses to invent one. Pick one of the four permits and you see everything that *is* known — its sampling points, any WINEP action site — with **5 m / 50 m / 500 m** circles drawn round them, and the question: *where is the outfall?* It answers itself from the store's own evidence: of the 91 outlets whose location we **do** know, only **1** sits within 5 m of its sampling point, **21%** within 50 m, and **4 lie beyond 500 m** — by which point the circle is 79 hectares of countryside. The outfall is not drawn on that map, because there is no honest place to put it. |
 | **Explorer** `#/explorer` | The collections themselves — permits, discharge points, sampling points, WINEP actions — filterable, each placeable on the map, with the full chain (`targetPermit` → `permitSite` → `monitoredAt`) lit up and labelled with the distance every link spans. |
 
-Every number on those screens is **computed from the store at render time**, not typed into the prose,
-so the page cannot drift from the data behind it. Each screen deep-links into the SPARQL editor with
-the query that reproduces it — including the nearest-neighbour join itself, so a reader can run the
-mistake and watch it succeed.
+Every **count** on those screens is **computed from the store at render time**, so it cannot drift from
+the data behind it. (The example ledes are hand-written prose and do name specific figures — "seven
+outlets", "a kilometre away" — checked against the build output rather than derived at runtime.) Four
+of the six screens deep-link into the SPARQL editor with the query that reproduces them — including
+the nearest-neighbour join itself, so a reader can run the mistake and watch it succeed.
 
-Geometry notes: SFI options carry WGS84 lon/lat; discharge points, sampling points and WINEP action
-sites all carry EPSG:27700 (British National Grid), reprojected in the browser with proj4. A
-discharge point's geometry is asserted on the discharge point we own (a `#geography` fragment) and
-comes from the permit register's own site grid reference — **not** transcribed from its sampling
-point, because they are genuinely different places (see [Points apart](app/points.html)). The
-sampling point carries **its own** `#geometry`, captured from the EA Water Quality Archive in the CRS
-the archive publishes, along with its label and its type.
+**Asserted vs drawable.** The page keeps these apart everywhere, and has to: it argues that geometry
+must not decide what exists, so it cannot itself quietly count only what it can draw. 122 outlets
+exist; 115 can be drawn; 102 are monitored; 91 can be *scored*. The explorer states how many links it
+asserts (107) alongside how many it can draw (91), rather than reporting the second as the first.
+
+### Geometry and CRS
+
+Every point carries **two** geometries, and the distinction is load-bearing:
+
+| | CRS | What it is |
+| --- | --- | --- |
+| `#geography` | **EPSG:27700** (British National Grid, metres) | the **source** — the EA's own numbers, verbatim, never reprojected |
+| `#geography-crs84` | **CRS84** (WGS84 lon/lat) | **derived** by reprojection, and marked `geo:hasDefaultGeometry` |
+
+The derived one exists because GeoSPARQL's `geof:` functions are defined over CRS84 and most engines —
+oxigraph included — will not reproject: given only a British National Grid geometry they return
+*unbound*. Designations and SFI options are natively CRS84 (their source GeoJSON carries no `crs`
+member, and RFC 7946 says that means CRS84).
+
+The CRS URI goes **first** in every `wktLiteral`, which is what GeoSPARQL requires. It used not to — and
+that was not a formatting nit. A trailing URI is invisible to every parser, so engines silently assumed
+CRS84 and read the easting `389950` as a *longitude*; the spatial query this repo shipped computed
+~5,400 km, filtered everything out, and reported that **no discharges lie near any protected site**. Not
+an error — an answer, and a reassuring one. See [`ttl/designations/TODO.md`](ttl/designations/TODO.md).
+
+A discharge point's geometry comes from the permit register's own **site** grid reference — **not**
+transcribed from its sampling point, because they are genuinely different places (see
+[Points apart](app/points.html)). The sampling point carries **its own** geometry, captured from the EA
+Water Quality Archive.
 
 ### Per-table SPARQL provenance links
 
@@ -269,7 +301,28 @@ python ttl/regulation/regulation_to_db.py            # shred → regulation.duck
   && rdfpipe -i turtle -o turtle ttl/regulation/regulation_raw.ttl > ttl/regulation.ttl
 ```
 
-**2. WINEP** — [`ttl/winep/README.md`](ttl/winep/README.md) · backlog in [`ttl/winep/TODO.md`](ttl/winep/TODO.md)
+**2. Breaches** — [`ttl/breaches/README.md`](ttl/breaches/README.md)
+
+The **derived** graph: our assessment of the permits against the archive's own compliance samples. It
+reads `regulation.duckdb`, so regulation must be built first.
+
+```bash
+python ttl/breaches/fetch_compliance_observations.py  # (occasional, needs EA egress) refresh compliance_observations.csv
+python ttl/breaches/breaches_to_db.py                 # assess → breaches.duckdb
+./ontop/ontop materialize --mapping ttl/breaches/breaches.obda \
+    --properties ontop/duckdb-breaches.properties \
+    --output ttl/breaches/breaches_raw.ttl --format turtle \
+  && rdfpipe -i turtle -o turtle ttl/breaches/breaches_raw.ttl > ttl/breaches.ttl
+```
+
+> **Re-run the fetch whenever the regulation SCOPE changes.** `compliance_observations.csv` is a
+> committed cache whose scope is *derived* from `regulation.duckdb` — so it moves when the register-
+> sourced tables move, and it does not move with them unless someone re-runs it. That has bitten once:
+> when outlets were re-sourced from the permit register, the store's monitored sampling points grew and
+> this cache stayed put, so 15 points were assessed against nothing — and an unassessed point does not
+> read as "unknown", it reads as **no breach**.
+
+**3. WINEP** — [`ttl/winep/README.md`](ttl/winep/README.md) · backlog in [`ttl/winep/TODO.md`](ttl/winep/TODO.md)
 
 ```bash
 python ttl/winep/winep_to_db.py                      # shred PR24 xlsx (+ regulation.duckdb, + catchment) → winep.duckdb
@@ -279,7 +332,7 @@ python ttl/winep/winep_to_db.py                      # shred PR24 xlsx (+ regula
   && rdfpipe -i turtle -o turtle ttl/winep/winep_raw.ttl > ttl/winep.ttl
 ```
 
-**3. SFI** — [`ttl/sfi/README.md`](ttl/sfi/README.md)
+**4. SFI** — [`ttl/sfi/README.md`](ttl/sfi/README.md)
 
 ```bash
 python ttl/sfi/sfi_to_db.py                          # spatial clip + aggregate + concept scheme → sfi.duckdb
@@ -288,7 +341,7 @@ python ttl/sfi/sfi_to_db.py                          # spatial clip + aggregate 
   && rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
 ```
 
-**4. Designations** (SSSI/SAC/SPA) — [`ttl/designations/README.md`](ttl/designations/README.md) · spatial queries in [`ttl/designations/TODO.md`](ttl/designations/TODO.md)
+**5. Designations** (SSSI/SAC/SPA) — [`ttl/designations/README.md`](ttl/designations/README.md) · spatial queries in [`ttl/designations/TODO.md`](ttl/designations/TODO.md)
 
 ```bash
 python ttl/designations/designations_to_ttl.py       # clip → ttl/designations.ttl (RDF) + app/{sssi,sac,spa}.geojson (display)
@@ -352,11 +405,15 @@ is in the linked per-dataset READMEs.
 
 ```
 app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static + .md),
-                         index.html, app.js, style.css, catchment.geojson, {sssi,sac,spa}.geojson,
-                         docs.{html,js,css} (Markdown docs viewer), sparql.{html,css} (SPARQL editor)
-ttl/                     the four committed graphs + per-dataset pipelines
-  regulation/ winep/ sfi/ designations/  {pipeline, README.md} (+ winep/TODO.md, designations/TODO.md,
-                         regulation/fetch_version_dates.py)
+                         index.html, app.js, style.css, config.js (endpoints, no rebuild needed),
+                         points.{html,js,css} (Points apart — the argument, in six screens),
+                         docs.{html,js,css} (Markdown docs viewer), sparql.{html,css} (SPARQL editor),
+                         vendor/ (leaflet, proj4, marked, sparql-editor — no CDN at runtime),
+                         catchment.geojson, {sssi,sac,spa}.geojson, TODO.md
+ttl/                     the five committed graphs + per-dataset pipelines
+  regulation/ breaches/ winep/ sfi/ designations/   {pipeline, README.md}
+                         (+ winep/TODO.md, designations/TODO.md, regulation/fetch_version_dates.py,
+                          regulation/fetch_sampling_points.py, breaches/fetch_compliance_observations.py)
 ontop/                   vendored ontop CLI + duckdb JDBC .properties (one per dataset)
 raw_datasets/            source data + merge_observational_data.py
 link_data.py             joins the regulation raw CSVs → output_data/ (input to regulation_to_db.py)
@@ -370,8 +427,25 @@ All of the docs below also render in-app in the **Docs** viewer (`/docs.html`) w
   *summary* above.
 - **`ttl/<dataset>/README.md`** — the authoritative per-dataset detail: scope whittling, enrichments,
   modelling and data warnings.
+- **`ttl/breaches/README.md`** — the **derived** graph: how a permit is assessed, what counts as a
+  sample, which version applied, and — the part that matters — **what we could not judge, and why**.
 - **`ttl/winep/TODO.md`** — the remaining curation backlog and interpretive assumptions for WINEP
   (the messiest dataset), including the competing-driver worked example.
+- **[`audit/`](audit/)** — a full validation sweep of the demonstrator and its resolution.
+  [`audit/README.md`](audit/README.md) is the record of what was wrong and what was done about it;
+  [`audit/findings.md`](audit/findings.md) is the audit as delivered, unedited.
+
+### If you read one thing besides this file
+
+Read **[`audit/README.md`](audit/README.md)**. The audit found no arithmetic errors — every number in
+every README re-derived exactly. What it found was a store that could not say *"I don't know"*, and so
+kept saying something false instead: an unfetched sample displayed as **no breach**, a dropped link as
+**no link**, a missing coordinate as **a plausible dot**. That is the same failure *Points apart* exists
+to warn about, committed by the project making the argument.
+
+The fix is the most important thing in the graph and it is not a corrected number — it is a **new fact
+the store can state**: `wr:assessed false`, with a reason. **641 of 1,277 conditions** now say plainly
+that they were never examined, instead of quietly reading as clean.
 
 ## License
 

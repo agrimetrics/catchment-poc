@@ -1,38 +1,51 @@
+import json
 from pathlib import Path
 
 import duckdb
+import pandas as pd
+from pyproj import Transformer
 
 # This script shreds the source registers into a small star of tables, one row per instance, so
-# ontop can materialise Permit / DischargePoint / SamplingPoint / Condition / ConditionBreach
-# individuals against the DEFRA regulation + water ontologies.
+# ontop can materialise Permit / DischargePoint / SamplingPoint / Condition / Limit individuals
+# against the DEFRA regulation + water ontologies.
 #
 # WHAT DEFINES A THING, AND WHAT MERELY DESCRIBES IT
 # --------------------------------------------------
-# Two different registers feed this graph, and which one a table comes from is a modelling
-# decision, not a convenience:
+# The whole design rests on one rule:
 #
-#   * WHAT EXISTS comes from the REGISTERS. A permit, its outlets, and the sampling point each
-#     outlet is monitored at are facts of the permit register (effluents.csv + consents_*.csv) and
-#     the Water Quality Archive. They are true whether or not anyone sampled there this decade.
+#     WHAT EXISTS comes from the REGISTERS.  WHAT HAPPENED comes from the OBSERVATIONS.
 #
-#   * WHAT WAS MEASURED comes from the OBSERVATIONS (the CSV below). Conditions, limit values and
-#     breaches are still derived from the observations-with-rules join.
+# A permit, its outlets, the sampling point each outlet is monitored at, and THE LIMITS EACH OUTLET
+# IS SUBJECT TO are facts of the permit register (effluents.csv, consents_*.csv, determinands.csv)
+# and of the Water Quality Archive. Every one of them is true whether or not anybody sampled there
+# this decade. Only the measurements - and the breach judgements derived from them - come from the
+# observations, and those live in ttl/breaches/ precisely so nobody confuses our arithmetic with the
+# EA's assertions.
 #
-# This split is a FIX, not decoration. Everything used to be materialised from the observations
-# CSV, which meant a thing existed only if it had a numeric result that matched a permit rule -
-# so the store quietly lost real regulated outlets. Permit 043231 showed 1 of its 2 outlets and
-# 400114/CF/01 showed 1 of its 3, because the missing outlets' every 2020-2026 sample reads
-# "No flow/discharge at sampling point" (a true and useful fact, dropped by the numeric filter in
-# link_data.py); permit 050922 vanished entirely, its only samples being a site inspection. An
-# outlet that is never sampled is still an outlet, and app/points.html - whose whole argument is
-# about outlets that a map collapses onto one dot - was counting the wrong number of them.
+# THE RULE WAS BROKEN THREE TIMES, IN THE SAME WAY, AND EACH TIME IT DELETED SOMETHING REAL:
 #
-# KNOWN LIMITATION, same shape, not yet fixed: conditions and their bounds are still observation-
-# sourced (see the `conditions` table below), so a permit limit appears only if that substance was
-# actually sampled at that permit. Sourcing them from determinands.csv instead would take the
-# catchment from 587 conditions over 12 substances to 919 over 38 - and those extra 26 include
-# flow, colour, turbidity and pH, which would reshape the app's "substance" vocabulary. That is a
-# deliberate separate change, not an oversight.
+#   1. EVERY table used to come from the observations CSV, so a thing existed only if it had a
+#      numeric result matching a permit rule. Permit 043231 showed 1 of its 2 outlets and
+#      400114/CF/01 showed 1 of its 3, because the missing outlets' every 2020-2026 sample reads
+#      "No flow/discharge at sampling point" - a true and useful fact, dropped by the numeric filter
+#      in link_data.py. Permit 050922 vanished entirely, its only samples being a site inspection.
+#
+#   2. `register_effluents` carried `WHERE EFF_SAMPLE_POINT IS NOT NULL`, which looks like a harmless
+#      guard on the column the sampling-point notation is built from. But that table also defines
+#      WHICH OUTLETS EXIST, so the filter silently deleted every outlet the register names no sampling
+#      point for. TWENTY-NINE of them, on scoped permits - twelve on 042451 alone, the Blackheath
+#      permit whose unlocatable outlets are the subject of app/points.html's fourth worked example.
+#
+#   3. CONDITIONS were observation-sourced, so a permit limit existed only if somebody had sampled
+#      that substance there. Twenty-seven outlets carried NO CONDITION AT ALL while the register
+#      plainly limits them - Blackheath's storm overflow to BOD 200 mg/l, the watercress outlets to
+#      pH 6-9. The breach engine had nothing to judge them against, and an outlet judged against
+#      nothing does not read as "unknown". It reads as NO BREACH.
+#
+# The same mistake wears a different coat each time: an ABSENCE (of a sample, of a monitoring link, of
+# a coordinate) is allowed to decide EXISTENCE. That is the exact error app/points.html exists to warn
+# about, committed three times over inside the store that makes the argument. All three are now fixed,
+# and the ABORTs and NOTEs below exist so a fourth cannot pass quietly.
 #
 # The whole database is a drop/replace rebuild from the CSVs, so regulation.duckdb does not
 # need to be committed - just re-run this script. Paths resolve relative to this file so it
@@ -102,8 +115,67 @@ def _ngr_northing(ngr):
     return en[1] if en else None
 
 
-con.create_function("ngr_easting", _ngr_easting, ["VARCHAR"], "INTEGER")
-con.create_function("ngr_northing", _ngr_northing, ["VARCHAR"], "INTEGER")
+# null_handling="special": a grid reference the decoder cannot make sense of returns NULL, and NULL is
+# the right answer - the register carries refs like 'TA9999999999' that fall outside the National Grid
+# entirely. Under DuckDB's DEFAULT null handling a UDF may not RETURN null, so an undecodable ref
+# aborts the build rather than simply having no coordinate. That is precisely backwards for this store:
+# "I cannot place this" must be expressible.
+con.create_function("ngr_easting", _ngr_easting, ["VARCHAR"], "INTEGER", null_handling="special")
+con.create_function("ngr_northing", _ngr_northing, ["VARCHAR"], "INTEGER", null_handling="special")
+
+
+# --- TWO GEOMETRIES PER FEATURE, and this is a deliberate piece of modelling, not belt-and-braces.
+#
+#     The EA publishes these points in EPSG:27700 (British National Grid, metres). That is the SOURCE,
+#     and the store reproduces it exactly - no reprojection, no rounding, the EA's own numbers.
+#
+#     But almost no SPARQL engine can COMPUTE with it. GeoSPARQL's geof: functions are defined over
+#     CRS84 (WGS84 lon/lat) and engines are not required to reproject; oxigraph, which serves this
+#     store, simply returns UNBOUND for a geometry in any other CRS. So a graph that publishes only
+#     BNG is a graph whose spatial functions silently do nothing - and "silently" is the problem. The
+#     query this project shipped in ttl/designations/TODO.md did exactly that, only worse: because the
+#     CRS URI was in the wrong place it was ignored altogether, the engine assumed CRS84, read the
+#     easting 389950 as a longitude, computed ~5,400 km, filtered every row out, and answered
+#     "no discharges lie near any protected site." A reassuring falsehood, delivered with no warning.
+#
+#     So the feature carries BOTH, which GeoSPARQL explicitly allows (a geo:Feature may have several
+#     geo:hasGeometry, one of them geo:hasDefaultGeometry):
+#
+#         #geography        EPSG:27700 - the SOURCE, verbatim, for fidelity and for provenance
+#         #geography-crs84  CRS84      - DERIVED here, so geof: functions actually work
+#
+#     CRS84 is the default geometry because it is the one a consumer can compute with, and because
+#     GeoSPARQL's own default CRS is CRS84. The BNG one is never derived from it - the direction of
+#     travel is always source -> derived, never the reverse.
+#     THE REPROJECTION IS NOT A DUCKDB UDF, and that is deliberate. pyproj's Transformer holds C-level
+#     state and is NOT thread-safe; DuckDB parallelises scalar UDFs across threads, so registering it as
+#     one SEGFAULTS the process as soon as a scan is large enough to fan out across workers. (It appears
+#     to work on a small table - a single vector on a single thread - which is the worst way for a bug
+#     like this to behave.) So the WKT is built in a table with plain easting/northing columns and the
+#     reprojection is done once, here, vectorised over pandas, where pyproj is on one thread and happy.
+_T = Transformer.from_crs("EPSG:27700", "EPSG:4326", always_xy=True)
+
+CRS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+BNG = "http://www.opengis.net/def/crs/EPSG/0/27700"
+
+
+def add_wkt(df, e="easting", n="northing"):
+    """easting/northing columns -> conformant `wkt` (EPSG:27700) and `wkt_crs84` columns.
+
+    The CRS IRI goes FIRST, which is what GeoSPARQL requires (OGC 22-047r1, Requirement 14: a
+    wktLiteral is "an optional IRI identifying the coordinate reference system and a required Well
+    Known Text description", formed "by concatenating a valid absolute IRI ... enclosed in angled
+    brackets ... followed by whitespace as a separator, and a WKT string"). A TRAILING IRI matches the
+    grammar's empty-IRI production, so every conformant parser ignores it and Requirement 15 then
+    obliges it to assume CRS84 - which is how this store once read a British National Grid easting as a
+    longitude and reported that no discharge lies near any protected site.
+    """
+    df = df.dropna(subset=[e, n]).copy()
+    lon, lat = _T.transform(df[e].astype(float).values, df[n].astype(float).values)
+    df["wkt"] = (f"<{BNG}> POINT(" + df[e].astype("Int64").astype(str) + " "
+                 + df[n].astype("Int64").astype(str) + ")")
+    df["wkt_crs84"] = [f"<{CRS84}> POINT({x:.7f} {y:.7f})" for x, y in zip(lon, lat)]
+    return df
 
 # Raw load. PERMIT_REF / VERSION / OUTLET / EFFLUENT / determinand notation are forced to
 # VARCHAR so leading zeros (e.g. permit '040015') survive and IRIs stay stable.
@@ -125,14 +197,40 @@ SELECT * FROM read_csv(
 
 # --- Sampling points, from the Water Quality Archive (fetch_sampling_points.py). Every sampling
 #     point the catchment holds observations for, PLUS every one the register names as a permit's
-#     effluent sample point. Geometry is carried verbatim in its published CRS (EPSG:27700). ---
+#     effluent sample point. Geometry stays in its published CRS (EPSG:27700) - the numbers are the
+#     EA's own and are never reprojected here.
+#
+#     THE CRS URI IS MOVED TO THE FRONT, and that is a correctness fix, not tidying. GeoSPARQL says a
+#     wktLiteral is "an optional URI identifying the coordinate reference system FOLLOWED BY" the WKT.
+#     The archive publishes it the other way round:
+#
+#         POINT(384750 94670) <http://www.opengis.net/def/crs/EPSG/0/27700>     <- what the EA emits
+#         <http://www.opengis.net/def/crs/EPSG/0/27700> POINT(384750 94670)     <- what GeoSPARQL says
+#
+#     A trailing URI is not part of the literal any parser reads, so every GeoSPARQL engine silently
+#     ignores it and falls back to the default CRS - which is CRS84, degrees of longitude and latitude.
+#     It then reads the easting 384750 as a longitude. That is why the geof:distance query this project
+#     shipped returns ~5,400 km for two points a few hundred metres apart, filters them all out, and
+#     answers "there are no discharges near any protected site". It is the most dangerous kind of bug
+#     in the whole store: not an error, an ANSWER, and a reassuring one.
+#
+#     The committed CSV keeps the archive's string verbatim (it is a cache of their data, and we do not
+#     rewrite what we did not author). The graph publishes it correctly. ---
 con.execute(f"""
-CREATE OR REPLACE TABLE sampling_points AS
-SELECT sp_notation, pref_label, wkt, type_notation, type_label, status_label
+CREATE OR REPLACE TABLE sampling_points_src AS
+SELECT sp_notation, pref_label, type_notation, type_label, status_label,
+       CAST(regexp_extract(wkt, 'POINT\\s*\\(\\s*(-?[0-9.]+)', 1) AS DOUBLE) AS easting,
+       CAST(regexp_extract(wkt, 'POINT\\s*\\([^ ]+\\s+(-?[0-9.]+)', 1) AS DOUBLE) AS northing
 FROM read_csv('{SAMPLING_POINTS_CSV}', header=true, types={{'sp_notation': 'VARCHAR',
     'pref_label': 'VARCHAR', 'wkt': 'VARCHAR', 'type_notation': 'VARCHAR',
     'type_label': 'VARCHAR', 'status_label': 'VARCHAR'}})
-WHERE wkt IS NOT NULL AND wkt <> '';
+WHERE wkt IS NOT NULL AND wkt <> '' AND wkt LIKE '%27700%';
+""")
+sp_df = add_wkt(con.execute("SELECT * FROM sampling_points_src").df())
+con.execute("""
+CREATE OR REPLACE TABLE sampling_points AS
+SELECT sp_notation, pref_label, type_notation, type_label, status_label, wkt, wkt_crs84
+FROM sp_df;
 """)
 
 # --- Sampling-point type vocabulary (rivers / boreholes / watercress farming / storm overflow ...).
@@ -147,8 +245,21 @@ WHERE type_notation IS NOT NULL AND type_notation <> '';
 """)
 
 # --- The permit register, at outlet grain. One row per (permit, version, outlet, effluent), naming
-#     the sampling point that effluent is monitored at. Restricted to the region whose notation
-#     scheme we can reconstruct (see link_data.py: a sampling point is REGION + '-' + code). ---
+#     the sampling point that effluent is monitored at - OR NOT. sp_notation is NULLABLE, and that is
+#     the whole point of this table's shape.
+#
+#     This used to carry `AND EFF_SAMPLE_POINT IS NOT NULL`, which looks like a harmless guard on the
+#     column the sp_notation is built from. It was not harmless: this table also defines WHICH OUTLETS
+#     EXIST, so the filter quietly deleted every outlet the register does not name a sampling point
+#     for. Twenty-nine of them, on scoped permits - twelve on 042451 alone, the Blackheath permit whose
+#     unlocatable outlets are the subject of app/points.html's fourth worked example. The store said a
+#     permit had 2 outlets where the register says 14.
+#
+#     It is the same error as the geometry fallback and the dropped monitoredAt edges, one level up:
+#     an outlet with no sampling point is not a non-existent outlet, it is an outlet nobody monitors.
+#     Letting the presence of a MONITORING LINK decide what EXISTS is exactly the mistake this store
+#     was built to expose. The link is now asserted where the register states it and absent where it
+#     does not, and the outlet exists either way. ---
 con.execute(f"""
 CREATE OR REPLACE TABLE register_effluents AS
 SELECT DISTINCT
@@ -156,16 +267,18 @@ SELECT DISTINCT
     CAST(VERSION AS VARCHAR) AS version,
     CAST(OUTLET_NUMBER AS VARCHAR) AS outlet,
     CAST(EFFLUENT_NUMBER AS VARCHAR) AS effluent,
-    EA_REGION || '-' || EFF_SAMPLE_POINT AS sp_notation
+    CASE WHEN EFF_SAMPLE_POINT IS NOT NULL AND EFF_SAMPLE_POINT <> ''
+         THEN EA_REGION || '-' || EFF_SAMPLE_POINT END AS sp_notation
 FROM read_csv('{EFFLUENTS_CSV}', header=true, types={{'PERMIT_REF': 'VARCHAR',
     'VERSION': 'VARCHAR', 'OUTLET_NUMBER': 'VARCHAR', 'EFFLUENT_NUMBER': 'VARCHAR'}})
-WHERE EA_REGION = 'SW' AND EFF_SAMPLE_POINT IS NOT NULL;
+WHERE EA_REGION = 'SW';
 """)
 
 # --- SCOPE. The register is national (59k permits); this demonstrator is one catchment. A permit is
 #     in scope if it is monitored at a sampling point the catchment holds observations for. That is a
 #     property of the REGISTER, not of what happened to be sampled - so once a permit is in, ALL of
-#     its outlets come with it, including the ones that have never produced a numeric result. ---
+#     its outlets come with it, including the ones that have never produced a numeric result AND the
+#     ones the register names no sampling point for at all. ---
 con.execute("""
 CREATE OR REPLACE TABLE scoped_permits AS
 SELECT DISTINCT e.permit_ref
@@ -175,6 +288,65 @@ WHERE e.sp_notation IN (
     UNION
     SELECT sp_notation FROM sampling_points
 );
+""")
+
+# --- The permit register's LIMITS, unpivoted. determinands.csv is the register's own statement of what
+#     each effluent is limited to: one row per (permit, version, outlet, effluent, determinand, month
+#     range), carrying up to THREE rules in CODE_n / VAL_n column pairs (e.g. "MINIMUM VALUE 6" and
+#     "MAXIMUM VALUE 9" for pH, in one row).
+#
+#     THIS IS WHERE CONDITIONS NOW COME FROM, and it closes the last big hole in the register/observation
+#     split at the top of this file. Conditions used to be built from the OBSERVATIONS - so a permit
+#     limit existed only if somebody had sampled that substance at that permit and the result happened
+#     to be numeric. Twenty-seven of the catchment's outlets therefore carried NO condition at all,
+#     while the register plainly limits them: Blackheath's storm overflow is capped at BOD 200 mg/l and
+#     suspended solids 200 mg/l; the watercress outlets at pH 6-9 and solids 20 mg/l. The breach engine
+#     had nothing to judge them against, and an outlet judged against nothing does not read as
+#     "unknown" - it reads as NO BREACH.
+#
+#     A limit is a REGISTER fact. It is true whether or not anyone sampled. It comes from the register.
+#
+#     SEASONS. MONTH_FROM/MONTH_TO are part of the key, not decoration. Permit 040067 is limited to BOD
+#     15 mg/l from May to October and 20 mg/l from November to April - tighter in summer, when the river
+#     is low and dilutes less. Collapsing the two publishes the winter figure all year and understates
+#     the summer obligation by a third. Most rules run 01-12 (the whole year); the ones that do not are
+#     real seasonal limits and are kept apart.
+#
+#     METHOD='ABSOLUTE' keeps the numeric limits and drops COMPARATIVE rules (limits expressed relative
+#     to another determinand), which this store has no model for. ---
+DETERMINANDS_CSV = ROOT / "raw_datasets" / "access_database_csv_files" / "determinands.csv"
+con.execute(f"""
+CREATE OR REPLACE TABLE register_rules AS
+WITH src AS (
+    SELECT CAST(PERMIT_REF AS VARCHAR) AS permit_ref,
+           CAST(VERSION AS VARCHAR) AS version,
+           CAST(OUTLET_NUMBER AS VARCHAR) AS outlet,
+           CAST(EFFLUENT_NUMBER AS VARCHAR) AS effluent,
+           lpad(CAST(DETE_CODE AS VARCHAR), 4, '0') AS substance,
+           DETE AS substance_label,
+           lpad(CAST(MONTH_FROM AS VARCHAR), 2, '0') AS month_from,
+           lpad(CAST(MONTH_TO AS VARCHAR), 2, '0') AS month_to,
+           UNITS AS unit,
+           CODE_1, VAL_1, CODE_2, VAL_2, CODE_3, VAL_3
+    FROM read_csv('{DETERMINANDS_CSV}', header=true, types={{'PERMIT_REF': 'VARCHAR',
+        'VERSION': 'VARCHAR', 'OUTLET_NUMBER': 'VARCHAR', 'EFFLUENT_NUMBER': 'VARCHAR',
+        'DETE_CODE': 'VARCHAR', 'MONTH_FROM': 'VARCHAR', 'MONTH_TO': 'VARCHAR'}})
+    WHERE EA_REGION = 'SW' AND METHOD = 'ABSOLUTE'
+      AND PERMIT_REF IN (SELECT permit_ref FROM scoped_permits)
+)
+SELECT DISTINCT permit_ref, version, outlet, effluent, substance, substance_label,
+       month_from, month_to, unit, rule_type, CAST(rule_value AS DECIMAL(18,4)) AS rule_value
+FROM (
+    SELECT * EXCLUDE (CODE_1, VAL_1, CODE_2, VAL_2, CODE_3, VAL_3),
+           CODE_1 AS rule_type, VAL_1 AS rule_value FROM src
+    UNION ALL
+    SELECT * EXCLUDE (CODE_1, VAL_1, CODE_2, VAL_2, CODE_3, VAL_3),
+           CODE_2, VAL_2 FROM src
+    UNION ALL
+    SELECT * EXCLUDE (CODE_1, VAL_1, CODE_2, VAL_2, CODE_3, VAL_3),
+           CODE_3, VAL_3 FROM src
+)
+WHERE rule_type IS NOT NULL AND rule_type <> '' AND rule_value IS NOT NULL;
 """)
 
 # --- Permits (one per PERMIT_REF) -> defra-water:WaterDischargePermit.
@@ -207,18 +379,45 @@ SELECT DISTINCT e.permit_ref, e.outlet, e.effluent
 FROM register_effluents e
 JOIN scoped_permits s USING (permit_ref)
 UNION
-SELECT DISTINCT PERMIT_REF, OUTLET_NUMBER, EFFLUENT_NUMBER FROM raw;
+SELECT DISTINCT PERMIT_REF, OUTLET_NUMBER, EFFLUENT_NUMBER FROM raw
+UNION
+SELECT DISTINCT permit_ref, outlet, effluent FROM register_rules;
 """)
 
-# --- Discharge point -> sampling point (defra-water:monitoredAt). The register states this link;
-#     it is the identifier-borne edge that app/points.html sets against a spatial join. Restricted
-#     to sampling points we could resolve in the archive, so the edge never dangles. ---
+# --- Discharge point -> sampling point (defra-water:monitoredAt). The register states this link; it is
+#     the identifier-borne edge that app/points.html sets against a spatial join. EVERY link the
+#     register states is asserted - all 102, not just the 96 whose sampling point the Water Quality
+#     Archive publishes reference data for.
+#
+#     This used to carry an inner JOIN to sampling_points, which silently discarded any edge whose
+#     sampling point 404s at the archive. Six did. They are not errors: the points EXIST - the register
+#     names them, the EA samples them - the archive just does not publish them openly. Dropping the edge
+#     turned "we hold no reference data for this point" into "this outlet is monitored nowhere", which
+#     is the same absence-rendered-as-a-value mistake as the geometry fallback that used to sit below.
+#
+#     Asserting the edge to an IRI we cannot dereference is the linked-data-native answer, and the one
+#     app/points.html argues for: an IRI is a NAME, not a promise that it resolves. The identifier join
+#     keeps working across a boundary the map cannot cross. What we must not do is let the reference
+#     data decide what exists - so the unresolvable points are typed (see unpublished_sampling_points
+#     below) and simply carry no label, no geometry and no type. ---
 con.execute("""
 CREATE OR REPLACE TABLE discharge_point_monitoring AS
 SELECT DISTINCT e.permit_ref, e.outlet, e.effluent, e.sp_notation
 FROM register_effluents e
 JOIN scoped_permits s USING (permit_ref)
-JOIN sampling_points p ON p.sp_notation = e.sp_notation;
+WHERE e.sp_notation IS NOT NULL;
+""")
+
+# --- Sampling points the REGISTER names but the ARCHIVE does not publish. They are typed, so the
+#     monitoredAt edge above lands on something rather than dangling, and they are marked with the
+#     reason - the store says "I know this point exists and I do not know where it is", which is a
+#     different and far more useful statement than saying nothing. They carry no geometry, so no map
+#     draws them and no proximity join scores them. ---
+con.execute("""
+CREATE OR REPLACE TABLE unpublished_sampling_points AS
+SELECT DISTINCT m.sp_notation
+FROM discharge_point_monitoring m
+WHERE m.sp_notation NOT IN (SELECT sp_notation FROM sampling_points);
 """)
 
 # --- Discharge-point geometry. The discharge point's own #geography, as a ready-made WKT literal
@@ -272,34 +471,94 @@ JOIN sampling_points p ON p.sp_notation = e.sp_notation;
 #     nothing that matters, because water:monitoredAt still names its sampling point. That is the whole
 #     thesis: the identifier join does not need the geometry to be right, or to exist at all. ---
 consents_reads = " UNION ALL ".join(
-    f"SELECT PERMIT_NUMBER, DISCHARGE_NGR FROM read_csv('{p}', header=true, "
-    f"types={{'PERMIT_NUMBER': 'VARCHAR'}})"
+    f"SELECT PERMIT_NUMBER, PERMIT_VERSION, OUTLET_NUMBER, EFFLUENT_NUMBER, "
+    f"DISCHARGE_NGR, OUTLET_GRID_REF, EFFLUENT_GRID_REF "
+    f"FROM read_csv('{p}', header=true, types={{'PERMIT_NUMBER': 'VARCHAR', "
+    f"'OUTLET_NUMBER': 'VARCHAR', 'EFFLUENT_NUMBER': 'VARCHAR'}})"
     for p in CONSENTS_CSVS
 )
-con.execute(f"""
-CREATE OR REPLACE TABLE discharge_point_geometry AS
+site_df = con.execute("""
 WITH consents AS (
     SELECT PERMIT_NUMBER AS permit_ref, ANY_VALUE(DISCHARGE_NGR) AS ngr
-    FROM ({consents_reads})
+    FROM (""" + consents_reads + """)
     WHERE DISCHARGE_NGR IS NOT NULL AND DISCHARGE_NGR <> ''
     GROUP BY PERMIT_NUMBER
 )
 SELECT dp.permit_ref, dp.outlet, dp.effluent,
-       'POINT(' || ngr_easting(c.ngr) || ' ' || ngr_northing(c.ngr)
-                || ') <http://www.opengis.net/def/crs/EPSG/0/27700>' AS wkt
+       ngr_easting(c.ngr) AS easting, ngr_northing(c.ngr) AS northing
 FROM discharge_points dp
 JOIN consents c USING (permit_ref)
 WHERE ngr_easting(c.ngr) IS NOT NULL;
-""")
+""").df()
+site_df = add_wkt(site_df)
+con.execute("CREATE OR REPLACE TABLE discharge_point_geometry AS "
+            "SELECT permit_ref, outlet, effluent, wkt, wkt_crs84 FROM site_df")
+
+# --- THE OTHER TWO GRID REFERENCES, PUBLISHED. ---------------------------------------------------
+#
+#     The store's headline geometry is the SITE reference above, and app/points.html's whole case rests
+#     on how badly a proximity join does with it. The obvious objection - and it is a fair one - is that
+#     we picked the coarsest of the three coordinates the register carries and then complained that
+#     proximity could not use it.
+#
+#     So the store publishes all three, keyed at the grain each one actually belongs to:
+#
+#         DISCHARGE_NGR      the SITE      keyed on permit          -> #geography          (the default)
+#         OUTLET_GRID_REF    the OUTLET    keyed on permit+outlet   -> #geography-outlet
+#         EFFLUENT_GRID_REF  the EFFLUENT  keyed on permit+outlet+effluent -> #geography-effluent
+#
+#     Every one is tagged with `wr:gridReferenceLevel` so a query asks for the level it means and no
+#     query silently fans out across three geometries (that has already bitten twice - see app.js).
+#
+#     The point of publishing them is that Points apart can now COMPUTE the comparison at render time
+#     instead of asserting it, and put the opposition's best case on the screen: the outlet reference is
+#     nearly twice as good as the site reference, and it still only reaches about three in four. The
+#     argument is not "our coordinate is bad". It is that a coordinate - ANY of them - is the wrong
+#     thing to join on when an identifier already states the answer. Handing the reader the strongest
+#     version of the counter-argument, with the numbers, is the only way to make that stick.
+#
+#     Note the finest reference is NOT the most accurate (see the build report): precision and accuracy
+#     are different things, and "just use the most precise coordinate" is not a rule that saves you. ---
+alt_df = con.execute("""
+WITH src AS (
+    SELECT PERMIT_NUMBER AS permit_ref,
+           CAST(OUTLET_NUMBER AS VARCHAR) AS outlet,
+           CAST(EFFLUENT_NUMBER AS VARCHAR) AS effluent,
+           ANY_VALUE(OUTLET_GRID_REF) AS outlet_ngr,
+           ANY_VALUE(EFFLUENT_GRID_REF) AS effluent_ngr
+    FROM (""" + consents_reads + """)
+    GROUP BY 1, 2, 3
+)
+SELECT dp.permit_ref, dp.outlet, dp.effluent, 'outlet' AS level,
+       ngr_easting(s.outlet_ngr) AS easting, ngr_northing(s.outlet_ngr) AS northing
+FROM discharge_points dp JOIN src s USING (permit_ref, outlet, effluent)
+WHERE ngr_easting(s.outlet_ngr) IS NOT NULL
+UNION ALL
+SELECT dp.permit_ref, dp.outlet, dp.effluent, 'effluent' AS level,
+       ngr_easting(s.effluent_ngr), ngr_northing(s.effluent_ngr)
+FROM discharge_points dp JOIN src s USING (permit_ref, outlet, effluent)
+WHERE ngr_easting(s.effluent_ngr) IS NOT NULL;
+""").df()
+alt_df = add_wkt(alt_df)
+con.execute("CREATE OR REPLACE TABLE discharge_point_geometry_alt AS "
+            "SELECT permit_ref, outlet, effluent, level, wkt, wkt_crs84 FROM alt_df")
 
 # --- Permit version effective/revocation dates, fetched from the public register by
 #     fetch_version_dates.py (cached in the committed permit_version_dates.csv). These date each
 #     PermitDocument so the app can draw a limit as a step line following the versions. ---
+#     Dates are emitted as xsd:dateTime, which is the range defra-core:applicableFrom/applicableTo
+#     declare. The register gives a plain date, so it is widened to midnight - "2011-03-01" is not a
+#     legal xsd:dateTime, "2011-03-01T00:00:00" is. Every graph in this store now agrees on the
+#     datatype; they used to disagree (regulation and WINEP said xsd:date, breaches and SFI said
+#     xsd:dateTime), which meant a cross-source date filter matched NOTHING and said so silently.
 DATES_CSV = HERE / "permit_version_dates.csv"
 if DATES_CSV.exists():
     con.execute(f"""
     CREATE OR REPLACE TABLE permit_version_dates AS
-    SELECT permit_ref, version, effective_date, revocation_date
+    SELECT permit_ref, version,
+           effective_date || 'T00:00:00' AS effective_date,
+           CASE WHEN revocation_date IS NULL OR revocation_date = '' THEN ''
+                ELSE revocation_date || 'T00:00:00' END AS revocation_date
     FROM read_csv('{DATES_CSV}', header=true,
         types={{'permit_ref': 'VARCHAR', 'version': 'VARCHAR',
                 'effective_date': 'VARCHAR', 'revocation_date': 'VARCHAR'}})
@@ -312,31 +571,74 @@ else:
         (permit_ref VARCHAR, version VARCHAR, effective_date VARCHAR, revocation_date VARCHAR);
     """)
 
-# --- Substances / parameters (the determinand concept scheme) -> skos:Concept + sosa:ObservableProperty ---
+# --- Substances / parameters (the determinand concept scheme) -> skos:Concept + sosa:ObservableProperty.
+#
+#     TWO SCHEMES, because there are two different true statements to make and the app needs to tell
+#     them apart:
+#
+#       wr:substance            every determinand the REGISTER regulates in this catchment - all 38.
+#                               This is what the permits actually say. It includes flow and dry-weather
+#                               flow, weir settings, storm-overflow telemetry (spill days, FPF data
+#                               coverage), heavy metals, pesticides and solvents, and a pass/fail site
+#                               inspection. They are real conditions and the store now holds them.
+#
+#       wr:substance/monitored  the subset the catchment holds a TIME SERIES for - the 12 the archive's
+#                               observations cover. These are the ones the app can chart, so they are
+#                               the ones its substance filter offers.
+#
+#     A concept is legitimately in both. What we must not do is let the second scheme define the first,
+#     which is what the old observation-sourced substances table did: the store's vocabulary WAS the
+#     list of things somebody had sampled, so a permit condition on a determinand nobody measured did
+#     not exist. `monitored` is a fact about the OBSERVATION SET, not about the permit. ---
 con.execute("""
 CREATE OR REPLACE TABLE substances AS
-SELECT DISTINCT lpad("determinand.notation", 4, '0') AS notation, "determinand.prefLabel" AS pref_label
-FROM raw;
+SELECT
+    r.substance AS notation,
+    ANY_VALUE(r.substance_label) AS pref_label,
+    r.substance IN (SELECT DISTINCT lpad("determinand.notation", 4, '0') FROM raw) AS monitored
+FROM register_rules r
+GROUP BY r.substance;
+""")
+# The canonical EA label wins over the register's abbreviated DETE where the codelist knows the code.
+codelist = json.load(open(ROOT / "raw_datasets" / "determinand_codelist.json"))
+labels_df = pd.DataFrame([{"notation": m["notation"].zfill(4), "ea_label": m["prefLabel"]}
+                          for m in codelist])
+con.register("ea_labels", labels_df)
+con.execute("""
+CREATE OR REPLACE TABLE substances AS
+SELECT s.notation, COALESCE(e.ea_label, s.pref_label) AS pref_label, s.monitored
+FROM substances s LEFT JOIN ea_labels e USING (notation);
 """)
 
-# --- Units. Mint a local unit IRI per distinct unit, linking to a QUDT unit where confidently known. ---
+# --- Units. Mint a local unit IRI per distinct unit, linking to a QUDT unit where confidently known.
+#     Sourced from the register AND the observations: the register sets the limit's unit, the archive
+#     reports the sample's. Unmapped units keep a local IRI and are listed at the end of the build -
+#     a local IRI with a label is honest; a wrong QUDT link is not. ---
 con.execute("""
 CREATE OR REPLACE TABLE unit_map AS
 SELECT * FROM (VALUES
-    ('MILLIGRAM PER LITRE', 'http://qudt.org/vocab/unit/MilliGM-PER-L'),
-    ('MICROGRAM PER LITRE', 'http://qudt.org/vocab/unit/MicroGM-PER-L'),
-    ('PERCENTAGE',          'http://qudt.org/vocab/unit/PERCENT')
+    ('MILLIGRAM PER LITRE',  'http://qudt.org/vocab/unit/MilliGM-PER-L'),
+    ('MICROGRAM PER LITRE',  'http://qudt.org/vocab/unit/MicroGM-PER-L'),
+    ('NANOGRAM PER LITRE',   'http://qudt.org/vocab/unit/NanoGM-PER-L'),
+    ('PERCENTAGE',           'http://qudt.org/vocab/unit/PERCENT'),
+    ('LITRE PER SECOND',     'http://qudt.org/vocab/unit/L-PER-SEC'),
+    ('CUBIC METRE PER DAY',  'http://qudt.org/vocab/unit/M3-PER-DAY'),
+    ('NUMBER',               'http://qudt.org/vocab/unit/NUM')
 ) AS t(unit_label, qudt_iri);
 """)
 con.execute("""
 CREATE OR REPLACE TABLE units AS
-SELECT DISTINCT
-    r.unit AS unit_label,
-    lower(replace(replace(replace(r.unit, ' ', '-'), '/', '-'), '.', '')) AS unit_slug,
+WITH all_units AS (
+    SELECT DISTINCT unit FROM register_rules WHERE unit IS NOT NULL AND unit <> ''
+    UNION
+    SELECT DISTINCT unit FROM raw WHERE unit IS NOT NULL AND unit <> ''
+)
+SELECT
+    u.unit AS unit_label,
+    lower(replace(replace(replace(u.unit, ' ', '-'), '/', '-'), '.', '')) AS unit_slug,
     m.qudt_iri AS qudt_iri
-FROM raw r
-LEFT JOIN unit_map m ON r.unit = m.unit_label
-WHERE r.unit IS NOT NULL AND r.unit <> '';
+FROM all_units u
+LEFT JOIN unit_map m ON u.unit = m.unit_label;
 """)
 
 # --- Statistical modifiers: the vocabulary that says WHAT a limit value means.
@@ -399,23 +701,43 @@ SELECT * FROM (VALUES
 # Every rule type the source actually uses must be known to the vocabulary, or its limits would be
 # silently dropped on the join below. Fail loudly rather than publish a permit missing a limit.
 unknown = con.execute("""
-    SELECT DISTINCT RULE_TYPE FROM raw
-    WHERE RULE_TYPE IS NOT NULL AND RULE_TYPE NOT IN (SELECT rule_type FROM statistics);
+    SELECT DISTINCT rule_type FROM register_rules
+    WHERE rule_type NOT IN (SELECT rule_type FROM statistics);
 """).fetchall()
 if unknown:
     raise SystemExit(f"ABORT: RULE_TYPE(s) with no statistical modifier mapped: {[u[0] for u in unknown]}")
 
-# --- Conditions: one per (permit, version, substance). The unit is constant per condition (validated
-#     below). ---
+# --- Conditions: one per (permit, version, OUTLET, EFFLUENT, substance) - the grain the register
+#     actually sets limits at. The unit is constant per condition (validated below).
+#
+#     THIS GRAIN IS THE FIX. A Condition used to be keyed at (permit, version, substance), which is
+#     coarser than the law: the register sets a limit per EFFLUENT, and one permit's effluents can
+#     carry DIFFERENT limits for the same substance. Permit 042116 (Milborne St Andrew STW) is the
+#     worked example - three effluents on outlet 1, sampled at three different points:
+#
+#         effluent 1 (SW-50440194):  BOD 15 mg/l 95%ile,  suspended solids 25 mg/l
+#         effluent 2 (SW-50440001):  BOD 25 mg/l 95%ile,  suspended solids 35 mg/l
+#
+#     At the coarse grain those clashed, and MAX() resolved the clash by publishing the LOOSEST value.
+#     So the store told the world effluent 1 was permitted 25 mg/l of BOD when the register says 15 -
+#     67% looser than the law, on a permit that is also a WINEP targetPermit, so the app's
+#     current-vs-proposed comparison ran off the loosened number. reg:limitStatement carried the truth
+#     verbatim all along ("95 PERCENTILE 15 ...; 95 PERCENTILE 25 ..."), but nothing READ it: every
+#     query, the breach engine and the WINEP comparison read the structured bound.
+#
+#     At this grain the clash cannot arise - there is exactly one value per (permit, version, outlet,
+#     effluent, substance, statistic), verified by the ABORT below. No aggregate has to choose.
+#
+#     The cost is that the Condition IRIs move (they now carry /outlet/{n}/effluent/{n}/), so
+#     ttl/winep's reg:continuesCondition and ttl/breaches' reg:breachesCondition move with them. Both
+#     are rebuilt from this database, so both follow automatically. ---
 con.execute("""
 CREATE OR REPLACE TABLE conditions AS
 SELECT
-    PERMIT_REF AS permit_ref,
-    VERSION AS version,
-    lpad("determinand.notation", 4, '0') AS substance,
+    permit_ref, version, outlet, effluent, substance,
     lower(replace(replace(replace(ANY_VALUE(unit), ' ', '-'), '/', '-'), '.', '')) AS unit_slug
-FROM raw
-GROUP BY PERMIT_REF, VERSION, "determinand.notation";
+FROM register_rules
+GROUP BY permit_ref, version, outlet, effluent, substance;
 """)
 
 # --- Condition bounds: one per (condition, statistic). This is the shape change - a Limit now carries
@@ -426,27 +748,69 @@ GROUP BY PERMIT_REF, VERSION, "determinand.notation";
 #
 #     Values -> DECIMAL so they render in plain notation (no scientific).
 #
-#     KNOWN LIMITATION - the condition grain is coarser than the rule grain. The register sets limits per
-#     (permit, version, OUTLET, EFFLUENT, substance) but a Condition here is keyed at (permit, version,
-#     substance), inherited from the existing model (WINEP's reg:continuesCondition already points at
-#     these IRIs, so re-keying is a separate change). Where one permit's outlets carry DIFFERENT values
-#     for the same statistic, MAX() collapses them to the loosest - preserving the behaviour the store
-#     already had. The count of collapsed conditions is reported at the end of this script. ---
-con.execute("""
+#     ONE VALUE PER BOUND, NO AGGREGATE. At the (permit, version, outlet, effluent, substance,
+#     statistic) grain the register states exactly one value, so ANY_VALUE is a formality rather than a
+#     choice - and the ABORT below proves it, rather than asking you to trust it. This is what replaced
+#     the old MAX(): see the note on `conditions` above for what MAX() was quietly doing. ---
+#     ONE LIMIT PER STATISTIC PER SEASON. A defra-reg:Limit is a single obligation with a single value.
+#     A Condition ("this outlet is regulated for BOD") holds SEVERAL of them, and they are not
+#     interchangeable: the 95th percentile is what the permit requires, the MAXIMUM is an upper-tier
+#     backstop 2-4x looser, and at permit 040067 the percentile itself changes with the month (15 mg/l
+#     May-Oct, 20 mg/l Nov-Apr).
+#
+#     This shape is what lets a breach say WHICH obligation it broke. reg:breachesLimit points at the
+#     Limit, and because each Limit is one statistic in one season, that is a complete answer. The old
+#     shape hung every bound off ONE Limit per condition, so naming the Limit did not distinguish a
+#     single sample over an absolute ceiling from a year-long statistical failure - which is why the
+#     store had to invent a `reg:breachesBound` predicate under DEFRA's namespace to say it. With this
+#     shape the invented term is unnecessary and it is gone.
+#
+#     `season` is '' for the year-round case (months 01-12), so the overwhelming majority of Limit IRIs
+#     keep their plain `#limit-{statistic}` shape and only the genuinely seasonal ones carry
+#     `-{from}{to}`. ---
+MONTH_NAMES = ("'January','February','March','April','May','June','July','August','September',"
+               "'October','November','December'")
+con.execute(f"""
 CREATE OR REPLACE TABLE condition_bounds AS
 SELECT
-    r.PERMIT_REF AS permit_ref,
-    r.VERSION AS version,
-    lpad(r."determinand.notation", 4, '0') AS substance,
+    r.permit_ref, r.version, r.outlet, r.effluent, r.substance,
     s.slug AS statistic,
     s.bound_kind,
-    MAX(CAST(r.RULE_VALUE AS DECIMAL(18,4))) AS value,
-    lower(replace(replace(replace(ANY_VALUE(r.unit), ' ', '-'), '/', '-'), '.', '')) AS unit_slug
-FROM raw r
-JOIN statistics s ON s.rule_type = r.RULE_TYPE
-WHERE r.RULE_VALUE IS NOT NULL
-GROUP BY r.PERMIT_REF, r.VERSION, lpad(r."determinand.notation", 4, '0'), s.slug, s.bound_kind;
+    r.month_from, r.month_to,
+    CASE WHEN r.month_from = '01' AND r.month_to = '12' THEN ''
+         ELSE '-' || r.month_from || r.month_to END AS season,
+    ANY_VALUE(r.rule_value) AS value,
+    lower(replace(replace(replace(ANY_VALUE(r.unit), ' ', '-'), '/', '-'), '.', '')) AS unit_slug,
+    -- the register's own words for THIS obligation, carried onto the Limit it describes
+    ANY_VALUE(
+        r.rule_type || ' '
+        || regexp_replace(regexp_replace(CAST(r.rule_value AS VARCHAR), '0+$', ''), '\\.$', '')
+        || ' ' || r.unit
+        || CASE WHEN r.month_from = '01' AND r.month_to = '12' THEN ''
+                ELSE ' (' || list_extract([{MONTH_NAMES}], CAST(r.month_from AS INTEGER))
+                     || ' to ' || list_extract([{MONTH_NAMES}], CAST(r.month_to AS INTEGER)) || ')' END
+    ) AS statement
+FROM register_rules r
+JOIN statistics s ON s.rule_type = r.rule_type
+GROUP BY r.permit_ref, r.version, r.outlet, r.effluent, r.substance,
+         s.slug, s.bound_kind, r.month_from, r.month_to;
 """)
+
+# The claim the grain above rests on: at the register's own grain no bound has two values, so nothing
+# had to be chosen. Checked, not assumed - if the register ever does state two, this must fail rather
+# than silently pick one (which is precisely the bug this replaced).
+ambiguous = con.execute("""
+    SELECT permit_ref, version, outlet, effluent, substance, s.slug, month_from, month_to,
+           COUNT(DISTINCT rule_value)
+    FROM register_rules r JOIN statistics s ON s.rule_type = r.rule_type
+    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+    HAVING COUNT(DISTINCT rule_value) > 1;
+""").fetchall()
+if ambiguous:
+    raise SystemExit(
+        f"ABORT: {len(ambiguous)} bound(s) carry more than one value at the register's own grain "
+        f"(permit, version, outlet, effluent, substance, statistic, season): {ambiguous[:5]}. "
+        f"Publishing either one would be a guess. Resolve the source before rebuilding.")
 
 # --- Limit statements: what the register ACTUALLY SAYS, carried verbatim alongside the structured
 #     bounds. defra-reg:limitStatement is defined for use "in place of (or ALONGSIDE) a quantity-value
@@ -458,26 +822,12 @@ GROUP BY r.PERMIT_REF, r.VERSION, lpad(r."determinand.notation", 4, '0'), s.slug
 #         "95 PERCENTILE 20 MILLIGRAM PER LITRE; MAXIMUM VALUE 48 MILLIGRAM PER LITRE"
 #     Ordered by rule type so the string is stable across rebuilds. Trailing zeros are trimmed off the
 #     DECIMAL rendering so a limit of 20 reads "20", not "20.0000". ---
-con.execute("""
-CREATE OR REPLACE TABLE limit_statements AS
-WITH parts AS (
-    SELECT DISTINCT
-        PERMIT_REF AS permit_ref,
-        VERSION AS version,
-        lpad("determinand.notation", 4, '0') AS substance,
-        RULE_TYPE AS rule_type,
-        RULE_TYPE || ' '
-          || regexp_replace(regexp_replace(
-                 CAST(CAST(RULE_VALUE AS DECIMAL(18,4)) AS VARCHAR), '0+$', ''), '\\.$', '')
-          || ' ' || unit AS part
-    FROM raw
-    WHERE RULE_VALUE IS NOT NULL AND RULE_TYPE IS NOT NULL
-)
-SELECT permit_ref, version, substance,
-       string_agg(part, '; ' ORDER BY rule_type, part) AS statement
-FROM parts
-GROUP BY permit_ref, version, substance;
-""")
+#     Each Limit carries the register's words for ITS OWN obligation - "95 PERCENTILE 15 MILLIGRAM PER
+#     LITRE (May to October)" - built alongside the bound in `condition_bounds` above. There is no
+#     separate statement table: a statement belongs to the limit it states, and now that each statistic
+#     and season is its own defra-reg:Limit, that is exactly where it can sit. Previously one Limit per
+#     condition carried a single ";"-joined sentence covering several different obligations, which is
+#     what a Limit had to do when it was the only place to put it. ---
 
 # --- Substance alignment. The permit register codes Total Nitrogen 9686; WINEP's proposed-limit columns
 #     code it 9194. The EA determinand codelist gives BOTH the label "Nitrogen, Total as N" - they are the
@@ -512,10 +862,10 @@ WHERE notation IN (SELECT notation FROM substances);
 
 # Summary + a couple of integrity checks for the operator
 for tbl in ["permits", "permit_versions", "permit_version_dates", "discharge_points",
-            "discharge_point_monitoring", "sampling_points", "sampling_point_types",
-            "discharge_point_geometry",
+            "discharge_point_monitoring", "sampling_points", "unpublished_sampling_points",
+            "sampling_point_types", "discharge_point_geometry",
             "substances", "units", "statistics", "conditions", "condition_bounds",
-            "limit_statements", "substance_aliases"]:
+            "register_rules", "substance_aliases"]:
     n = con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
     print(f"{tbl:>20}: {n}")
 
@@ -573,7 +923,15 @@ unmonitored = con.execute("""
                         AND m.effluent = dp.effluent)
 """).fetchone()[0]
 if unmonitored:
-    print(f"NOTE: {unmonitored} discharge point(s) name no sampling point we could resolve.")
+    print(f"NOTE: {unmonitored} discharge point(s) name no sampling point at all in the register.")
+
+unpublished = [r[0] for r in con.execute(
+    "SELECT sp_notation FROM unpublished_sampling_points ORDER BY 1").fetchall()]
+if unpublished:
+    print(f"NOTE: {len(unpublished)} sampling point(s) are named by the register but not published by "
+          f"the Water Quality Archive: {', '.join(unpublished)}. water:monitoredAt is asserted to them "
+          f"anyway - an IRI is a name, not a promise that it dereferences. They carry no geometry, so "
+          f"nothing draws or scores them.")
 
 print("       bounds by statistic:")
 for slug, kind, n in con.execute("""
@@ -584,24 +942,41 @@ for slug, kind, n in con.execute("""
 # A condition whose unit is not constant would make its bounds incomparable.
 mixed_units = con.execute("""
     SELECT COUNT(*) FROM (
-        SELECT 1 FROM raw GROUP BY PERMIT_REF, VERSION, "determinand.notation"
+        SELECT 1 FROM register_rules
+        GROUP BY permit_ref, version, outlet, effluent, substance
         HAVING COUNT(DISTINCT unit) > 1)
 """).fetchone()[0]
 if mixed_units:
     print(f"WARNING: {mixed_units} condition(s) carry more than one unit; ANY_VALUE picked arbitrarily.")
 
-# Conditions where the register sets DIFFERENT values per outlet/effluent for the same statistic, and the
-# (permit, version, substance) grain collapses them to the loosest. See the condition_bounds note above.
-collapsed = con.execute("""
-    SELECT COUNT(*) FROM (
-        SELECT 1 FROM raw r JOIN statistics s ON s.rule_type = r.RULE_TYPE
-        WHERE r.RULE_VALUE IS NOT NULL
-        GROUP BY r.PERMIT_REF, r.VERSION, r."determinand.notation", s.slug
-        HAVING COUNT(DISTINCT r.RULE_VALUE) > 1)
-""").fetchone()[0]
-if collapsed:
-    print(f"NOTE: {collapsed} bound(s) differ across outlet/effluent within one condition; "
-          f"MAX() published (the loosest). The condition grain is coarser than the rule grain.")
+# What the old COARSE (permit, version, substance) grain was hiding, reported so the re-key earns its
+# keep. Each of these is a limit the store used to publish at the LOOSEST of several real values.
+per_effluent = con.execute("""
+    SELECT r.permit_ref, r.version, r.substance_label, s.slug,
+           COUNT(DISTINCT r.rule_value), MIN(r.rule_value), MAX(r.rule_value)
+    FROM register_rules r JOIN statistics s ON s.rule_type = r.rule_type
+    GROUP BY r.permit_ref, r.version, r.substance_label, r.substance, s.slug
+    HAVING COUNT(DISTINCT r.rule_value) > 1
+    ORDER BY 1, 3, 2
+""").fetchall()
+if per_effluent:
+    print(f"NOTE: {len(per_effluent)} (permit, version, substance) limit(s) differ across EFFLUENT or "
+          f"SEASON. The old coarse grain collapsed each to MAX() - the loosest. Now published apart:")
+    for ref, ver, sub, stat, n, lo, hi in per_effluent:
+        print(f"       {ref} v{ver} {sub} ({stat}): {n} values, {lo:g}..{hi:g} "
+              f"- was published as {hi:g} for the whole permit")
+
+# Seasonal limits, called out on their own: the register tightens these in summer.
+seasonal = con.execute("""
+    SELECT DISTINCT permit_ref, substance_label, month_from, month_to, rule_type, rule_value
+    FROM register_rules WHERE NOT (month_from = '01' AND month_to = '12')
+    ORDER BY 1, 2, 3
+""").fetchall()
+if seasonal:
+    permits = sorted({r[0] for r in seasonal})
+    print(f"NOTE: {len(seasonal)} SEASONAL rule(s) on permit(s) {', '.join(permits)} - the limit "
+          f"changes with the month. Bounds carry their month range; the breach engine judges each "
+          f"sample against the bound in force in the month it was taken.")
 
 unmapped = con.execute("SELECT unit_label FROM units WHERE qudt_iri IS NULL").fetchall()
 if unmapped:

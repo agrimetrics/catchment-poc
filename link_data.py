@@ -90,7 +90,7 @@ observations_with_permits_and_rules = observations_with_permits_and_rules[
 # ttl/regulation/README.md). So those rows get pass status NA - "not assessable from this
 # sample" - and are excluded from the grouping below. Leaving them at the old default of
 # False would have poisoned every group they touch (the .all() below), inventing a breach for
-# every ammonia observation at the 26 permits whose ammonia limit is a percentile.
+# every ammonia observation at the 24 permits whose ammonia limit is a percentile.
 PER_SAMPLE_RULES = ["MAXIMUM VALUE", "MINIMUM VALUE"]
 owpr = observations_with_permits_and_rules
 per_sample = owpr["RULE_TYPE"].isin(PER_SAMPLE_RULES)

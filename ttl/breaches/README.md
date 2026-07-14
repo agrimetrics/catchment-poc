@@ -49,12 +49,13 @@ This is where a compliance assessment is most easily wrong, so it is spelled out
   contains only `COMPLIANCE AUDIT (PERMIT)`, `COMPLIANCE FORMAL (PERMIT)`, `WATER QUALITY OPERATOR
   SELF MONITORING COMPLIANCE DATA` and `WATER QUALITY UWWTD MONITORING DATA`.
 - **`"<5"` is recorded as ZERO, not dropped.** The EA's rule. `link_data.py` drops every non-numeric
-  result, and in the compliance set **34% of results are `<` non-detects** — 70.7% of BOD, 47.1% of
-  ammonia. They are not lost at random: they are the *low* ones. Dropping them inflates every mean
-  and, worse, shrinks the sample count `n`, which tightens the LUT band and **manufactures percentile
-  failures that did not happen**. A worked example: on the old numbers Poole WRC failed its BOD
-  95-percentile in 2023 (3 exceedances, 2 allowed for 15 samples). Counting the non-detects, the year
-  has enough samples to allow 3 — and the breach disappears. It was an artefact.
+  result, and in the compliance set **34.2% of results are `<` non-detects** — **63.9% of BOD**, **38.1%
+  of suspended solids**, **35.9% of ammonia**. They are not lost at random: they are the *low* ones.
+  Dropping them inflates every mean and, worse, shrinks the sample count `n`, which tightens the LUT
+  band and **manufactures percentile failures that did not happen**. A worked example: on the old
+  numbers Poole WRC failed its BOD 95-percentile in 2023 (3 exceedances, 2 allowed for 15 samples).
+  Counting the non-detects, the year has enough samples to allow 3 — and the breach disappears. It was
+  an artefact.
 - **`">33"` is read as 33.** The EA uses the numeric value.
 - **Free text is not a measurement** (`Trace present`, `Not found`, …) and is excluded.
 
@@ -84,53 +85,96 @@ Also not yet handled:
   `link_data.py`.
 - **Fixed assessment periods.** A permit may name its own 12-month period; we use a rolling one.
 
-## The version-in-force fix
+## Which version applied? — and the trap inside the rule
 
-Each sample is judged **only against the permit version in force when it was taken** (dated from the
-public register; a permit with no dated versions is judged against its latest). The previous
-breach code — the one embedded in `regulation.ttl` — did **not** do this: it tested every observation
-against every version's limits, including versions revoked years before the sample existed. That
-booked **64 breach rows for 39 real events**, with only 27 of the 64 sitting on the version actually
-in force. This pipeline supersedes it.
+Each sample is judged **only against the permit version in force when it was taken**, dated from the
+public register. The old code — the one embedded in `regulation.ttl` — tested every observation against
+every version's limits, including versions revoked years before the sample existed, booking **64 breach
+rows for 39 real events**.
 
-## Which bound was breached?
+The first fix over-corrected. It fell back to the permit's **latest** version whenever the register gave
+no dates, which quietly judged 2000–2026 samples against limits that may never have applied to them —
+**110 of the old 270 breaches** rested on that fallback, and in the RDF they were indistinguishable
+from the 160 that did not. That fallback is gone.
 
-`defra-reg:breachesCondition` points at the condition, but a condition can hold a 95th percentile
-*and* a maximum, so on its own it cannot say which obligation failed. This graph therefore also emits
+The second fix over-corrected the other way, and this is the interesting one. Reading the rule as *"no
+dates, no judgement"* refuses to assess **any** undated permit — but the ambiguity a missing date
+creates is *which of the permit's limit-sets applied on the day*. A permit with a **single version** has
+only one limit-set. There is nothing to choose between. The missing date leaves open only the period the
+permit ran between — and a sample the Water Quality Archive itself labels a **compliance sample**, taken
+at the point the register names as that permit's compliance point, is the EA's own statement that the
+permit was in force when it was taken.
+
+So the rule as it now stands:
+
+| Version history | Judged? |
+| --- | --- |
+| a **dated** window contains the sample | **yes** |
+| the sample falls in a **gap** between dated versions, or before the first | **no** — `no-observations-in-a-dated-window` |
+| **one** version, undated | **yes**, and flagged `wr:judgedOnUndatedVersion` |
+| **several** versions, none dated | **no** — `ambiguous-version-history` |
+
+Getting the third row wrong cost real assessments: permit `EPRYP3399VF` holds **121 compliance samples**
+for pH, suspended solids and iron, every one of them testable against limits that are in no doubt
+whatever, and all six of its conditions were being reported as unexaminable. **Refusing to judge what
+you can judge is not caution** — it is an assertion the data does not support, just pointed the other way.
+
+**111 of the 275 breaches** rest on an undated single version. They say so, in the graph and in the app.
+
+## Which limit was breached?
+
+`defra-reg:breachesCondition` points at the condition, but a condition holds several limits — a 95th
+percentile *and* a maximum, and at permit `040067` a summer value *and* a winter one — so on its own it
+cannot say which obligation failed. Each breach therefore also carries:
 
 ```turtle
-wr:breach/{id} defra-reg:breachesBound
-    wr:permit/401747/version/3/condition/0111#limit-percentile-95 .
+wr:breach/{id}  a                        defra-reg:LimitBreach, defra-reg:ExceedanceBreach ;
+                defra-reg:breachesCondition  wr:permit/042116/version/4/outlet/1/effluent/1/condition/0085 ;
+                defra-reg:breachesLimit      wr:permit/042116/version/4/outlet/1/effluent/1/condition/0085#limit-percentile-95 ;
+                rdfs:comment            "3 exceedances of the 15 95th-percentile limit in the 12 months to …" .
 ```
 
-pointing at the exact `qudt:QuantityValue` — the thing that carries the value, the unit and the
-`iop:hasStatisticalModifier`.
-
-> **Ontology gap — feedback for `defra-regulation.ttl`.** `breachesBound` is *not* in the published
-> ontology, which offers only `breachesCondition`. A `breachesLimit` would not help: `hasLimit` is
-> 1:1 with `Condition`, so it would be `breachesCondition` with an extra hop. The bound is the only
-> level that discriminates. The cleaner long-term alternative is to make each *statistic* its own
-> `Limit` (a Condition would then have several), moving `hasStatisticalModifier` from the bound onto
-> the `Limit` — at which point `breachesLimit` becomes meaningful. That re-shapes both
-> `regulation.ttl` and `winep.ttl`, so it is logged here rather than done.
-
-Each breach also carries an `rdfs:comment` stating the assessment in words, e.g.
-
-> *"6 exceedances of the 10 95th-percentile limit in the 12 months to 2002-06-26; 5 permitted for 48
-> samples"*
+> **This section used to describe an invented predicate.** The store minted `defra-reg:breachesBound`
+> under DEFRA's own namespace, because one `Limit` carried every bound and naming the Limit therefore
+> did not discriminate. This README argued the fix was to *"make each statistic its own `Limit`, at
+> which point `breachesLimit` becomes meaningful"* — and that is exactly what happened. `defra-regulation.ttl`
+> now defines **`reg:LimitBreach`** and **`reg:breachesLimit`** (range `reg:Limit`), a Condition holds one
+> Limit per statistic per season, each with a single bound, and the invented term is **gone**. The
+> feedback loop closed.
 
 ## Result
 
-**270 breaches** over 35 permits, from **40,600 compliance observations** (2000–2026):
+**275 breaches** over 31 permits, from **40,600 compliance observations** (2000–2026):
 
-| bound            | breaches |
+| statistic        | breaches |
 | ---------------- | -------- |
-| `maximum`        | 229      |
-| `minimum`        | 36       |
-| `percentile-95`  | 4        |
+| `maximum`        | 237      |
+| `minimum`        | 35       |
+| `percentile-95`  | 2        |
 | `annual-average` | 1        |
 
-One is still open. The count is higher than the old 64 chiefly because the compliance fetch reaches
+One is still open. **111 rest on an undated (single-version) permit** and are flagged as such.
+
+## What we did NOT judge — and why that is in the graph
+
+A breach count means nothing without its denominator. The store holds **1,277 conditions**; **588 (46%)
+were actually assessed**. The other **689 were not** — and an unassessed condition is *not* a condition
+that passed. "No breach found" is what a regulator reads as "compliant", so every one of them is emitted
+with a machine-readable reason (`wr:assessed false`, `wr:notAssessedBecause`):
+
+| reason | conditions | what it means |
+| --- | --- | --- |
+| `no-observations` | 394 | the point and determinand are known; the archive holds no compliance sample for the pair. Mostly the flow, weir-setting and storm-overflow telemetry the register sets but the archive does not carry. |
+| `ambiguous-version-history` | 146 | several versions, none dated (see above) |
+| `no-sampling-point` | 111 | the register names no sampling point for this outlet — nobody monitors it |
+| `no-observations-in-a-dated-window` | 18 | samples exist, but none falls inside a dated version |
+| `too-few-samples` | 11 | assessed, but every 12-month window was below the method's minimum |
+| `sampling-point-unpublished` | 9 | the register names a point the archive publishes no data for |
+
+The app draws this as a **third marker state** — not blue (assessed, clean), not red or amber
+(breached), but **grey: not assessed**. That distinction is the whole reason this project exists.
+
+The count is higher than the old 64 chiefly because the compliance fetch reaches
 back to **2000** rather than the bulk extract's 2020, not because more is being called a breach.
 
 `breaches.duckdb` and `breaches_raw.ttl` are regenerable and gitignored;

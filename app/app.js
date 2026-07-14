@@ -2,7 +2,8 @@
  *
  * A single static page over an Oxigraph SPARQL endpoint (served from the same
  * origin at /sparql). It loads a handful of queries once, caches the rows, then
- * switches between four "views" and filters by substance entirely client-side.
+ * switches between three "views" — the regulated world, the measured world, and farming — and
+ * filters by substance entirely client-side.
  *
  * Geometry note: regulation discharge points and SFI options carry WGS84 lon/lat
  * WKT; WINEP action sites carry EPSG:27700 (British National Grid) and are
@@ -90,50 +91,75 @@ PREFIX core:  <http://environment.data.gov.uk/ontology/core/>
 PREFIX farm:  <http://environment.data.gov.uk/ontology/farming/>
 PREFIX ex:    <http://example.com/>
 PREFIX qudt:  <http://qudt.org/schema/qudt/>
-PREFIX iop:   <http://w3id.org/iadopt/ont/>
+PREFIX iop:   <https://w3id.org/iadopt/ont/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
 PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
 PREFIX sosa:  <http://www.w3.org/ns/sosa/>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX wr:    <http://example.com/water-regulation/>
 `;
 
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 const Q = {
+  // The substance FILTER offers only what the app can chart: the determinands the archive holds a
+  // time series for here (12 of the 38 the register regulates). The other 26 — flow, dry-weather
+  // flow, weir settings, storm-overflow telemetry, metals, pesticides — are real permit conditions,
+  // are in the store, and appear on their permit; they just have no series to plot, so putting them
+  // in a filter that opens a chart would offer an empty promise.
+  //
+  // Note which way round this is. The scheme is a fact about the OBSERVATIONS, not about the permits.
+  // Until this rebuild the store's whole substance vocabulary WAS "things somebody sampled", so a
+  // permit condition on an unsampled determinand did not exist at all — the app's dropdown was
+  // silently defining what the law said.
   substances: `${PREFIXES}
     SELECT ?s ?label ?notation WHERE {
-      ?s skos:inScheme <http://example.com/water-regulation/substance> ;
+      ?s skos:inScheme <http://example.com/water-regulation/substance/monitored> ;
          skos:prefLabel ?label ; skos:notation ?notation .
     } ORDER BY ?label`,
 
-  // reg:breachesBound is what makes a breach legible. breachesCondition alone cannot tell a single
+  // reg:breachesLimit is what makes a breach legible. breachesCondition alone cannot tell a single
   // sample over an absolute maximum from a year-long 95th-percentile failure — both breach the same
-  // condition. The bound carries the statistic, and ?assessment (rdfs:comment) states the arithmetic
-  // in words ("6 exceedances ... 5 permitted for 48 samples").
+  // condition. Each Limit is ONE obligation (one statistic, one season, one bound), so naming the
+  // Limit is a complete answer; ?limStmt carries the register's own words for it and ?assessment
+  // (rdfs:comment) states the arithmetic ("6 exceedances … 5 permitted for 48 samples").
+  //
+  // The store used to mint `reg:breachesBound` under DEFRA's namespace for exactly this job, because
+  // one Limit carried every bound and naming it discriminated nothing. The ontology now defines
+  // reg:LimitBreach + reg:breachesLimit, the Limits were split, and the invented term is gone.
+  // A breach now names the outlet it happened at, because the CONDITION does (core:appliesTo). That
+  // removes a whole layer of guesswork: this used to reach the sampling point by walking out to the
+  // permit, back down to ANY of its discharge points, and collapsing the fan-out with SAMPLE — so a
+  // breach of one outlet could be reported at another outlet's monitoring point. Now it is a keyed
+  // join with one answer, and the GROUP BY is gone with it.
+  //
+  // Geometry is OPTIONAL, deliberately. It used to be required, which meant a breach at an outlet
+  // with no coordinate would have vanished from the app with no error — the exact failure this store
+  // exists to warn about. Today 7 outlets have no coordinate; if one ever breaches, it will show.
   breaches: `${PREFIXES}
-    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond
-           ?stat ?statLabel ?limit ?unitLabel ?assessment
-           (SAMPLE(?sp) AS ?sp) (SAMPLE(?w) AS ?wkt) WHERE {
+    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond ?dp ?sp
+           ?stat ?statLabel ?limit ?unitLabel ?assessment ?limStmt ?undated ?wkt WHERE {
       ?breach reg:breachesCondition ?cond ;
               core:hasApplicability/core:applicabilityPeriod ?period .
       ?period core:applicableFrom ?from .
       OPTIONAL { ?period core:applicableTo ?to }
       OPTIONAL { ?breach a ?type . FILTER(?type IN (reg:ExceedanceBreach, reg:ShortfallBreach)) }
       OPTIONAL { ?breach rdfs:comment ?assessment }
-      OPTIONAL { ?breach reg:breachesBound ?bound .
-                 OPTIONAL { ?bound qudt:numericValue ?limit }
-                 OPTIONAL { ?bound qudt:unit/skos:prefLabel ?unitLabel }
-                 OPTIONAL { ?bound iop:hasStatisticalModifier ?stat . ?stat skos:prefLabel ?statLabel } }
-      ?cond reg:regulatedProperty ?sub .
+      OPTIONAL { ?breach wr:judgedOnUndatedVersion ?undated }
+      OPTIONAL { ?breach reg:breachesLimit ?lim .
+                 OPTIONAL { ?lim reg:limitStatement ?limStmt }
+                 OPTIONAL { ?lim reg:upperBound|reg:lowerBound ?bound .
+                            OPTIONAL { ?bound qudt:numericValue ?limit }
+                            OPTIONAL { ?bound qudt:unit/skos:prefLabel ?unitLabel }
+                            OPTIONAL { ?bound iop:hasStatisticalModifier ?stat . ?stat skos:prefLabel ?statLabel } } }
+      ?cond reg:regulatedProperty ?sub ; core:hasApplicability/core:appliesTo ?dp .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
-      ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
-      ?dp water:monitoredAt ?sp ; geo:hasGeometry/geo:asWKT ?w .
-      ?breach reg:evidencedByObservation ?obs .
-      ?obs sosa:hasFeatureOfInterest ?sp .
-    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?permit ?cond
-             ?stat ?statLabel ?limit ?unitLabel ?assessment`,
+      ?permit reg:hasCondition ?cond .
+      OPTIONAL { ?dp water:monitoredAt ?sp }
+      OPTIONAL { ?dp geo:hasDefaultGeometry/geo:asWKT ?wkt }
+    }`,
 
   // Geometry is OPTIONAL: 7 outlets have no site grid reference in the register, and the store
   // publishes them with no coordinate rather than a guessed one. They cannot be drawn — render()
@@ -143,44 +169,69 @@ const Q = {
   dischargePoints: `${PREFIXES}
     SELECT ?dp ?permit (SAMPLE(?w) AS ?wkt) ?sp WHERE {
       ?permit a water:WaterDischargePermit ; reg:permitSite ?dp .
-      OPTIONAL { ?dp geo:hasGeometry/geo:asWKT ?w }
+      OPTIONAL { ?dp geo:hasDefaultGeometry/geo:asWKT ?w }
       OPTIONAL { ?dp water:monitoredAt ?sp }
     } GROUP BY ?dp ?permit ?sp`,
 
-  // A condition can carry SEVERAL upper bounds — one per statistic. At a sewage works the 95th
-  // percentile is the binding limit and the MAXIMUM is an upper-tier backstop 2-4x looser, so the
-  // statistic has to come back with the value or the two are indistinguishable. ?stat is the
-  // modifier IRI (…/statistical-modifier/percentile-95); see BINDING below.
+  // A condition belongs to a DISCHARGE POINT, not to a permit at large — `core:appliesTo` names the
+  // outlet it governs. That is the grain the register sets limits at, and it matters: permit 042116
+  // caps BOD at 15 mg/l on effluent 1 and 25 mg/l on effluent 2, sampled at two different points.
+  // Reading a permit's limit without saying which outlet gives you one of them at random.
+  //
+  // A condition holds SEVERAL Limits — one per statistic, and one per SEASON — and each is a separate
+  // obligation with a single bound. At a sewage works the 95th percentile is the binding limit and the
+  // MAXIMUM is an upper-tier backstop 2-4x looser; permit 040067's percentile itself changes with the
+  // month (15 mg/l May–Oct, 20 mg/l Nov–Apr). One row per Limit, and the statistic and month range
+  // come back with the value — without them, bounds that mean entirely different things look alike.
+  //
+  // ?assessed / ?notAssessed say whether the breach engine could examine this condition at all. A
+  // condition with ?assessed false was NOT examined — it is not a condition that passed, and the app
+  // must never draw it as one. That is the whole point of the ledger the breach pipeline emits.
   conditions: `${PREFIXES}
-    SELECT ?permit ?cond ?subLabel ?subNotation ?upper ?stat ?statLabel ?lower ?unitLabel WHERE {
+    SELECT ?permit ?cond ?dp ?subLabel ?subNotation ?lim ?upper ?lower ?stat ?statLabel ?unitLabel
+           ?monthFrom ?monthTo ?stmt ?assessed ?notAssessed WHERE {
       ?permit a water:WaterDischargePermit ; reg:hasCondition ?cond .
-      ?cond reg:regulatedProperty ?sub .
+      ?cond reg:regulatedProperty ?sub ; core:hasApplicability/core:appliesTo ?dp .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
-      OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?upper .
-                 OPTIONAL { ?ub iop:hasStatisticalModifier ?stat . ?stat skos:prefLabel ?statLabel }
-                 OPTIONAL { ?ub qudt:unit/skos:prefLabel ?unitLabel } }
-      OPTIONAL { ?cond reg:hasLimit/reg:lowerBound/qudt:numericValue ?lower }
+      OPTIONAL { ?cond wr:assessed ?assessed }
+      OPTIONAL { ?cond wr:notAssessedBecause/skos:notation ?notAssessed }
+      OPTIONAL {
+        ?cond reg:hasLimit ?lim .
+        OPTIONAL { ?lim reg:limitStatement ?stmt }
+        OPTIONAL { ?lim wr:appliesFromMonth ?monthFrom ; wr:appliesToMonth ?monthTo }
+        OPTIONAL { ?lim reg:upperBound ?ub . ?ub qudt:numericValue ?upper . }
+        OPTIONAL { ?lim reg:lowerBound ?lb . ?lb qudt:numericValue ?lower . }
+        OPTIONAL { ?lim reg:upperBound|reg:lowerBound ?b .
+                   OPTIONAL { ?b iop:hasStatisticalModifier ?stat . ?stat skos:prefLabel ?statLabel }
+                   OPTIONAL { ?b qudt:unit/skos:prefLabel ?unitLabel } }
+      }
     }`,
 
+  // The dated version windows behind the chart's stepped limit line. Keyed by DISCHARGE POINT, like
+  // the conditions above — the history of "BOD at THIS outlet", not "BOD somewhere on this permit".
   limitHistory: `${PREFIXES}
-    SELECT ?permit ?subNotation ?version ?from ?to ?upper ?stat ?lower WHERE {
+    SELECT ?dp ?subNotation ?version ?from ?to ?upper ?lower ?stat ?monthFrom ?monthTo WHERE {
       ?permit a water:WaterDischargePermit ; reg:hasCondition ?cond .
-      ?cond reg:regulatedProperty ?sub .
+      ?cond reg:regulatedProperty ?sub ; core:hasApplicability/core:appliesTo ?dp .
       ?sub skos:notation ?subNotation .
-      BIND(IRI(REPLACE(STR(?cond), "/condition/.*", "")) AS ?doc)
-      BIND(REPLACE(STR(?doc), ".*/version/", "") AS ?version)
+      BIND(REPLACE(STR(?cond), ".*/version/([^/]+)/.*", "$1") AS ?version)
+      BIND(IRI(CONCAT(STR(?permit), "/version/", ?version)) AS ?doc)
       ?doc core:hasApplicability/core:applicabilityPeriod ?p .
       ?p core:applicableFrom ?from .
       OPTIONAL { ?p core:applicableTo ?to }
-      OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?upper .
-                 OPTIONAL { ?ub iop:hasStatisticalModifier ?stat } }
-      OPTIONAL { ?cond reg:hasLimit/reg:lowerBound/qudt:numericValue ?lower }
+      OPTIONAL {
+        ?cond reg:hasLimit ?lim .
+        OPTIONAL { ?lim wr:appliesFromMonth ?monthFrom ; wr:appliesToMonth ?monthTo }
+        OPTIONAL { ?lim reg:upperBound ?ub . ?ub qudt:numericValue ?upper . }
+        OPTIONAL { ?lim reg:lowerBound ?lb . ?lb qudt:numericValue ?lower . }
+        OPTIONAL { ?lim reg:upperBound|reg:lowerBound ?b . ?b iop:hasStatisticalModifier ?stat }
+      }
     }`,
 
   actions: `${PREFIXES}
     SELECT ?action ?label ?desc ?completion ?permit (SAMPLE(?w) AS ?wkt) WHERE {
       ?action a reg:Action ; rdfs:label ?label ; reg:actionSite ?site .
-      ?site geo:hasGeometry/geo:asWKT ?w .
+      ?site geo:hasDefaultGeometry/geo:asWKT ?w .
       OPTIONAL { ?action dcterms:description ?desc }
       OPTIONAL { ?action reg:targetPermit ?permit }
       OPTIONAL { ?app core:applicabilityPeriod/core:applicableFrom ?completion .
@@ -207,10 +258,10 @@ const Q = {
   // existed at all, and this query could not have been written.)
   samplingPoints: `${PREFIXES}
     SELECT ?sp ?label ?typeLabel ?status (SAMPLE(?w) AS ?wkt) (SAMPLE(?p) AS ?permit) WHERE {
-      ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?w .
+      ?sp a sosa:FeatureOfInterest ; geo:hasDefaultGeometry/geo:asWKT ?w .
       OPTIONAL { ?sp skos:prefLabel ?label }
-      OPTIONAL { ?sp water:samplingPointType/skos:prefLabel ?typeLabel }
-      OPTIONAL { ?sp water:samplingPointStatus ?status }
+      OPTIONAL { ?sp wr:samplingPointType/skos:prefLabel ?typeLabel }
+      OPTIONAL { ?sp wr:samplingPointStatus ?status }
       OPTIONAL { ?dp water:monitoredAt ?sp . ?p reg:permitSite ?dp }
     } GROUP BY ?sp ?label ?typeLabel ?status`,
 
@@ -254,7 +305,7 @@ const Q = {
 // Each of these reproduces, as ONE declarative query, the row set the table shows — so a viewer can
 // open the exact question the table answers and run it. They are a SEPARATE, hand-maintained
 // representation from the runtime `Q` queries above: the app still runs the split `Q` queries once
-// and joins them in JavaScript (to reuse results across the four views), while these fold that merge
+// and joins them in JavaScript (to reuse results across the three views), while these fold that merge
 // back into a single query for legibility. That means they CAN DRIFT from the JS join if the table
 // logic changes and one side isn't updated. That trade-off is deliberate — this is a POC about *why*
 // linked data, and the payoff is showing that every table is one answerable question, not a pile of
@@ -269,56 +320,66 @@ const CUR_VERSION = `      { SELECT ?permit (MAX(xsd:integer(REPLACE(STR(?c), ".
 const PQ = {
   // Ambient sampling points — every place the EA samples in the catchment, with what is sampled
   // there and (only if there is one) the permit that discharges into it. The OPTIONAL is the whole
-  // point: make it a plain join and the 95 points that belong to no permit vanish, which is exactly
+  // point: make it a plain join and the 91 points that belong to no permit vanish, which is exactly
   // the blind spot this view exists to remove.
+  // GROUP BY + SAMPLE, because 22 points are monitored by MORE THAN ONE outlet and the table shows one
+  // row per point. Without it this returned 187 rows for a 161-row table — and a provenance link that
+  // returns more rows than the table it claims to reproduce makes the app look like it is hiding some.
   samplingPoints: () => `${PREFIXES}
-    SELECT ?sp ?label ?typeLabel ?permit WHERE {
-      ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?wkt .
+    SELECT ?sp ?label ?typeLabel (SAMPLE(?p) AS ?permit) WHERE {
+      ?sp a sosa:FeatureOfInterest ; geo:hasDefaultGeometry/geo:asWKT ?wkt .
       OPTIONAL { ?sp skos:prefLabel ?label }
-      OPTIONAL { ?sp water:samplingPointType/skos:prefLabel ?typeLabel }
-      OPTIONAL { ?dp water:monitoredAt ?sp . ?permit reg:permitSite ?dp }
-    } ORDER BY ?typeLabel ?label`,
+      OPTIONAL { ?sp wr:samplingPointType/skos:prefLabel ?typeLabel }
+      OPTIONAL { ?dp water:monitoredAt ?sp . ?p reg:permitSite ?dp }
+    } GROUP BY ?sp ?label ?typeLabel ORDER BY ?typeLabel ?label`,
 
-  // Breaches — one row per breach period. This is the single runtime query (Q.breaches): SAMPLE +
-  // GROUP BY collapse the permit→discharge-point→sampling-point fan-out to one row per breach. The
-  // observation is joined to its sampling point through the captured sosa:hasFeatureOfInterest edge
-  // (see ttl/breaches/breaches_to_db.py), a real keyed join — not an IRI-prefix STRSTARTS filter,
-  // which the engine can't key on and which fans out to a Cartesian product at scale.
-  // reg:breachesBound names the bound that actually failed: breachesCondition alone cannot separate a
-  // single sample over an absolute maximum from a year-long 95th-percentile failure.
+  // Breaches — one row per breach period. reg:breachesLimit names the LIMIT that actually failed:
+  // breachesCondition alone cannot separate a single sample over an absolute maximum from a year-long
+  // 95th-percentile failure, because both breach the same condition. And the outlet comes from the
+  // condition itself (core:appliesTo) rather than from walking out to the permit and back down to any
+  // of its discharge points — so no SAMPLE, no GROUP BY, and no chance of reporting a breach of one
+  // outlet at another outlet's monitoring point.
   breaches: (sub) => `${PREFIXES}
-    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?statLabel ?limit ?assessment ?permit
-           (SAMPLE(?sp) AS ?sp) WHERE {
+    SELECT ?breach ?type ?from ?to ?subLabel ?subNotation ?statLabel ?limit ?limStmt ?assessment
+           ?permit ?dp ?sp WHERE {
       ?breach reg:breachesCondition ?cond ;
               core:hasApplicability/core:applicabilityPeriod ?period .
       ?period core:applicableFrom ?from .
       OPTIONAL { ?period core:applicableTo ?to }
       OPTIONAL { ?breach a ?type . FILTER(?type IN (reg:ExceedanceBreach, reg:ShortfallBreach)) }
       OPTIONAL { ?breach rdfs:comment ?assessment }
-      OPTIONAL { ?breach reg:breachesBound ?bound .
-                 OPTIONAL { ?bound qudt:numericValue ?limit }
-                 OPTIONAL { ?bound iop:hasStatisticalModifier/skos:prefLabel ?statLabel } }
-      ?cond reg:regulatedProperty ?sub .
+      OPTIONAL { ?breach wr:judgedOnUndatedVersion ?undated }
+      OPTIONAL { ?breach reg:breachesLimit ?lim .
+                 OPTIONAL { ?lim reg:limitStatement ?limStmt }
+                 OPTIONAL { ?lim reg:upperBound|reg:lowerBound ?b .
+                            OPTIONAL { ?b qudt:numericValue ?limit }
+                            OPTIONAL { ?b iop:hasStatisticalModifier/skos:prefLabel ?statLabel } } }
+      ?cond reg:regulatedProperty ?sub ; core:hasApplicability/core:appliesTo ?dp .
       ?sub skos:prefLabel ?subLabel ; skos:notation ?subNotation .
-      ?permit reg:hasCondition ?cond ; reg:permitSite ?dp .
-      ?dp water:monitoredAt ?sp .
-      ?breach reg:evidencedByObservation ?obs .
-      ?obs sosa:hasFeatureOfInterest ?sp .${sub ? `\n      FILTER(?subNotation = "${sub}")` : ""}
-    } GROUP BY ?breach ?type ?from ?to ?subLabel ?subNotation ?statLabel ?limit ?assessment ?permit`,
+      ?permit reg:hasCondition ?cond .
+      OPTIONAL { ?dp water:monitoredAt ?sp }${sub ? `\n      FILTER(?subNotation = "${sub}")` : ""}
+    }`,
 
-  // Permits & limits — one row per permit: current version, and counts of current-version limits,
-  // discharge points and breaches. The app builds this by grouping conditions and joining three more
-  // query results in JS; here it is one query with the current-version sub-select above.
+  // Permits & limits — one row per permit: current version, and counts of its current-version limits,
+  // discharge points, breaches, and — the column that matters most — the limits we could NOT assess.
+  // A permit with 0 breaches and 14 unassessed limits is not a compliant permit; it is an unexamined
+  // one, and the query that reproduces the table has to be able to say so.
   permits: (sub) => `${PREFIXES}${XSD_PFX}
     SELECT ?permit (MAX(?curV) AS ?version)
            (COUNT(DISTINCT ?curCond) AS ?currentLimits)
            (COUNT(DISTINCT ?dp) AS ?dischargePoints)
-           (COUNT(DISTINCT ?breach) AS ?breaches) WHERE {
+           (COUNT(DISTINCT ?breach) AS ?breaches)
+           (COUNT(DISTINCT ?unassessed) AS ?notAssessed) WHERE {
 ${CUR_VERSION}
       ?permit a water:WaterDischargePermit .
       OPTIONAL {
         ?permit reg:hasCondition ?curCond .
         FILTER(xsd:integer(REPLACE(STR(?curCond), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
+      }
+      OPTIONAL {
+        ?permit reg:hasCondition ?unassessed .
+        FILTER(xsd:integer(REPLACE(STR(?unassessed), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
+        ?unassessed wr:assessed false .
       }
       OPTIONAL { ?permit reg:permitSite ?dp }
       OPTIONAL { ?breach reg:breachesCondition ?bc . ?permit reg:hasCondition ?bc }${sub ? `
@@ -327,35 +388,63 @@ ${CUR_VERSION}
         ?sc reg:regulatedProperty ?scp . ?scp skos:notation "${sub}" }` : ""}
     } GROUP BY ?permit`,
 
-  // Substance story — the current permit limit joined to any proposed WINEP future limit, per permit
-  // and substance. (Simplification: this LEFT-joins from current limits, so it omits the rare
-  // proposed-only row — a future limit for a permit/substance with no current limit.)
+  // Substance story — the current permit limit, AT ITS OUTLET, beside any WINEP action proposing a
+  // future limit for the same permit and substance. Two things this has to get right, and neither is
+  // incidental:
+  //
+  //  1. A condition holds SEVERAL Limits — one per statistic, one per season. The table shows a
+  //     condition on ONE row, so the query GROUP_CONCATs the register's own statement of each Limit
+  //     rather than emitting a row per bound. (Left as a plain join it returned 56 rows for a 34-row
+  //     ammonia table — a provenance link that returns more rows than the table it claims to reproduce
+  //     is worse than no link at all.)
+  //
+  //  2. The UNION is the proposed-only case: a WINEP action proposing a limit for a substance the
+  //     permit does NOT currently regulate — a genuinely NEW limit. That is the entire nitrogen story
+  //     in this catchment (7 actions propose a total-nitrogen limit; exactly 1 permit has one today),
+  //     and the query used to omit it, so the link under-reported the table by 6 rows on the one
+  //     substance the demonstrator exists to talk about.
   substanceStory: (sub) => `${PREFIXES}${XSD_PFX}
-    SELECT ?permit ?subLabel ?currentUpper ?currentStat ?unit ?monitoredAt ?action ?actionName ?completion ?proposedUpper WHERE {
+    SELECT ?permit ?dp ?subLabel
+           (GROUP_CONCAT(DISTINCT ?limitText; separator=" · ") AS ?currentLimit)
+           ?assessed ?monitoredAt ?action ?actionName ?completion ?proposedLimit WHERE {
+      {
+        # the permit currently regulates this substance, at this outlet
 ${CUR_VERSION}
-      ?permit reg:hasCondition ?cond .
-      FILTER(xsd:integer(REPLACE(STR(?cond), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
-      ?cond reg:regulatedProperty ?sub . ?sub skos:notation ?subNotation ; skos:prefLabel ?subLabel .${sub ? `
-      FILTER(?subNotation = "${sub}")` : ""}
-      OPTIONAL { ?cond reg:hasLimit/reg:upperBound ?ub . ?ub qudt:numericValue ?currentUpper .
-                 OPTIONAL { ?ub iop:hasStatisticalModifier ?currentStat }
-                 OPTIONAL { ?ub qudt:unit/skos:prefLabel ?unit } }
-      OPTIONAL { ?permit reg:permitSite/water:monitoredAt ?monitoredAt }
-      OPTIONAL { ?action reg:targetPermit ?permit ; reg:proposesLimit ?lim ; rdfs:label ?actionName .
-                 ?lim reg:regulatedProperty ?s2 . ?s2 skos:notation ?subNotation .
-                 OPTIONAL { ?action core:applicabilityPeriod/core:applicableFrom ?completion }
-                 OPTIONAL { ?lim reg:upperBound/qudt:numericValue ?proposedUpper } }
-    }`,
+        ?permit reg:hasCondition ?cond .
+        FILTER(xsd:integer(REPLACE(STR(?cond), ".*/version/([0-9]+)/.*", "$1")) = ?curV)
+        ?cond reg:regulatedProperty ?sub ; core:hasApplicability/core:appliesTo ?dp .
+        ?sub skos:notation ?subNotation ; skos:prefLabel ?subLabel .${sub ? `
+        FILTER(?subNotation = "${sub}")` : ""}
+        OPTIONAL { ?cond wr:assessed ?assessed }
+        OPTIONAL { ?cond reg:hasLimit/reg:limitStatement ?limitText }
+        OPTIONAL { ?dp water:monitoredAt ?monitoredAt }
+        OPTIONAL { ?action reg:targetPermit ?permit ; reg:proposesLimit ?lim ; rdfs:label ?actionName .
+                   ?lim reg:regulatedProperty/skos:notation ?subNotation .
+                   OPTIONAL { ?action core:applicabilityPeriod/core:applicableFrom ?completion }
+                   OPTIONAL { ?lim reg:limitStatement ?proposedLimit } }
+      } UNION {
+        # a proposed limit for a substance this permit does NOT currently regulate — a NEW limit
+        ?action reg:targetPermit ?permit ; reg:proposesLimit ?lim ; rdfs:label ?actionName .
+        ?lim reg:regulatedProperty ?sub .
+        ?sub skos:notation ?subNotation ; skos:prefLabel ?subLabel .${sub ? `
+        FILTER(?subNotation = "${sub}")` : ""}
+        OPTIONAL { ?action core:applicabilityPeriod/core:applicableFrom ?completion }
+        OPTIONAL { ?lim reg:limitStatement ?proposedLimit }
+        FILTER NOT EXISTS { ?permit reg:hasCondition ?c2 . ?c2 reg:regulatedProperty ?sub }
+      }
+    } GROUP BY ?permit ?dp ?subLabel ?assessed ?monitoredAt ?action ?actionName ?completion ?proposedLimit`,
 
-  // WINEP actions — one row per action with a count of the future limits it proposes (Q.actions plus
-  // the proposed-limit join the app does as limByAction).
-  actions: () => `${PREFIXES}
+  // WINEP actions — one row per action with a count of the future limits it proposes. The substance
+  // filter is applied here too: it used to be ignored entirely, so with a substance selected this
+  // returned all 11 actions for a table showing 1.
+  actions: (sub) => `${PREFIXES}
     SELECT ?action ?label ?completion ?permit (COUNT(DISTINCT ?limit) AS ?limits) WHERE {
       ?action a reg:Action ; rdfs:label ?label .
       OPTIONAL { ?action reg:targetPermit ?permit }
       OPTIONAL { ?ap core:applicabilityPeriod/core:applicableFrom ?completion .
                  FILTER(STRSTARTS(STR(?ap), CONCAT(STR(?action), "#"))) }
-      OPTIONAL { ?action reg:proposesLimit ?limit }
+      OPTIONAL { ?action reg:proposesLimit ?limit }${sub ? `
+      FILTER EXISTS { ?action reg:proposesLimit/reg:regulatedProperty/skos:notation "${sub}" }` : ""}
     } GROUP BY ?action ?label ?completion ?permit ORDER BY ?completion`,
 
   // Applications — one row per SFI application with its option count and total annual payment
@@ -401,10 +490,23 @@ async function sparql(query) {
 // ---------------------------------------------------------------------------
 // WKT parsing + reprojection
 // ---------------------------------------------------------------------------
+// A GeoSPARQL wktLiteral is an OPTIONAL CRS URI, then the WKT:
+//
+//     <http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400690 93850)
+//     MULTIPOINT (-2.64 50.78, …)                       <- no URI: CRS84 by default
+//
+// The URI must be cut off BEFORE the numbers are read, and not merely ignored — it is full of digits
+// ("…/EPSG/0/27700", "…/OGC/1.3/CRS84"), and a regex that scrapes every number out of the raw literal
+// happily turns them into a phantom coordinate pair. That bug was live here: it survived only because
+// the literals carrying a CRS were all single POINTs and only points[0] was ever read.
+const CRS_URI = /^\s*<([^>]+)>\s*/;
 function parseWkt(wkt) {
   // Returns { points: [[lat, lon], ...] } in WGS84.
-  const bng = wkt.includes("27700");
-  const nums = wkt.match(/-?\d+\.?\d*/g);
+  const m = CRS_URI.exec(wkt);
+  const crs = m ? m[1] : "";
+  const body = m ? wkt.slice(m[0].length) : wkt;
+  const bng = crs.includes("27700");
+  const nums = body.match(/-?\d+\.?\d*/g);
   if (!nums) return { points: [] };
   const pairs = [];
   for (let i = 0; i + 1 < nums.length; i += 2) {
@@ -484,6 +586,12 @@ const spOf = (obsOrSp) => {
   const m = /sampling-point\/([^/]+)/.exec(obsOrSp || "");
   return m ? m[1] : null;
 };
+// "…/permit/042116/outlet/1/effluent/2" -> "1/2". The outlet is now part of a condition's identity, so
+// the app has to be able to name it: a permit does not have a BOD limit, each of its outlets does.
+const outletOf = (dpIri) => {
+  const m = /\/outlet\/([^/]+)\/effluent\/([^/#]+)/.exec(dpIri || "");
+  return m ? `${unescIri(m[1])}/${unescIri(m[2])}` : null;
+};
 const fmtNum = (v) => {
   if (v == null || v === "") return "";
   const n = Number(v);
@@ -531,25 +639,70 @@ const parseResult = (r) => {
 const BINDING = ["percentile-95", "annual-average", "median", "maximum"]; // first present wins
 const PER_SAMPLE = ["maximum"];                                           // judgeable from one sample
 
-// From a {statSlug: value} map, the binding bound: {stat, value} | null.
+// `uppers` maps a statistic slug to the LIST of bounds carrying it — a list, because a bound can also
+// vary by SEASON. Permit 040067's 95th-percentile BOD limit is 15 mg/l from May to October and 20 mg/l
+// from November to April: one statistic, two obligations. Reducing that to a single number means
+// publishing one of them all year, and the old pipeline picked the loosest.
+//
+// tightest() is what the app shows when it has to show ONE number: the strictest value the permit ever
+// requires. That is the honest summary — it never claims the permit is slacker than it is. The seasonal
+// detail is never lost: it is on the condition (c.seasonal), in the limit statement, and on the chart,
+// whose limit line steps with the month.
+const tightest = (bounds) => bounds.reduce((a, b) => (b.value < a.value ? b : a), bounds[0]);
+
+// From a {statSlug: [bound]} map, the binding bound: {stat, value, seasonal} | null.
 function bindingBound(uppers) {
   if (!uppers) return null;
-  for (const stat of BINDING)
-    if (uppers[stat] != null) return { stat, value: Number(uppers[stat]) };
-  const [stat, value] = Object.entries(uppers)[0] || [];
-  return stat ? { stat, value: Number(value) } : null;
+  const pick = (stat) => {
+    const bs = uppers[stat];
+    if (!bs || !bs.length) return null;
+    return { stat, value: tightest(bs).value, seasonal: bs.length > 1 ? bs : null };
+  };
+  for (const stat of BINDING) { const b = pick(stat); if (b) return b; }
+  const first = Object.keys(uppers)[0];
+  return first ? pick(first) : null;
 }
 // The per-sample ceiling, if any — the only upper bound a single observation can actually breach.
 const perSampleUpper = (uppers) => {
   if (!uppers) return null;
-  for (const stat of PER_SAMPLE) if (uppers[stat] != null) return Number(uppers[stat]);
+  for (const stat of PER_SAMPLE)
+    if (uppers[stat] && uppers[stat].length) return tightest(uppers[stat]).value;
   return null;
 };
+// Does month m (1-12) fall in the register's [from, to] range? The range wraps: 11 -> 04 is winter.
+const inSeason = (m, from, to) => {
+  const a = Number(from), b = Number(to);
+  return a <= b ? m >= a && m <= b : m >= a || m <= b;
+};
+// The bound in force at time t, from a statistic's (possibly seasonal) bounds.
+function boundAt(bounds, t) {
+  if (!bounds || !bounds.length) return null;
+  if (bounds.length === 1) return bounds[0];
+  const m = new Date(t).getMonth() + 1;
+  return bounds.find((b) => b.from && inSeason(m, b.from, b.to)) || bounds[0];
+}
 
-// Current + proposed limits for (permit, substance), and the monitored unit.
-function chartContext(subNotation, permit) {
+// Current + proposed limits for the substance AT THE OUTLET MONITORED BY `sp`, and the monitored unit.
+//
+// The sampling point is what picks the condition, and it has to be. A permit does not have one BOD
+// limit: permit 042116 caps BOD at 15 mg/l on effluent 1 and 25 mg/l on effluent 2, and those two
+// effluents are sampled at two DIFFERENT points. Charting SW-50440194's series against "042116's BOD
+// limit" would draw the wrong line — 25 where the permit says 15 — which is exactly what the app did
+// before the conditions carried their outlet. The identifier the register states (water:monitoredAt)
+// is what resolves it; nothing about the geometry helps at all.
+function chartContext(subNotation, permit, sp) {
   const sub = DB.substances.find((s) => s.notation === subNotation);
-  const cond = DB.conditionsCurrent.find((c) => c.permit === permit && c.subNotation === subNotation);
+  const forSub = (c) => c.permit === permit && c.subNotation === subNotation;
+  // The outlet this sampling point actually monitors. Fall back to any condition on the permit only
+  // when the point names none — and say so, rather than quietly charting another outlet's limit.
+  const dps = DB.dischargePoints.filter((d) => d.permit === permit && d.sp === sp).map((d) => d.iri);
+  const exact = DB.conditionsCurrent.filter((c) => forSub(c) && dps.includes(c.dp));
+  const cond = exact[0] || null;
+  const others = DB.conditionsCurrent.filter(forSub);
+  // more than one outlet of this permit is monitored HERE, and they disagree: say so on the chart
+  const ambiguous = exact.length > 1 && new Set(exact.map((c) => c.upper)).size > 1;
+  const unresolved = !cond && others.length > 0;
+
   const proposed = [];
   for (const l of DB.proposed) {
     if (l.subNotation !== subNotation) continue;
@@ -564,11 +717,17 @@ function chartContext(subNotation, permit) {
     upper: binding ? binding.value : null,            // THE limit (binding), drawn as the limit line
     upperStat: binding ? binding.stat : null,
     upperStatLabel: binding && cond.statLabels ? cond.statLabels[binding.stat] : null,
+    seasonal: binding ? binding.seasonal : null,      // the limit line steps with the month
     // the per-sample ceiling, only when it is NOT already the binding bound — i.e. the upper tier
     maxUpper: binding && binding.stat !== "maximum" ? maxUpper : null,
     lower: cond && cond.lower != null ? Number(cond.lower) : null,
+    outlet: cond ? cond.outlet : null,
+    assessed: cond ? cond.assessed : null,
+    notAssessed: cond ? cond.notAssessed : null,
+    ambiguous,
+    unresolved,
     version: DB.currentVersion[permit], // current (latest) version number
-    steps: (DB.limitHistory[`${permit}|${subNotation}`] || []), // dated version windows for the step line
+    steps: (cond && DB.limitHistory[`${cond.dp}|${subNotation}`]) || [], // dated windows for the step line
     proposed,
   };
 }
@@ -582,8 +741,15 @@ function chartContext(subNotation, permit) {
 function limitAt(steps, t, fb) {
   if (!steps.length) return fb;
   for (const s of steps) {
-    if (s.from <= t && (s.to == null || t <= s.to))
-      return { upper: s.upper, upperStat: s.upperStat, maxUpper: s.maxUpper, lower: s.lower };
+    if (s.from <= t && (s.to == null || t <= s.to)) {
+      // Within the version, the bound can still change with the MONTH (permit 040067's BOD is 15 mg/l
+      // May–Oct and 20 mg/l Nov–Apr). Pick the one that was actually in force on the day.
+      const b = s.upperStat ? boundAt(s.uppersRaw && s.uppersRaw[s.upperStat], t) : null;
+      return {
+        upper: b ? b.value : s.upper, upperStat: s.upperStat,
+        maxUpper: s.maxUpper, lower: s.lower,
+      };
+    }
   }
   const lastEnd = Math.max(...steps.map((s) => (s.to == null ? Infinity : s.to)));
   if (t > lastEnd) return fb;                                          // beyond the last dated window
@@ -599,7 +765,7 @@ let shownChart = null; // { ctx, obs, meta } | null
 // observations. `at` pins the map on the point itself when there is no discharge point to fly to.
 async function openChart(subNotation, sp, permit, at) {
   const chart = document.getElementById("chart");
-  const ctx = chartContext(subNotation, permit);
+  const ctx = chartContext(subNotation, permit, sp);
   document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
   const body = document.getElementById("chart-body");
   chart.classList.remove("hidden");
@@ -1018,6 +1184,17 @@ const permitLink = (iri) =>
 const wqeLink = (sp) =>
   sp ? `<a class="ext-link" href="${WQE}${esc(sp)}" target="_blank" rel="noopener">${esc(sp)} ↗</a>` : "—";
 
+// Filter the breach table down to one permit. Set from a discharge point's popup, so "12 past
+// breaches" can be a link to the rows rather than twelve lines of popup nobody will read.
+let breachPermit = null;
+window.filterBreaches = (permitIri) => {
+  breachPermit = permitIri;
+  render();
+  const el = document.getElementById("breach-card");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+window.clearBreachFilter = () => { breachPermit = null; render(); };
+
 const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
 const actionMarkers = {}; // WINEP action IRI -> marker (current render), for table<->map focus
 // Farming overlap disambiguation: applications overlap heavily, so we keep each drawn polygon and
@@ -1113,14 +1290,19 @@ async function loadAll() {
   // reduce each version to its binding limit + per-sample ceiling — same rule as the conditions above.
   const histMap = {};
   for (const r of limitHistory) {
-    const key = `${r.permit}|${r.subNotation}`;
+    const key = `${r.dp}|${r.subNotation}`;                 // per OUTLET, not per permit
     const vk = `${key}|${r.version}`;
-    (histMap[vk] ||= {
+    const h = (histMap[vk] ||= {
       key, version: r.version, from: Date.parse(r.from), to: r.to ? Date.parse(r.to) : null,
       uppers: {}, lower: null,
     });
-    if (r.upper != null) histMap[vk].uppers[r.stat ? last(r.stat) : "maximum"] = r.upper;
-    if (r.lower != null) histMap[vk].lower = Number(r.lower);
+    if (r.upper != null) {
+      const stat = r.stat ? last(r.stat) : "maximum";
+      (h.uppers[stat] ||= []).push({
+        value: Number(r.upper), from: r.monthFrom || null, to: r.monthTo || null,
+      });
+    }
+    if (r.lower != null) h.lower = h.lower == null ? Number(r.lower) : Math.max(h.lower, Number(r.lower));
   }
   DB.limitHistory = {};
   for (const h of Object.values(histMap)) {
@@ -1130,6 +1312,8 @@ async function loadAll() {
       version: h.version, from: h.from, to: h.to,
       upper: b ? b.value : null,
       upperStat: b ? b.stat : null,
+      // the raw per-statistic bounds, so limitAt() can pick the one in force in the sample's MONTH
+      uppersRaw: h.uppers,
       maxUpper: b && b.stat !== "maximum" ? mx : null,
       lower: h.lower,
     });
@@ -1139,18 +1323,21 @@ async function loadAll() {
   // Breaches are periods. current = the period is still open (no applicableTo) i.e. nothing has
   // passed since it started; past = closed with a from/to. A lone failure has from == to.
   DB.breaches = breaches.map((b) => {
-    const p = parseWkt(b.wkt).points[0] || null;
+    const p = b.wkt ? (parseWkt(b.wkt).points[0] || null) : null;
     return {
       iri: b.breach, from: b.from, to: b.to || null, current: !b.to,
       subLabel: b.subLabel, subNotation: b.subNotation, permit: b.permit,
       version: verOf(b.cond), // the permit version whose limit was breached
-      sp: spOf(b.sp), type: b.type ? last(b.type) : "ConditionBreach",
-      // WHICH bound failed — the statistic, the value it breached, and the assessment in words.
+      dp: b.dp, outlet: outletOf(b.dp),   // the OUTLET it happened at — the condition names it
+      sp: spOf(b.sp), type: b.type ? last(b.type) : "LimitBreach",
+      // WHICH limit failed — the statistic, the value, the register's own words, and the arithmetic.
       stat: b.stat ? last(b.stat) : null,
       statLabel: b.statLabel || null,
       limit: b.limit != null ? Number(b.limit) : null,
+      limStmt: b.limStmt || null,
       unit: b.unitLabel || null,
       assessment: b.assessment || null,
+      undated: b.undated === "true",   // judged against a version the register does not date
       lat: p ? p[0] : null, lon: p ? p[1] : null,
     };
   });
@@ -1163,26 +1350,38 @@ async function loadAll() {
     return { iri: d.dp, permit: d.permit, sp: spOf(d.sp), lat: p ? p[0] : null, lon: p ? p[1] : null };
   });
 
-  // Conditions grouped per (permit, condition). Each condition belongs to a permit VERSION;
-  // a permit's in-force limits are those of its latest (max) version, so mark current vs superseded.
+  // Conditions, one per (permit VERSION, discharge point, substance) — the grain the register sets
+  // limits at. `dp` is the outlet the condition governs (core:appliesTo). A permit's in-force limits
+  // are those of its latest (max) version, so mark current vs superseded.
   const condMap = {};
   for (const c of conditions) {
     const key = c.cond;
-    (condMap[key] ||= {
-      permit: c.permit, cond: c.cond, version: verOf(c.cond),
+    const e = (condMap[key] ||= {
+      permit: c.permit, cond: c.cond, dp: c.dp, version: verOf(c.cond),
+      outlet: outletOf(c.dp),
       subLabel: c.subLabel, subNotation: c.subNotation,
-      uppers: {}, statLabels: {}, lower: null, unit: null,
+      uppers: {}, statLabels: {}, lower: null, unit: null, stmts: [],
+      // wr:assessed absent => the breach pipeline never saw this condition at all.
+      assessed: c.assessed === "true", notAssessed: c.notAssessed || null,
     });
-    // Several rows per condition — one per upper bound. Key them by statistic; anything else
-    // (the old `upper = c.upper`) is last-one-wins across bounds that mean different things, so a
-    // permit's binding 95th-percentile limit and its looser upper-tier maximum would race.
-    if (c.upper != null) {
+    // One row per LIMIT. Bounds are keyed by statistic and collected as a LIST, because a statistic
+    // can carry more than one bound — one per season. Flattening to a single value is what the old
+    // pipeline did, and it published the loosest: permit 040067's BOD read 20 mg/l all year when from
+    // May to October the permit requires 15.
+    if (c.upper != null || c.lower != null) {
       const stat = c.stat ? last(c.stat) : "maximum"; // an unqualified bound is an absolute ceiling
-      condMap[key].uppers[stat] = c.upper;
-      if (c.statLabel) condMap[key].statLabels[stat] = c.statLabel;
+      if (c.statLabel) e.statLabels[stat] = c.statLabel;
+      if (c.upper != null) {
+        (e.uppers[stat] ||= []).push({
+          value: Number(c.upper), from: c.monthFrom || null, to: c.monthTo || null,
+        });
+      }
+      // No seasonal lower bound exists in this catchment; keep the tightest (highest) if one appears.
+      if (c.lower != null) e.lower = e.lower == null ? Number(c.lower)
+        : Math.max(e.lower, Number(c.lower));
     }
-    if (c.lower != null) condMap[key].lower = c.lower;
-    if (c.unitLabel) condMap[key].unit = c.unitLabel;
+    if (c.unitLabel) e.unit = c.unitLabel;
+    if (c.stmt && !e.stmts.includes(c.stmt)) e.stmts.push(c.stmt);
   }
   // Flatten each condition's bounds to the binding limit + the per-sample ceiling (see BINDING).
   for (const c of Object.values(condMap)) {
@@ -1190,6 +1389,7 @@ async function loadAll() {
     c.upper = b ? b.value : null;
     c.upperStat = b ? b.stat : null;
     c.upperStatLabel = b ? c.statLabels[b.stat] : null;
+    c.seasonal = b ? b.seasonal : null;   // [{value, from, to}] when the bound changes with the month
     const mx = perSampleUpper(c.uppers);
     c.maxUpper = b && b.stat !== "maximum" ? mx : null;
   }
@@ -1199,6 +1399,8 @@ async function loadAll() {
     DB.currentVersion[c.permit] = Math.max(DB.currentVersion[c.permit] ?? -Infinity, Number(c.version) || 0);
   for (const c of DB.conditions) c.current = Number(c.version) === DB.currentVersion[c.permit];
   DB.conditionsCurrent = DB.conditions.filter((c) => c.current);
+  // Current conditions per discharge point — what a given outlet is actually required to do.
+  DB.condByDp = groupBy(DB.conditionsCurrent, "dp");
 
   DB.actions = actions.map((a) => {
     const p = parseWkt(a.wkt).points[0] || null;
@@ -1380,21 +1582,49 @@ const matchSub = (n) => !currentSubstance || n === currentSubstance;
 // Neither is a view of the other. A permit is not evidence that anything was measured, and a
 // measurement is not evidence that anything was permitted. Keeping the two apart on the screen is
 // what makes it possible to ask the question that matters — where do they disagree?
+const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+
 const LEDE = {
+  // TWO SENTENCES, and the substance case gets its own. They used to share one, which produced
+  // "61 discharge permits for Nitrogen, Total as N (60 with limits in the store): 1 limits in force" —
+  // because the permit and outlet counts were the WHOLE catchment while the limit and breach counts
+  // were filtered to the substance. Mixing a filtered count and an unfiltered one in a single sentence
+  // is not a wording problem; it is two different questions answered as though they were one.
   regulated: (n, lbl) => {
-    const sub = n.substance ? ` for <b>${esc(lbl)}</b>` : "";
-    // The store holds outlets for every scoped permit but limits only for the ones whose substances
-    // were actually sampled (see ttl/regulation/regulation_to_db.py). Say so rather than let the
-    // table's count silently disagree with the headline.
-    const withLimits = n.permitsWithLimits < n.permits
-      ? ` <span class="muted">(${n.permitsWithLimits} with limits in the store)</span>` : "";
-    return `<b>The regulated world</b> — what the register permits, and what has failed it. ` +
-      `<b>${n.permits} discharge permits</b>${sub}${withLimits}: <b>${n.limits} limits</b> in force, ` +
-      `<b>${n.breaches} condition breaches</b> of them (<b>${n.current} current</b> — nothing has passed since the breach began), ` +
-      `and <b>${n.works} WINEP actions</b> proposing the limits that will replace them. ` +
-      `Each is linked to its permit by identifier, not by location: the ${n.outlets} outlets sit on just ` +
-      `<b>${n.coords} distinct coordinates</b>, so a map alone cannot tell them apart ` +
+    const notAssessed = n.notAssessed
+      ? ` <b>${n.notAssessed}</b> of those limits <b>could not be assessed at all</b> ` +
+        `<span class="muted">(no dated permit version, no sampling point, or no sample ever taken)</span> — ` +
+        `which is not the same as passing. `
+      : "";
+    const geometry =
+      `Every one of these is linked to its permit <b>by identifier, not by location</b>: the catchment's ` +
+      `<b>${n.mapped}</b> mapped outlets sit on just <b>${n.coords} distinct coordinates</b>, and ` +
+      `<b>${n.unmapped}</b> more have no coordinate at all — so a map alone cannot tell them apart, or ` +
+      `in ${n.unmapped === 1 ? "one case" : "those cases"} even find them ` +
       `(<a href="points.html" target="_blank" rel="noopener">why that matters</a>).`;
+
+    const breached = n.breaches === 0
+      ? `and <b>none has been breached</b>`
+      : `and <b>${plural(n.breaches, "breach", "breaches")}</b> of them (<b>${n.current}</b> still open)`;
+    const works = (what) => n.works === 0
+      ? `No WINEP action proposes to change ${what}. `
+      : `<b>${plural(n.works, "WINEP action")}</b> propose${n.works === 1 ? "s" : ""} to change ${what}. `;
+
+    if (n.substance) {
+      return `<b>The regulated world</b>, for <b>${esc(lbl)}</b>. ` +
+        `<b>${plural(n.permitsForSub, "permit")}</b> ${n.permitsForSub === 1 ? "sets" : "set"} a limit ` +
+        `for it, across <b>${plural(n.outletsForSub, "outlet")}</b>: ` +
+        `<b>${plural(n.limits, "limit")}</b> in force, ${breached}. ` + notAssessed +
+        works("them") + geometry;
+    }
+    // The store holds outlets for every scoped permit, but a permit only has limits here if the
+    // register sets one. Say so rather than let the table's count silently disagree with the headline.
+    const withLimits = n.permitsWithLimits < n.permits
+      ? ` <span class="muted">(${n.permitsWithLimits} of them carry limits)</span>` : "";
+    return `<b>The regulated world</b> — what the register permits, and what has failed it. ` +
+      `<b>${plural(n.permits, "discharge permit")}</b>${withLimits} over ` +
+      `<b>${plural(n.outlets, "outlet")}</b>: <b>${plural(n.limits, "limit")}</b> in force, ${breached}. ` +
+      notAssessed + works("the limits in force") + geometry;
   },
   measured: (n, lbl) =>
     `<b>The measured world</b> — what the sampling actually finds, whatever the source. ` +
@@ -1520,11 +1750,23 @@ function breachPeriod(b) {
 // A condition's bound(s) as "≤ X (95th percentile) ≤ Y (upper tier) ≥ Z", the statistic named on each.
 // Without it "≤ 20" and "≤ 48" look like the same kind of promise, and they are not: the first is what
 // the permit requires, the second is the ceiling a single sample may not cross.
+// A seasonal limit is shown as BOTH values with their months, never as one. Permit 040067's BOD is
+// 15 mg/l from May to October and 20 mg/l from November to April; collapsing that to a single figure
+// is what the store used to do, and it published the winter number all year.
+const MONTH = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const season = (b) => (b.from ? ` <span class="muted">${MONTH[+b.from]}–${MONTH[+b.to]}</span>` : "");
+
 function limitBounds(c) {
   const parts = [];
-  if (c.upper != null) {
-    const stat = c.upperStatLabel && c.upperStat !== "maximum" ? ` (${esc(c.upperStatLabel)})` : "";
-    parts.push("≤ " + fmtNum(c.upper) + stat);
+  if (c.seasonal) {
+    const statLbl = c.upperStatLabel && c.upperStat !== "maximum" ? ` (${esc(c.upperStatLabel)})` : "";
+    parts.push(c.seasonal.slice()
+      .sort((a, b) => a.value - b.value)
+      .map((b) => "≤ " + fmtNum(b.value) + season(b))
+      .join(" · ") + statLbl);
+  } else if (c.upper != null) {
+    const statLbl = c.upperStatLabel && c.upperStat !== "maximum" ? ` (${esc(c.upperStatLabel)})` : "";
+    parts.push("≤ " + fmtNum(c.upper) + statLbl);
   }
   if (c.maxUpper != null) parts.push("≤ " + fmtNum(c.maxUpper) + " (upper tier)");
   if (c.lower != null) parts.push("≥ " + fmtNum(c.lower));
@@ -1534,26 +1776,64 @@ function limitBounds(c) {
 function limitRange(c) {
   return limitBounds(c) + (c.unit ? " " + prettyUnit(c.unit) : "");
 }
-// One unified popup per discharge point: identity + WQE link, its breaches (current/past), and
-// the in-force (current-version) limits. Shown whether or not the point has any breaches.
+// Why a condition could not be assessed, in plain English. The graph gives the reason as a SKOS
+// notation (wr:notAssessedBecause); this is the only place it is turned into prose.
+const OBSTACLE = {
+  "ambiguous-version-history": "the permit has several versions and the register dates none of them, so there is no way to tell which limits applied on the day a sample was taken",
+  "no-sampling-point": "the register names no sampling point for this outlet — nothing monitors it",
+  "sampling-point-unpublished": "the archive publishes no data for this outlet's sampling point",
+  "no-observations": "no compliance sample has ever been taken for this determinand here",
+  "no-observations-in-a-dated-window": "the samples we hold fall outside every dated version of the permit",
+  "too-few-samples": "too few samples in any 12-month window for the method to reach a verdict",
+};
+// A condition's status as a pill. The distinction this draws is the entire point of the store: a
+// condition NOT ASSESSED is not a condition that passed. Three states, never two.
+function condStatus(c, breached) {
+  if (breached) return '<span class="pill current">breached</span>';
+  if (c.assessed) return '<span class="pill ok">assessed — no breach</span>';
+  const why = OBSTACLE[c.notAssessed] || "not examined";
+  return `<span class="pill unknown" title="${esc(why)}">not assessed</span>`;
+}
+
+// One unified popup per discharge point: identity + WQE link, its breaches, and the in-force limits —
+// each with whether we could actually judge it.
+//
+// CURRENT breaches are listed: there are few, they are the news, and they are what a reader opened the
+// popup for. PAST breaches are COUNTED, with a link that filters the breach table to this permit —
+// because a works with a long history can carry dozens, and a popup that unrolls all of them is a wall
+// of text that buries the one thing that matters. The table is where a list belongs; it sorts, it
+// pages, and it carries the assessment detail the popup has no room for.
 function dischargePopup(dp, currentConds, cur, past) {
-  const wqe = wqeLink(dp.sp);
+  const wqe = dp.sp ? wqeLink(dp.sp) : '<span class="muted">no sampling point — the register names none</span>';
+  const breachedSub = new Set([...cur, ...past].map((b) => b.subNotation));
   let breaches = "";
   if (cur.length || past.length) {
-    const line = (b) => `${esc(b.subLabel)} — ${breachPeriod(b)}`;
+    const line = (b) => `${esc(b.subLabel)} — ${breachPeriod(b)}` +
+      (b.undated ? ' <span class="muted">(undated permit version)</span>' : "");
+    const pastCell = past.length
+      ? `${plural(past.length, "breach", "breaches")} ` +
+        `<span class="sub-link" onclick="event.stopPropagation();filterBreaches('${dp.permit}')">show in the table ↓</span>`
+      : "none";
     breaches = `<hr><div class="kv"><b>Breaches</b><br>
       <b>Current:</b> ${cur.length ? cur.map(line).join("<br>") : "none"}<br>
-      <b>Past:</b> ${past.length ? past.map(line).join("<br>") : "none"}</div>`;
+      <b>Past:</b> ${pastCell}</div>`;
   }
   const limits = currentConds.length
     ? currentConds.slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel))
-        .map((c) => `${subLink(c.subLabel, c.subNotation, dp.sp, dp.permit)}: ${limitRange(c)}`).join("<br>")
+        .map((c) => `${subLink(c.subLabel, c.subNotation, dp.sp, dp.permit)}: ${limitRange(c)} `
+                  + condStatus(c, breachedSub.has(c.subNotation))).join("<br>")
     : "—";
-  return `<h3>Discharge point</h3>
+  const nUn = currentConds.filter((c) => !c.assessed).length;
+  const caveat = nUn
+    ? `<div class="kv muted" style="margin-top:6px">${nUn} of ${currentConds.length} condition${
+        currentConds.length === 1 ? "" : "s"} could not be assessed. That is not the same as passing.</div>`
+    : "";
+  return `<h3>Discharge point <span class="muted">${esc(outletOf(dp.iri) || "")}</span></h3>
     <div class="kv"><b>Permit:</b> ${permitRef(dp.permit)}<br>
     <b>Monitored at:</b> ${wqe}</div>
     ${breaches}
-    <hr><div class="kv"><b>Current limits</b> <span style="color:#777">(v${DB.currentVersion[dp.permit] ?? "?"})</span><br>${limits}</div>`;
+    <hr><div class="kv"><b>Current limits</b> <span style="color:#777">(v${DB.currentVersion[dp.permit] ?? "?"})</span><br>${limits}</div>
+    ${caveat}`;
 }
 function actionPopup(a, limits) {
   // Substances here open the time-series chart for the action's target permit, exactly as they do in
@@ -1593,16 +1873,29 @@ function limitLines(limits) {
   return lines;
 }
 
-// The permit's current in-force limit for a substance, as text — for showing alongside the proposed
-// limit. Returns null when the substance isn't currently regulated on that permit (i.e. a new limit).
+// The permit's current in-force limit for a substance, as text — for showing alongside a WINEP
+// proposed limit. Returns null when the substance isn't currently regulated on that permit.
+//
+// A WINEP action names a PERMIT, not an outlet, and a permit's outlets can carry different limits for
+// the same substance. So there may be several "current" limits and the action does not say which it
+// means. Where they disagree we show the TIGHTEST and say how many there are, rather than picking one
+// and presenting it as the answer — the ambiguity is in the source, and hiding it would be the same
+// mistake as every other one this store is here to expose.
 function currentLimitFor(permit, subNotation) {
-  const c = DB.conditionsCurrent.find((x) => x.permit === permit && x.subNotation === subNotation);
-  if (!c) return null;
+  const cs = DB.conditionsCurrent.filter((x) => x.permit === permit && x.subNotation === subNotation);
+  if (!cs.length) return null;
+  const withUpper = cs.filter((c) => c.upper != null);
+  const c = withUpper.length
+    ? withUpper.reduce((a, b) => (b.upper < a.upper ? b : a))
+    : cs[0];
   const u = prettyUnit(c.unit);
   const parts = [];
   if (c.upper != null && c.upper !== "") parts.push(`≤ ${fmtNum(c.upper)}`);
   if (c.lower != null && c.lower !== "") parts.push(`≥ ${fmtNum(c.lower)}`);
-  return parts.length ? parts.join(" ") + (u ? " " + u : "") : null;
+  if (!parts.length) return null;
+  const distinct = new Set(cs.map((x) => `${x.upper}|${x.lower}`)).size;
+  const note = distinct > 1 ? ` <span class="muted">(tightest of ${distinct} outlets)</span>` : "";
+  return parts.join(" ") + (u ? " " + u : "") + note;
 }
 
 const drawnBounds = [];
@@ -1625,13 +1918,16 @@ function render() {
   const condByPermit = groupBy(DB.conditionsCurrent, "permit"); // current limits per permit
   const condHistByPermit = groupBy(DB.conditions, "permit");    // all versions per permit
   const breachesByPermit = groupBy(DB.breaches, "permit");
-  // breaches grouped by the discharge point they occurred at (permit + monitored sampling point)
-  const breachAtDp = {};
-  for (const b of DB.breaches) (breachAtDp[`${b.permit}|${b.sp}`] ||= []).push(b);
+  // Breaches grouped by the discharge point they occurred at. This is now a DIRECT key — the breach
+  // names its outlet, because its condition does. It used to be keyed on (permit, sampling point),
+  // which put every breach of a permit onto every outlet sharing that point.
+  const breachAtDp = groupBy(DB.breaches, "dp");
   const dpByPermit = groupBy(DB.dischargePoints, "permit");
   const limByAction = groupBy(DB.proposed, "action");
-  // (permit|version|substance) tuples that were actually breached, to flag them in the history
-  const breachedKey = new Set(DB.breaches.map((b) => `${b.permit}|${b.version}|${b.subNotation}`));
+  // (permit|version|outlet|substance) tuples that were actually breached, to flag them in the history.
+  // The OUTLET belongs in the key: without it, a breach at one of a permit's outlets flagged the same
+  // substance at all of them.
+  const breachedKey = new Set(DB.breaches.map((b) => `${b.permit}|${b.version}|${b.dp}|${b.subNotation}`));
 
   // Which actions are relevant to the substance
   const actionIdsWithSub = new Set(proposedForSub.map((l) => l.action));
@@ -1646,10 +1942,16 @@ function render() {
     // change them. They used to be three tabs, which made them read as three subjects; they are one
     // subject — a permit — seen at three points in time (in force / failed / proposed).
     show.breach = show.discharge = show.action = true;
+    // FOUR states, not three. "Not assessed" is its own colour because it is its own fact: the store
+    // holds the permit's limit and could not test it — no dated version to attribute the sample to, no
+    // sampling point, or no sample ever taken. Painting those blue alongside the outlets we DID examine
+    // and cleared would be the single most damaging thing this app could do, because "no breach found"
+    // is what a regulator reads as "compliant".
     setLegend([
-      { c: "#3aa0ff", t: "Discharge point — no breach" },
+      { c: "#3aa0ff", t: "Discharge point — assessed, no breach" },
       { c: "#e5484d", t: "current breach" },
       { c: "#f5a623", t: "past breach" },
+      { c: "#8a94a0", t: "not assessed — we could not judge it" },
       { c: "#a06bff", t: "WINEP action site (future works)" },
     ]);
     // The outlet/coordinate counts are the points.html argument, stated where the map is drawn: the
@@ -1657,14 +1959,21 @@ function render() {
     const drawnDps = DB.dischargePoints.filter((d) => d.lat != null);
     const coords = new Set(drawnDps.map((d) => `${d.lat},${d.lon}`)).size;
     document.getElementById("lede").innerHTML = LEDE.regulated({
+      // whole-catchment facts
       permits: new Set(DB.dischargePoints.map((d) => d.permit)).size,
       permitsWithLimits: new Set(DB.conditionsCurrent.map((c) => c.permit)).size,
+      outlets: DB.dischargePoints.length,            // what EXISTS — 122, not what we can draw
+      mapped: drawnDps.length,                       // what we can DRAW — 115
+      unmapped: DB.dischargePoints.length - drawnDps.length,
+      coords,
+      // substance-scoped facts (`conditions` and `breaches` are already filtered by matchSub)
+      permitsForSub: new Set(conditions.map((c) => c.permit)).size,
+      outletsForSub: new Set(conditions.map((c) => c.dp)).size,
       limits: conditions.length,
+      notAssessed: conditions.filter((c) => !c.assessed).length,
       breaches: breaches.length,
       current: breaches.filter((b) => b.current).length,
       works: currentSubstance ? actionIdsWithSub.size : DB.actions.length,
-      outlets: drawnDps.length,
-      coords,
       substance: !!currentSubstance,
     }, subLbl);
     // Substance chosen -> the limit/proposal story for it; otherwise the permit register at large.
@@ -1677,29 +1986,43 @@ function render() {
     );
   }
 
-  // Draw layers. Breaches live AT their discharge point, so a discharge point is a single marker
-  // coloured by its worst breach status; its popup carries permit + WQE + breaches + current limits.
+  // Draw layers. A discharge point is a single marker coloured by its worst status.
+  //
+  // "none" means ASSESSED AND CLEAN. An outlet we could not judge at all gets "unknown" and its own
+  // grey, because those are different facts and only one of them is good news.
+  //
+  // "Unknown" means EVERY condition went unexamined — not merely one of them. Permit 040111 holds four
+  // conditions of which three WERE assessed and passed; calling the whole outlet unknown throws away
+  // three real results to flag one gap, which overstates our ignorance as badly as the old code
+  // overstated our knowledge. The gap is not hidden: the popup lists each condition's own status, and
+  // the permit table carries a separate "not assessed" count beside the breach count.
+  const STATUS_COLOR = { current: "#e5484d", past: "#f5a623", none: "#3aa0ff", unknown: "#8a94a0" };
+  const STATUS_R = { current: 8, past: 7, none: 6, unknown: 6 };
   if (show.discharge) {
-    const order = { none: 0, past: 1, current: 2 }; // draw current breaches on top
+    const order = { unknown: 0, none: 1, past: 2, current: 3 }; // draw current breaches on top
     const items = DB.dischargePoints
       .filter((dp) => dp.lat != null)
       .map((dp) => {
-        const allConds = condByPermit[dp.permit] || [];              // all current limits (unfiltered)
-        const allBr = breachAtDp[`${dp.permit}|${dp.sp}`] || [];      // all breaches here (unfiltered)
+        const allConds = DB.condByDp[dp.iri] || [];               // THIS outlet's limits, not the permit's
+        const allBr = breachAtDp[dp.iri] || [];                   // breaches AT this outlet
         const fConds = allConds.filter((c) => matchSub(c.subNotation));
         const fBr = allBr.filter((b) => matchSub(b.subNotation));
-        const status = fBr.some((b) => b.current) ? "current" : fBr.length ? "past" : "none";
+        const scope = currentSubstance ? fConds : allConds;
+        const status = fBr.some((b) => b.current) ? "current"
+          : fBr.length ? "past"
+          : !scope.length || scope.every((c) => !c.assessed) ? "unknown"
+          : "none";
         return { dp, allConds, allBr, fConds, fBr, status };
       })
       // in a substance view, only show discharge points relevant to the substance
       .filter((x) => !currentSubstance || x.fConds.length || x.fBr.length)
       .sort((a, b) => order[a.status] - order[b.status]);
     for (const x of items) {
-      const col = x.status === "current" ? "#e5484d" : x.status === "past" ? "#f5a623" : "#3aa0ff";
-      const r = x.status === "current" ? 8 : x.status === "past" ? 7 : 6;
       const cur = x.allBr.filter((b) => b.current);
       const past = x.allBr.filter((b) => !b.current);
-      const mk = circle(x.dp.lat, x.dp.lon, dot(col, r, 0.9), dischargePopup(x.dp, x.allConds, cur, past));
+      const mk = circle(x.dp.lat, x.dp.lon,
+        dot(STATUS_COLOR[x.status], STATUS_R[x.status], x.status === "unknown" ? 0.55 : 0.9),
+        dischargePopup(x.dp, x.allConds, cur, past));
       mk.addTo(layers.dischargePoints);
       (permitMarkers[x.dp.permit] ||= []).push(mk);
       drawnBounds.push([x.dp.lat, x.dp.lon]);
@@ -1833,12 +2156,15 @@ function pagedTable(head, rowsHtml, { pageSize = PAGE_SIZE, sortCol = null, sort
     if (tr.classList.contains("expand-row") && groups.length) groups[groups.length - 1].push(tr);
     else groups.push([tr]);
   }
-  // Nothing to page (or a single "no rows" placeholder): leave the table exactly as it was.
+  // A single row (or none) has nothing to sort and nothing to page. Bail — but note that this used to
+  // bail at `< 2` AFTER the docs had promised "every table is paginated and sortable", and the same
+  // early return also skipped the SORT handlers, so any table under two rows was silently neither.
   if (groups.length < 2) return wrap;
 
   const pager = document.createElement("div");
   pager.className = "pager";
-  wrap.append(pager);
+  // A table that fits on one page needs no pager, but it still needs its column headers to sort.
+  if (groups.length > pageSize) wrap.append(pager);
 
   let view = groups.slice();   // groups in current sort order
   let page = 0;
@@ -1916,36 +2242,58 @@ function pagedTable(head, rowsHtml, { pageSize = PAGE_SIZE, sortCol = null, sort
   return wrap;
 }
 
-// Which bound the breach failed, e.g. "≤ 20 mg/l (95th percentile)". A breach of an absolute maximum
+// Which LIMIT the breach failed, e.g. "≤ 20 mg/l (95th percentile)". A breach of an absolute maximum
 // and a breach of a 95th-percentile limit are very different claims — the first is one bad sample, the
-// second a year-long statistical failure — and they breach the SAME condition, so without the bound's
-// statistic the table would show them identically. Hover gives the assessment in full.
+// second a year-long statistical failure — and they breach the same CONDITION, so without naming the
+// limit the table would show them identically. reg:breachesLimit is what makes them distinguishable;
+// hover gives the register's own words and the arithmetic in full.
 function breachBound(b) {
   if (b.limit == null && !b.statLabel) return "—";
   const cmp = b.stat === "minimum" ? "≥" : "≤";
   const val = b.limit != null ? `${cmp} ${fmtNum(b.limit)}${b.unit ? " " + prettyUnit(b.unit) : ""}` : "";
   const stat = b.statLabel ? `<span class="stat">${esc(b.statLabel)}</span>` : "";
-  const title = b.assessment ? ` title="${esc(b.assessment)}"` : "";
+  const tip = [b.limStmt, b.assessment].filter(Boolean).join(" — ");
+  const title = tip ? ` title="${esc(tip)}"` : "";
   return `<span${title}>${val}${val && stat ? " " : ""}${stat}</span>`;
 }
 
-function breachTable(breaches) {
-  if (!breaches.length) return card("Breaches", "0", emptyBody("No breaches for this selection."), PQ.breaches(currentSubstance));
+function breachTable(all) {
+  // The permit filter comes from a discharge point's popup ("12 past breaches — show in the table").
+  const breaches = breachPermit ? all.filter((b) => b.permit === breachPermit) : all;
+  const chip = breachPermit
+    ? ` <span class="count">— permit <b>${esc(permitRef(breachPermit))}</b> only ` +
+      `<span class="sub-link" onclick="clearBreachFilter()">show all ${all.length} ✕</span></span>`
+    : "";
+  if (!breaches.length) {
+    const e = card("Breaches" + chip, "0", emptyBody("No breaches for this selection."), PQ.breaches(currentSubstance));
+    e.id = "breach-card";
+    return e;
+  }
   // current first, then most-recently-started
   // data-sort: the rendered text is human ("Jan 2021 – Mar 2021", "≤ 20 mg/l (95th percentile)") and
   // sorting it as text would order breaches alphabetically by month name. Sort on the real values.
+  // A breach judged against an UNDATED permit version is a weaker claim than one judged against a
+  // dated window — we know what the permit required but not the period it required it for — so it says
+  // so, on its own row, rather than sitting silently among the others as though it were the same thing.
+  const UNDATED = '<span class="pill unknown" title="Judged against a permit version the register does not date. The permit has exactly one version, so WHICH limits applied is not in doubt — only the period it ran between.">undated version</span>';
   const rows = [...breaches].sort((a, b) => (b.current - a.current) || (a.from < b.from ? 1 : -1)).map((b) => `
     <tr>
       <td data-sort="${Date.parse(b.from) || 0}">${breachPeriod(b)}</td>
       <td>${subLink(b.subLabel, b.subNotation, b.sp, b.permit)}</td>
       <td data-sort="${b.limit != null ? b.limit : ""}">${breachBound(b)}</td>
       <td>${permitLink(b.permit)}</td>
-      <td class="ctr" data-sort="${b.current ? 0 : 1}">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}</td>
+      <td class="mono">${esc(b.outlet || "—")}</td>
+      <td class="ctr" data-sort="${b.current ? 0 : 1}">${b.current ? '<span class="pill current">current</span>' : '<span class="pill past">past</span>'}${b.undated ? " " + UNDATED : ""}</td>
       <td>${wqeLink(b.sp)}</td>
     </tr>`).join("");
-  return card("Breaches", breaches.length,
-    pagedTable(["Period", "Substance", "Limit breached", "Permit", "Status|c", "Sampling point (WQE)"], rows),
+  const nUndated = breaches.filter((b) => b.undated).length;
+  const note = nUndated
+    ? ` <span class="count">— ${nUndated} judged against an undated permit version</span>` : "";
+  const c = card("Breaches" + chip + note, breaches.length,
+    pagedTable(["Period", "Substance", "Limit breached", "Permit", "Outlet", "Status|c", "Sampling point (WQE)"], rows),
     PQ.breaches(currentSubstance));
+  c.id = "breach-card";
+  return c;
 }
 
 function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit) {
@@ -1956,66 +2304,112 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
     const dps = dpByPermit[p] || [];
     const sp = dps.map((d) => d.sp).filter(Boolean)[0] || null;
     const nB = (breachesByPermit[p] || []).length;
+    const nUn = cur.filter((c) => !c.assessed).length;
+    // The two numbers that must never be conflated: how many of this permit's limits we FAILED, and
+    // how many we never got to TEST. A table that shows only the first reads an untested permit as a
+    // clean one.
+    const judged = nB
+      ? `<span class="pill current">${nB} breach${nB === 1 ? "" : "es"}</span>`
+      : (cur.length && nUn < cur.length ? '<span class="pill ok">no breach</span>' : "—");
+    const untested = nUn
+      ? `<span class="pill unknown" title="${esc(nUn + " of this permit's " + cur.length + " current limits could not be assessed — see the expanded rows")}">${nUn} not assessed</span>`
+      : "—";
     return `<tr class="expandable" data-row="${i}"><td data-sort="${esc(permitRef(p))}"><span class="caret">▸</span> ${permitLink(p)}
           <span style="color:#777"> v${DB.currentVersion[p] ?? "?"}</span></td>
         <td data-sort="${cur.length}">${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
-        <td class="ctr" data-sort="${nB}">${nB ? `<span class="pill past">${nB} breach${nB === 1 ? "" : "es"}</span>` : "—"}</td><td>${wqeLink(sp)}</td></tr>
-      <tr class="expand-row hidden" data-exp="${i}"><td colspan="5"><div class="expand-inner"></div></td></tr>`;
+        <td class="ctr" data-sort="${nB}">${judged}</td>
+        <td class="ctr" data-sort="${nUn}">${untested}</td>
+        <td>${wqeLink(sp)}</td></tr>
+      <tr class="expand-row hidden" data-exp="${i}"><td colspan="6"><div class="expand-inner"></div></td></tr>`;
   }).join("");
   const c = card("Permits &amp; limits", permits.length,
-    pagedTable(["Permit", "Current limits", "Discharge points", "Breaches|c", "Monitored at"], rows), PQ.permits(currentSubstance));
+    pagedTable(["Permit", "Current limits", "Discharge points", "Breaches|c", "Not assessed|c", "Monitored at"], rows),
+    PQ.permits(currentSubstance));
   wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit));
   return c;
 }
 
-// Expandable detail: current limits, then the full version history with breached rows flagged.
+// Expandable detail: current limits BY OUTLET, then the full version history with breached rows
+// flagged. The outlet column is not decoration — it is the grain the register sets limits at, and
+// without it permit 042116 appears to hold three contradictory BOD limits.
 function permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit) {
-  const sp = ((dpByPermit || {})[p] || []).map((d) => d.sp).filter(Boolean)[0] || null;
-  const cur = (condByPermit[p] || []).slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel));
+  const spOfDp = {};
+  for (const d of (dpByPermit || {})[p] || []) spOfDp[d.iri] = d.sp;
+  const byOutlet = (a, b) => String(a.outlet).localeCompare(String(b.outlet))
+    || a.subLabel.localeCompare(b.subLabel);
+  const cur = (condByPermit[p] || []).slice().sort(byOutlet);
   const hist = (condHistByPermit[p] || []).slice().sort((a, b) =>
-    (Number(b.version) - Number(a.version)) || a.subLabel.localeCompare(b.subLabel));
-  const curTbl = tableEl(["Substance", "Upper|r", "Lower|r", "Unit"],
-    cur.map((c) => `<tr><td>${subLink(c.subLabel, c.subNotation, sp, p)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
-      <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td></tr>`).join("")).outerHTML;
-  const histTbl = tableEl(["Version", "Substance", "Upper|r", "Lower|r", "Unit", "|c"],
+    (Number(b.version) - Number(a.version)) || byOutlet(a, b));
+  const breachedSub = new Set(
+    (DB.breaches || []).filter((b) => b.permit === p).map((b) => `${b.dp}|${b.subNotation}`));
+
+  // Both nested tables are paginated and sortable in their own right — they have to be, now that a
+  // permit's limits are per-outlet: 042451 holds 14 outlets and 043091 dozens of conditions.
+  const curTbl = pagedTable(["Outlet", "Substance", "Limit|r", "Unit", "Status|c"],
+    cur.map((c) => `<tr>
+      <td class="mono" data-sort="${esc(c.outlet || "")}">${esc(c.outlet || "—")}</td>
+      <td>${subLink(c.subLabel, c.subNotation, spOfDp[c.dp], p)}</td>
+      <td class="num" data-sort="${c.upper != null ? c.upper : ""}" title="${esc((c.stmts || []).join("; "))}">${limitBounds(c)}</td>
+      <td>${prettyUnit(c.unit)}</td>
+      <td class="ctr" data-sort="${c.assessed ? 1 : 0}">${condStatus(c, breachedSub.has(`${c.dp}|${c.subNotation}`))}</td></tr>`).join(""));
+
+  const histTbl = pagedTable(["Version", "Outlet", "Substance", "Limit|r", "Unit", "|c"],
     hist.map((c) => {
-      const breached = breachedKey.has(`${p}|${c.version}|${c.subNotation}`);
+      const breached = breachedKey.has(`${p}|${c.version}|${c.dp}|${c.subNotation}`);
       return `<tr${c.current ? ' style="font-weight:600"' : ""}>
-        <td class="mono">v${c.version}${c.current ? " (current)" : ""}</td>
-        <td>${esc(c.subLabel)}</td><td class="num">${c.upper ? fmtNum(c.upper) : "—"}</td>
-        <td class="num">${c.lower ? fmtNum(c.lower) : "—"}</td><td>${prettyUnit(c.unit)}</td>
-        <td class="ctr">${breached ? '<span class="pill current">breached</span>' : ""}</td></tr>`;
-    }).join("")).outerHTML;
+        <td class="mono" data-sort="${Number(c.version) || 0}">v${c.version}${c.current ? " (current)" : ""}</td>
+        <td class="mono" data-sort="${esc(c.outlet || "")}">${esc(c.outlet || "—")}</td>
+        <td>${esc(c.subLabel)}</td>
+        <td class="num" data-sort="${c.upper != null ? c.upper : ""}" title="${esc((c.stmts || []).join("; "))}">${limitBounds(c)}</td>
+        <td>${prettyUnit(c.unit)}</td>
+        <td class="ctr" data-sort="${breached ? 0 : 1}">${breached ? '<span class="pill current">breached</span>' : ""}</td></tr>`;
+    }).join(""));
+
   const nVer = new Set(hist.map((c) => c.version)).size;
-  return `<div style="padding:2px 0 8px"><b style="color:#93a4b3">Current limits</b></div>${curTbl}` +
-    (nVer > 1 ? `<div style="padding:12px 0 8px"><b style="color:#93a4b3">Limit history — ${nVer} versions</b></div>${histTbl}` : "");
+  const out = [subHead("Current limits, by outlet"), curTbl];
+  if (nVer > 1) {
+    const h = subHead(`Limit history — ${nVer} versions`);
+    h.style.cssText = "padding:12px 0 8px";
+    out.push(h, histTbl);
+  }
+  return out;
 }
 
-// One table keyed by (permit, substance): the current in-force limit on the left, and any WINEP
-// action proposing a future limit for that SAME permit AND substance on the right (a proposed
-// phosphorus limit must not land on a pH row). A permit+substance with both is a single row.
+// Keyed by (OUTLET, substance) — because that is where a limit lives. A WINEP action, by contrast,
+// names only a PERMIT: it does not say which of the permit's outlets its proposed limit lands on. So
+// one action can pair with several current limits, and where those limits DIFFER (permit 042116's BOD
+// is 15 mg/l at one effluent and 25 at another) the table shows a row for each. That is not clutter —
+// it is a question the WINEP sheet leaves unanswered, made visible rather than settled by a coin toss.
 function substanceStoryTable(conditions, proposed, dpByPermit) {
-  const key = (permit, sub) => `${permit} ${sub}`;
   const curByKey = {};
-  for (const c of conditions) curByKey[key(c.permit, c.subNotation)] = c;
-  const futByKey = {};
+  for (const c of conditions) curByKey[`${c.dp} ${c.subNotation}`] = c;
+  const futByPermit = {};
   for (const l of proposed) {
     const a = DB.actions.find((x) => x.iri === l.action);
-    if (a && a.permit) (futByKey[key(a.permit, l.subNotation)] ||= []).push({ a, l });
+    if (a && a.permit) (futByPermit[`${a.permit} ${l.subNotation}`] ||= []).push({ a, l });
   }
-  const keys = [...new Set([...Object.keys(curByKey), ...Object.keys(futByKey)])];
-  if (!keys.length) return card("Current limits &amp; future works", "0", emptyBody("Nothing for this substance."), PQ.substanceStory(currentSubstance));
+  const spOfDp = {};
+  for (const p in dpByPermit) for (const d of dpByPermit[p]) spOfDp[d.iri] = d.sp;
 
   const rows = [];
-  for (const k of keys) {
-    const [permit] = k.split(" ");
-    const cur = curByKey[k] || null;
-    const sp = (dpByPermit[permit] || []).map((d) => d.sp).filter(Boolean)[0] || null;
-    const ver = cur ? cur.version : DB.currentVersion[permit];
-    const futs = futByKey[k] || [null];
-    for (const f of futs) rows.push({ p: permit, cur, sp, ver, f });
+  const paired = new Set();
+  for (const c of conditions) {
+    const pk = `${c.permit} ${c.subNotation}`;
+    const futs = futByPermit[pk] || [null];
+    if (futs[0]) paired.add(pk);
+    for (const f of futs) rows.push({ p: c.permit, cur: c, sp: spOfDp[c.dp], ver: c.version, f });
   }
-  // current-bearing rows first (tightest first), then future-only
+  // a proposed limit for a substance the permit does not currently regulate: a genuinely NEW limit
+  for (const k in futByPermit) {
+    if (paired.has(k)) continue;
+    const permit = k.split(" ")[0];
+    const sp = (dpByPermit[permit] || []).map((d) => d.sp).filter(Boolean)[0] || null;
+    for (const f of futByPermit[k])
+      rows.push({ p: permit, cur: null, sp, ver: DB.currentVersion[permit], f });
+  }
+  if (!rows.length) return card("Current limits &amp; future works", "0", emptyBody("Nothing for this substance."), PQ.substanceStory(currentSubstance));
+
+  // current-bearing rows first (loosest first, so the worst offenders lead), then future-only
   rows.sort((a, b) => (!!b.cur - !!a.cur)
     || (Number((b.cur || {}).upper || 0) - Number((a.cur || {}).upper || 0))
     || (a.p < b.p ? -1 : 1));
@@ -2030,9 +2424,11 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
       : limitText(f.l);
     return `<tr>
       <td data-sort="${esc(permitRef(p))}">${permitLink(p)}${ver != null ? ` <span style="color:#777">v${ver}</span>` : ""}</td>
+      <td class="mono">${cur ? esc(cur.outlet || "—") : "—"}</td>
       <td>${subLink(subLabel, subNotation, sp, p)}</td>
-      <td class="num" data-sort="${cur && cur.upper != null ? cur.upper : ""}">${limit}</td>
+      <td class="num" data-sort="${cur && cur.upper != null ? cur.upper : ""}" title="${esc(cur ? (cur.stmts || []).join("; ") : "")}">${limit}</td>
       <td>${cur ? prettyUnit(cur.unit) : ""}</td>
+      <td class="ctr">${cur ? condStatus(cur, false) : "—"}</td>
       <td>${wqeLink(sp)}</td>
       <td class="mono">${f ? esc(f.a.id) : "—"}</td>
       <td>${f ? esc(f.a.label) : "—"}</td>
@@ -2043,7 +2439,8 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
 
   return card('Current limits &amp; future works <span class="count">— click a substance for its time-series chart</span>',
     `${conditions.length} current · ${proposed.length} proposed`,
-    pagedTable(["Permit", "Substance", "Limit|r", "Unit", "Monitored at", "Action", "Name", "Completion", "Proposed limit"], body),
+    pagedTable(["Permit", "Outlet", "Substance", "Limit|r", "Unit", "Assessment|c", "Monitored at",
+                "Action", "Name", "Completion", "Proposed limit"], body),
     PQ.substanceStory(currentSubstance));
 }
 
@@ -2065,7 +2462,7 @@ function actionTable(actions, limByAction) {
   // The map's WINEP markers focus their table row, and that row may be paged out of sight — so the
   // table hands render() a way to turn to the page holding it (see focusAction).
   actionTableEl = tbl;
-  const c = card("WINEP Actions", actions.length, tbl, PQ.actions());
+  const c = card("WINEP Actions", actions.length, tbl, PQ.actions(currentSubstance));
   // Clicking a row focuses the action on the map (marker highlight + pan + popup); it still expands.
   c.addEventListener("click", (e) => {
     const tr = e.target.closest(".action-row");
@@ -2378,7 +2775,12 @@ function applicationsTable() {
 
 // Options for the selected application, grouped by broader concept (expandable to the components).
 function optionsTable(appIri) {
-  if (!appIri) return card("Options", "—", emptyBody("Select an application to see its options."), PQ.sfiOptions(null));
+  // No provenance link on the placeholder. The card shows NO rows until an application is picked, and
+  // the query it used to offer returned all 1,115 options — a "◈ SPARQL" link that reproduces 1,115
+  // rows for a table showing 0 is precisely the drift these links exist to disprove. A link is a
+  // promise that the query answers the question the table answers; with no application selected there
+  // is no question yet.
+  if (!appIri) return card("Options", "—", emptyBody("Select an application to see its options."));
   const byG = {};
   for (const o of DB.optionsByApp[appIri] || []) {
     const g = (byG[o.broader] ||= { code: o.broader, label: o.broaderLabel, items: [], total: 0, unpriced: 0 });
@@ -2407,7 +2809,12 @@ function optionsTable(appIri) {
 }
 
 // Expandable rows: clicking a summary row toggles the detail row and lazily fills it.
-function wireExpand(cardEl, keys, buildHtml) {
+// `build` may return an HTML string OR a list of Nodes. Nodes matter: a detail table built with
+// pagedTable() carries its own sort + pager listeners, and stringifying it through innerHTML would
+// throw them away — which is exactly why the nested tables used to be neither sortable nor paged while
+// the docs claimed every table was both. Permit 042451 alone now has 14 outlets, so these are not
+// small tables any more.
+function wireExpand(cardEl, keys, build) {
   cardEl.addEventListener("click", (e) => {
     const tr = e.target.closest(".expandable");
     if (!tr) return;
@@ -2415,10 +2822,22 @@ function wireExpand(cardEl, keys, buildHtml) {
     const exp = cardEl.querySelector(`.expand-row[data-exp="${i}"]`);
     const inner = exp.querySelector(".expand-inner");
     const opening = exp.classList.contains("hidden");
-    if (opening && !inner.dataset.filled) { inner.innerHTML = buildHtml(keys[i]); inner.dataset.filled = "1"; }
+    if (opening && !inner.dataset.filled) {
+      const out = build(keys[i]);
+      if (typeof out === "string") inner.innerHTML = out;
+      else inner.replaceChildren(...[].concat(out));
+      inner.dataset.filled = "1";
+    }
     exp.classList.toggle("hidden");
     tr.classList.toggle("open");
   });
+}
+// A small heading for a nested detail block.
+function subHead(text) {
+  const d = document.createElement("div");
+  d.style.cssText = "padding:2px 0 8px";
+  d.innerHTML = `<b style="color:#93a4b3">${text}</b>`;
+  return d;
 }
 
 // ---------------------------------------------------------------------------
@@ -2428,7 +2847,7 @@ function setView(v) {
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   if (v !== "farming") { selectedApp = null; closeChart(); } // drop the pie when leaving farming
-  if (v !== "regulated") selectedAction = null; // drop the WINEP action focus when leaving
+  if (v !== "regulated") { selectedAction = null; breachPermit = null; } // and the regulated focuses
   render();
 }
 
@@ -2438,6 +2857,20 @@ async function main() {
   try {
     await loadAll();
     loadDesignations();  // fire-and-forget: fetches the 3 clipped GeoJSONs and builds the legend control
+    // A count is only a fact if it is a count of DISTINCT things. Every one of these rows comes back
+    // from a query that OPTIONALly joins several things to one subject, and any subject carrying two of
+    // an OPTIONAL's object silently doubles. That has now happened twice — once when discharge points
+    // gained a second geometry, once when breaches gained a second rdfs:comment — and on both occasions
+    // every row-count check still passed, because the table and its provenance query fanned out
+    // together. Matching counts prove the two AGREE; they do not prove either is right. So assert the
+    // shape here, against the subject IRI, which cannot fan out.
+    const distinct = (rows, key) => new Set(rows.map((r) => r[key])).size;
+    if (distinct(DB.breaches, "iri") !== DB.breaches.length)
+      console.error(`FAN-OUT: ${DB.breaches.length} breach rows for ` +
+        `${distinct(DB.breaches, "iri")} distinct breaches — a query is duplicating.`);
+    if (distinct(DB.dischargePoints, "iri") !== DB.dischargePoints.length)
+      console.error(`FAN-OUT: ${DB.dischargePoints.length} discharge-point rows for ` +
+        `${distinct(DB.dischargePoints, "iri")} distinct outlets — a query is duplicating.`);
     status.textContent = `Loaded ${DB.breaches.length} breaches · ${DB.conditions.length} conditions · ${DB.actions.length} actions · ${DB.applications.length} farming applications (${DB.sfiOptions.length} options)`;
   } catch (err) {
     status.textContent = "Error: " + err.message;
@@ -2445,7 +2878,7 @@ async function main() {
     return;
   }
   document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
-  document.getElementById("substance").addEventListener("change", (e) => { currentSubstance = e.target.value; render(); });
+  document.getElementById("substance").addEventListener("change", (e) => { currentSubstance = e.target.value; breachPermit = null; render(); });
   document.getElementById("optionType").addEventListener("change", (e) => {
     currentOptionType = e.target.value;
     // drop the selection if the filter no longer includes it
