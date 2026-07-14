@@ -1,9 +1,10 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix geo: <http://www.opengis.net/ont/geosparql#> .
 @prefix ns1: <http://environment.data.gov.uk/ontology/regulation/> .
-@prefix ns2: <http://qudt.org/schema/qudt/> .
-@prefix ns3: <http://environment.data.gov.uk/ontology/core/> .
-@prefix ns4: <http://w3id.org/iadopt/ont/> .
+@prefix ns2: <http://environment.data.gov.uk/ontology/core/> .
+@prefix ns3: <http://qudt.org/schema/qudt/> .
+@prefix ns4: <http://example.com/water-regulation/> .
+@prefix ns5: <https://w3id.org/iadopt/ont/> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
@@ -105,472 +106,582 @@
 
 <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009630> a <http://environment.data.gov.uk/ontology/water/WaterBody> .
 
-<http://example.com/water-regulation/action/08WW100250#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW100250#period> .
+<http://example.com/water-regulation/action/08WW100250#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW100250#period> .
 
 <http://example.com/water-regulation/action/08WW100250#geography> a geo:Geometry ;
-    geo:asWKT "POINT(390000 92000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390000 92000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW100250#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW100250#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW100250#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW100250#geography> ;
+<http://example.com/water-regulation/action/08WW100250#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW100250#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW100250#geography>,
+        <http://example.com/water-regulation/action/08WW100250#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044010100> .
 
 <http://example.com/water-regulation/action/08WW100250/limit/0111> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW100250#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW100250#applicability> ;
     ns1:limitStatement "4.2 UT 16" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0111> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW100250/limit/0111#bound-0>,
         <http://example.com/water-regulation/action/08WW100250/limit/0111#bound-1> .
 
-<http://example.com/water-regulation/action/08WW100250/limit/0111#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 4.2 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/percentile-95> .
+<http://example.com/water-regulation/action/08WW100250/limit/0111#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 4.2 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/percentile-95> .
 
-<http://example.com/water-regulation/action/08WW100250/limit/0111#bound-1> a ns2:QuantityValue ;
-    ns2:numericValue 16.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/upper-tier> .
+<http://example.com/water-regulation/action/08WW100250/limit/0111#bound-1> a ns3:QuantityValue ;
+    ns3:numericValue 16.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/upper-tier> .
 
 <http://example.com/water-regulation/action/08WW102103#geography> a geo:Geometry ;
-    geo:asWKT "POINT(389000 93000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389000 93000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102103#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102103#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102103#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102103#geography> ;
+<http://example.com/water-regulation/action/08WW102103#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102103#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102103#geography>,
+        <http://example.com/water-regulation/action/08WW102103#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044010100> .
 
 <http://example.com/water-regulation/action/08WW102103/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102103#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102103#applicability> ;
     ns1:limitStatement "0.25" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102103/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102103/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.25 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102103/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.25 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102103/limit/6051> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102103#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102103#applicability> ;
     ns1:limitStatement "Fe 4mg/l 95%ile 8mg/l Max." ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102103/limit/6051#bound-0>,
         <http://example.com/water-regulation/action/08WW102103/limit/6051#bound-1> .
 
-<http://example.com/water-regulation/action/08WW102103/limit/6051#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 4.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/percentile-95> .
+<http://example.com/water-regulation/action/08WW102103/limit/6051#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 4.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/percentile-95> .
 
-<http://example.com/water-regulation/action/08WW102103/limit/6051#bound-1> a ns2:QuantityValue ;
-    ns2:numericValue 8.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/maximum> .
+<http://example.com/water-regulation/action/08WW102103/limit/6051#bound-1> a ns3:QuantityValue ;
+    ns3:numericValue 8.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/maximum> .
 
 <http://example.com/water-regulation/action/08WW102103/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102103#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102103#applicability> ;
     ns1:limitStatement "N 10mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102103/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102103/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 10.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102103/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 10.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
 <http://example.com/water-regulation/action/08WW102104#geography> a geo:Geometry ;
-    geo:asWKT "POINT(370000 90000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(370000 90000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102104#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102104#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102104#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102104#geography> ;
+<http://example.com/water-regulation/action/08WW102104#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102104#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102104#geography>,
+        <http://example.com/water-regulation/action/08WW102104#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009692> .
 
 <http://example.com/water-regulation/action/08WW102104/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102104#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102104#applicability> ;
     ns1:limitStatement "0.25" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102104/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102104/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.25 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102104/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.25 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102104/limit/6051> a ns1:CarriedOverLimit,
         ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102104#applicability> ;
-    ns1:continuesCondition <http://example.com/water-regulation/permit/401050/version/5/condition/6051> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102104#applicability> ;
+    ns1:continuesCondition <http://example.com/water-regulation/permit/401050/version/5/outlet/1/effluent/1/condition/6051> ;
     ns1:limitStatement "No change from current" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> .
 
 <http://example.com/water-regulation/action/08WW102104/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102104#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102104#applicability> ;
     ns1:limitStatement "N 10mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102104/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102104/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 10.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102104/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 10.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
 <http://example.com/water-regulation/action/08WW102105#geography> a geo:Geometry ;
-    geo:asWKT "POINT(396000 92000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(396000 92000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102105#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102105#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102105#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102105#geography> ;
+<http://example.com/water-regulation/action/08WW102105#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102105#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102105#geography>,
+        <http://example.com/water-regulation/action/08WW102105#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB520804415800> .
 
 <http://example.com/water-regulation/action/08WW102105/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102105#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102105#applicability> ;
     ns1:limitStatement "0.25" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102105/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102105/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.25 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102105/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.25 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102105/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102105#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102105#applicability> ;
     ns1:limitStatement "N 10mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102105/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102105/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 10.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102105/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 10.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
 <http://example.com/water-regulation/action/08WW102105/limit/feal> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102105#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102105#applicability> ;
     ns1:limitStatement "TBC" .
 
 <http://example.com/water-regulation/action/08WW102106#geography> a geo:Geometry ;
-    geo:asWKT "POINT(380000 96000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(380000 96000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102106#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102106#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102106#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102106#geography> ;
+<http://example.com/water-regulation/action/08WW102106#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102106#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102106#geography>,
+        <http://example.com/water-regulation/action/08WW102106#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009630> .
 
 <http://example.com/water-regulation/action/08WW102106/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102106#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102106#applicability> ;
     ns1:limitStatement "0.3" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102106/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102106/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.3 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102106/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.3 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102106/limit/6051> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102106#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102106#applicability> ;
     ns1:limitStatement "Fe 4mg/l 95%ile 8mg/l Max." ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102106/limit/6051#bound-0>,
         <http://example.com/water-regulation/action/08WW102106/limit/6051#bound-1> .
 
-<http://example.com/water-regulation/action/08WW102106/limit/6051#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 4.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/percentile-95> .
+<http://example.com/water-regulation/action/08WW102106/limit/6051#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 4.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/percentile-95> .
 
-<http://example.com/water-regulation/action/08WW102106/limit/6051#bound-1> a ns2:QuantityValue ;
-    ns2:numericValue 8.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/maximum> .
+<http://example.com/water-regulation/action/08WW102106/limit/6051#bound-1> a ns3:QuantityValue ;
+    ns3:numericValue 8.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/maximum> .
 
 <http://example.com/water-regulation/action/08WW102107#geography> a geo:Geometry ;
-    geo:asWKT "POINT(400000 93000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400000 93000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102107#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102107#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102107#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102107#geography> ;
+<http://example.com/water-regulation/action/08WW102107#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102107#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102107#geography>,
+        <http://example.com/water-regulation/action/08WW102107#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB520804415800> .
 
 <http://example.com/water-regulation/action/08WW102107/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
     ns1:limitStatement "0.25" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102107/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102107/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.25 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102107/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.25 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102107/limit/6051> a ns1:CarriedOverLimit,
         ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
-    ns1:continuesCondition <http://example.com/water-regulation/permit/401354/version/9/condition/6051> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
+    ns1:continuesCondition <http://example.com/water-regulation/permit/401354/version/9/outlet/1/effluent/1/condition/6051> ;
     ns1:limitStatement "No change from current" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> .
 
 <http://example.com/water-regulation/action/08WW102107/limit/6057> a ns1:CarriedOverLimit,
         ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
-    ns1:continuesCondition <http://example.com/water-regulation/permit/401354/version/9/condition/6057> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
+    ns1:continuesCondition <http://example.com/water-regulation/permit/401354/version/9/outlet/1/effluent/1/condition/6057> ;
     ns1:limitStatement "No change from current" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6057> .
 
 <http://example.com/water-regulation/action/08WW102107/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102107#applicability> ;
     ns1:limitStatement "N 5mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102107/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102107/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 5.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102107/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 5.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
 <http://example.com/water-regulation/action/08WW102108#geography> a geo:Geometry ;
-    geo:asWKT "POINT(393000 88000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(393000 88000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102108#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102108#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102108#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102108#geography> ;
+<http://example.com/water-regulation/action/08WW102108#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102108#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102108#geography>,
+        <http://example.com/water-regulation/action/08WW102108#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB520804415800> .
 
 <http://example.com/water-regulation/action/08WW102108/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102108#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102108#applicability> ;
     ns1:limitStatement "0.25" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102108/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102108/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.25 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102108/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.25 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102108/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102108#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102108#applicability> ;
     ns1:limitStatement "N 10mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102108/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102108/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 10.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102108/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 10.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
 <http://example.com/water-regulation/action/08WW102108/limit/feal> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102108#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102108#applicability> ;
     ns1:limitStatement "TBC" .
 
 <http://example.com/water-regulation/action/08WW102109#geography> a geo:Geometry ;
-    geo:asWKT "POINT(382000 87000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(382000 87000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102109#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102109#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102109#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102109#geography> ;
+<http://example.com/water-regulation/action/08WW102109#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102109#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102109#geography>,
+        <http://example.com/water-regulation/action/08WW102109#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009692> .
 
 <http://example.com/water-regulation/action/08WW102109/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102109#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102109#applicability> ;
     ns1:limitStatement "0.25" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102109/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102109/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 0.25 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102109/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 0.25 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102109/limit/6051> a ns1:CarriedOverLimit,
         ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102109#applicability> ;
-    ns1:continuesCondition <http://example.com/water-regulation/permit/401747/version/3/condition/6051> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102109#applicability> ;
+    ns1:continuesCondition <http://example.com/water-regulation/permit/401747/version/3/outlet/1/effluent/1/condition/6051> ;
     ns1:limitStatement "No change from current" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> .
 
 <http://example.com/water-regulation/action/08WW102109/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102109#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102109#applicability> ;
     ns1:limitStatement "N 10mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102109/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102109/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 10.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102109/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 10.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
-<http://example.com/water-regulation/action/08WW102200#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102200#period> .
+<http://example.com/water-regulation/action/08WW102200#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102200#period> .
 
 <http://example.com/water-regulation/action/08WW102200#geography> a geo:Geometry ;
-    geo:asWKT "POINT(370000 90000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(370000 90000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102200#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-03-31"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102200#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-03-31T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102200#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102200#geography> ;
+<http://example.com/water-regulation/action/08WW102200#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102200#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102200#geography>,
+        <http://example.com/water-regulation/action/08WW102200#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009692> .
 
 <http://example.com/water-regulation/action/08WW102200/limit/9686> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102200#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102200#applicability> ;
     ns1:limitStatement "N 15mg/l" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/9686> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102200/limit/9686#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102200/limit/9686#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 15.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
+<http://example.com/water-regulation/action/08WW102200/limit/9686#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 15.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> .
 
 <http://example.com/water-regulation/action/08WW102201#geography> a geo:Geometry ;
-    geo:asWKT "POINT(370000 90000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(370000 90000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102201#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-05-13"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102201#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-05-13T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102201#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102201#geography> ;
+<http://example.com/water-regulation/action/08WW102201#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102201#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102201#geography>,
+        <http://example.com/water-regulation/action/08WW102201#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009692> .
 
 <http://example.com/water-regulation/action/08WW102201/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102201#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102201#applicability> ;
     ns1:limitStatement "2" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102201/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102201/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 2.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102201/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 2.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102201/limit/6051> a ns1:CarriedOverLimit,
         ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102201#applicability> ;
-    ns1:continuesCondition <http://example.com/water-regulation/permit/401050/version/5/condition/6051> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102201#applicability> ;
+    ns1:continuesCondition <http://example.com/water-regulation/permit/401050/version/5/outlet/1/effluent/1/condition/6051> ;
     ns1:limitStatement "No change from current" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> .
 
 <http://example.com/water-regulation/action/08WW102202#geography> a geo:Geometry ;
-    geo:asWKT "POINT(382000 87000) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+    ns4:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(382000 87000)"^^geo:wktLiteral ;
+    rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
 
-<http://example.com/water-regulation/action/08WW102202#period> a ns3:ApplicabilityPeriod ;
-    ns3:applicableFrom "2030-05-13"^^xsd:date .
+<http://example.com/water-regulation/action/08WW102202#period> a ns2:ApplicabilityPeriod ;
+    ns2:applicableFrom "2030-05-13T00:00:00"^^xsd:dateTime .
 
-<http://example.com/water-regulation/action/08WW102202#site> a ns3:Site ;
-    geo:hasGeometry <http://example.com/water-regulation/action/08WW102202#geography> ;
+<http://example.com/water-regulation/action/08WW102202#site> a ns2:Site,
+        geo:Feature ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/action/08WW102202#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/action/08WW102202#geography>,
+        <http://example.com/water-regulation/action/08WW102202#geography-crs84> ;
     geo:sfWithin <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009692> .
 
 <http://example.com/water-regulation/action/08WW102202/limit/0348> a ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102202#applicability> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102202#applicability> ;
     ns1:limitStatement "2" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/0348> ;
     ns1:upperBound <http://example.com/water-regulation/action/08WW102202/limit/0348#bound-0> .
 
-<http://example.com/water-regulation/action/08WW102202/limit/0348#bound-0> a ns2:QuantityValue ;
-    ns2:numericValue 2.0 ;
-    ns2:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
-    ns4:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
+<http://example.com/water-regulation/action/08WW102202/limit/0348#bound-0> a ns3:QuantityValue ;
+    ns3:numericValue 2.0 ;
+    ns3:unit <http://example.com/water-regulation/unit/milligram-per-litre> ;
+    ns5:hasStatisticalModifier <http://example.com/water-regulation/statistical-modifier/annual-average> .
 
 <http://example.com/water-regulation/action/08WW102202/limit/6051> a ns1:CarriedOverLimit,
         ns1:ProposedLimit ;
-    ns3:hasApplicability <http://example.com/water-regulation/action/08WW102202#applicability> ;
-    ns1:continuesCondition <http://example.com/water-regulation/permit/401747/version/3/condition/6051> ;
+    ns2:hasApplicability <http://example.com/water-regulation/action/08WW102202#applicability> ;
+    ns1:continuesCondition <http://example.com/water-regulation/permit/401747/version/3/outlet/1/effluent/1/condition/6051> ;
     ns1:limitStatement "No change from current" ;
     ns1:regulatedProperty <http://example.com/water-regulation/substance/6051> .
 
-<http://example.com/water-regulation/statistical-modifier/upper-tier> a ns4:StatisticalModifier,
-        skos:Concept ;
+<http://example.com/water-regulation/statistical-modifier/upper-tier> a skos:Concept,
+        ns5:StatisticalModifier ;
     skos:prefLabel "Upper tier" .
 
 <http://example.com/water-regulation/substance/0111> a skos:Concept,
         sosa:ObservableProperty ;
-    skos:inScheme <http://example.com/water-regulation/substance> ;
+    skos:inScheme ns4:substance ;
     skos:notation "0111" ;
     skos:prefLabel "Ammoniacal Nitrogen as N" .
 
 <http://example.com/water-regulation/substance/6057> a skos:Concept,
         sosa:ObservableProperty ;
-    skos:inScheme <http://example.com/water-regulation/substance> ;
+    skos:inScheme ns4:substance ;
     skos:notation "6057" ;
     skos:prefLabel "Aluminium" .
 
 <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044010100> a <http://environment.data.gov.uk/ontology/water/WaterBody> .
 
-<http://example.com/water-regulation/action/08WW102106#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102106#period> .
+<http://example.com/water-regulation/action/08WW100250#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.1430442 50.7275317)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
 
-<http://example.com/water-regulation/action/08WW102201#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102201#period> .
+<http://example.com/water-regulation/action/08WW102103#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.1572422 50.7365061)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
 
-<http://example.com/water-regulation/action/08WW102202#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102202#period> .
+<http://example.com/water-regulation/action/08WW102104#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.4262344 50.7088543)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
 
-<http://example.com/water-regulation/statistical-modifier/maximum> a ns4:StatisticalModifier,
-        skos:Concept ;
+<http://example.com/water-regulation/action/08WW102105#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.0580365 50.7276052)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102106#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102106#period> .
+
+<http://example.com/water-regulation/action/08WW102106#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.2849407 50.7632416)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102107#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.0013649 50.7366124)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102108#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.1004633 50.6916055)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102109#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.2561415 50.6823743)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102200#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.4262344 50.7088543)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102201#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102201#period> .
+
+<http://example.com/water-regulation/action/08WW102201#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.4262344 50.7088543)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/action/08WW102202#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102202#period> .
+
+<http://example.com/water-regulation/action/08WW102202#geography-crs84> a geo:Geometry ;
+    ns4:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.2561415 50.6823743)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
+
+<http://example.com/water-regulation/statistical-modifier/maximum> a skos:Concept,
+        ns5:StatisticalModifier ;
     skos:prefLabel "Maximum (absolute)" .
 
 <http://environment.data.gov.uk/catchment-planning/WaterBody/GB520804415800> a <http://environment.data.gov.uk/ontology/water/WaterBody> .
 
-<http://example.com/water-regulation/action/08WW102103#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102103#period> .
+<http://example.com/water-regulation/action/08WW102103#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102103#period> .
 
-<http://example.com/water-regulation/action/08WW102104#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102104#period> .
+<http://example.com/water-regulation/action/08WW102104#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102104#period> .
 
-<http://example.com/water-regulation/action/08WW102105#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102105#period> .
+<http://example.com/water-regulation/action/08WW102105#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102105#period> .
 
-<http://example.com/water-regulation/action/08WW102108#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102108#period> .
+<http://example.com/water-regulation/action/08WW102108#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102108#period> .
 
-<http://example.com/water-regulation/action/08WW102109#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102109#period> .
+<http://example.com/water-regulation/action/08WW102109#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102109#period> .
 
-<http://example.com/water-regulation/statistical-modifier/percentile-95> a ns4:StatisticalModifier,
-        skos:Concept ;
+<http://example.com/water-regulation/statistical-modifier/percentile-95> a skos:Concept,
+        ns5:StatisticalModifier ;
     skos:prefLabel "95th percentile" .
 
-<http://example.com/water-regulation/action/08WW102107#applicability> a ns3:Applicability ;
-    ns3:applicabilityPeriod <http://example.com/water-regulation/action/08WW102107#period> .
+<http://example.com/water-regulation/action/08WW102107#applicability> a ns2:Applicability ;
+    ns2:applicabilityPeriod <http://example.com/water-regulation/action/08WW102107#period> .
 
 <http://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009692> a <http://environment.data.gov.uk/ontology/water/WaterBody> .
 
 <http://example.com/water-regulation/substance/6051> a skos:Concept,
         sosa:ObservableProperty ;
-    skos:inScheme <http://example.com/water-regulation/substance> ;
+    skos:inScheme ns4:substance ;
     skos:notation "6051" ;
     skos:prefLabel "Iron" .
 
 <http://example.com/water-regulation/substance/9686> a skos:Concept,
         sosa:ObservableProperty ;
-    skos:inScheme <http://example.com/water-regulation/substance> ;
+    skos:inScheme ns4:substance ;
     skos:notation "9686" ;
     skos:prefLabel "Nitrogen, Total as N" .
 
-<http://example.com/water-regulation/statistical-modifier/annual-average> a ns4:StatisticalModifier,
-        skos:Concept ;
+<http://example.com/water-regulation/statistical-modifier/annual-average> a skos:Concept,
+        ns5:StatisticalModifier ;
     skos:prefLabel "Annual average" .
 
 <http://example.com/water-regulation/substance/0348> a skos:Concept,
         sosa:ObservableProperty ;
-    skos:inScheme <http://example.com/water-regulation/substance> ;
+    skos:inScheme ns4:substance ;
     skos:notation "0348" ;
     skos:prefLabel "Phosphorus, Total as P" .
 
-<http://example.com/water-regulation/unit/milligram-per-litre> a ns2:Unit ;
+<http://example.com/water-regulation/unit/milligram-per-litre> a ns3:Unit ;
     owl:sameAs <http://qudt.org/vocab/unit/MilliGM-PER-L> ;
     skos:prefLabel "MILLIGRAM PER LITRE" .
 

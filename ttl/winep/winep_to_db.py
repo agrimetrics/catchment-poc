@@ -1,9 +1,11 @@
 from pathlib import Path
+from urllib.parse import quote
 import json
 import re
 
 import duckdb
 import geopandas as gpd
+from pyproj import Transformer
 import openpyxl
 import pandas as pd
 from shapely.geometry import Point
@@ -153,16 +155,20 @@ def classify(meta, raw, permit_ref, cond_versions):
         return []
 
     if low in CARRY:
+        # "No change from current" continues the permit's EXISTING condition for that substance - and a
+        # permit has one condition per EFFLUENT, not one per substance. Permit 042116 limits BOD at
+        # three effluents (15, 25 and 25 mg/l); an action that carries BOD forward carries all three.
+        # So this emits one reg:continuesCondition per condition, not one per substance. The WINEP
+        # sheet does not say which outlet it means - and rather than pick one, the store names them all
+        # and lets the ambiguity be visible.
         existing = [(sub, cond_versions[(permit_ref, sub)])
                     for sub in meta["subs"] if (permit_ref, sub) in cond_versions]
         if existing:
-            return [dict(kind="carried_over", key=sub, substance=sub,
-                         continues_iri=f"{WR}permit/{permit_ref}/version/{ver}/condition/{sub}",
-                         statement=None)
-                    for sub, ver in existing]
+            return [dict(kind="carried_over", key=sub, substance=sub, continues=iris, statement=None)
+                    for sub, iris in existing]
         one = meta["subs"][0] if len(meta["subs"]) == 1 else None
         return [dict(kind="carried_over", key=one or meta["slug"], substance=one,
-                     continues_iri=None, statement="No change from current")]
+                     continues=[], statement="No change from current")]
 
     if low in PENDING:
         return [dict(kind="uninterpreted", key=meta["slug"], substance=None, statement=s)]
@@ -198,12 +204,23 @@ def classify(meta, raw, permit_ref, cond_versions):
 labels = {m["notation"]: m["prefLabel"] for m in json.load(open(CODELIST))}
 labels[CHEMICAL] = "Priority chemical substance (unspecified)"
 
-cond_versions = {}
+# (permit, substance) -> the IRIs of EVERY condition the permit's CURRENT version holds for it, one per
+# effluent. Built with the same percent-encoding ontop applies to the regulation graph's IRI templates,
+# so a slash-bearing permit ref (400114/CF/01 -> 400114%2FCF%2F01) joins rather than silently missing.
+# Hand-building this as an f-string without quote() was a latent bug: all four current targets happen
+# to be numeric, so it would have fired the day a WINEP action touched an EPR-style ref.
+cond_versions: dict[tuple[str, str], list[str]] = {}
 reg_permits = set()
 regcon = duckdb.connect(str(REG_DB), read_only=True)
-for ref, sub, ver in regcon.execute(
-        "SELECT permit_ref, substance, MAX(version) FROM conditions GROUP BY 1, 2").fetchall():
-    cond_versions[(ref, sub)] = ver
+for ref, sub, ver, outlet, effluent in regcon.execute("""
+        SELECT c.permit_ref, c.substance, c.version, c.outlet, c.effluent
+        FROM conditions c
+        JOIN (SELECT permit_ref, MAX(CAST(version AS INTEGER)) AS v FROM conditions GROUP BY 1) m
+          ON m.permit_ref = c.permit_ref AND CAST(c.version AS INTEGER) = m.v
+        """).fetchall():
+    iri = (f"{WR}permit/{quote(ref, safe='')}/version/{ver}"
+           f"/outlet/{quote(outlet, safe='')}/effluent/{quote(effluent, safe='')}/condition/{sub}")
+    cond_versions.setdefault((ref, sub), []).append(iri)
 for (ref,) in regcon.execute("SELECT DISTINCT permit_ref FROM permits").fetchall():
     reg_permits.add(ref)                            # the catchment's regulation permits
 regcon.close()
@@ -219,7 +236,7 @@ it = ws.iter_rows(values_only=True)
 H = list(next(it))
 idx = {h: i for i, h in enumerate(H)}
 
-actions, limits, bounds = {}, [], []
+actions, limits, bounds, continuances = {}, [], [], []
 for r in it:
     if r[idx["EA_Function"]] != "Water Quality" or r[idx["Water_Company"]] != "Wessex Water Service Ltd":
         continue
@@ -263,13 +280,17 @@ for r in it:
     cd = r[idx["Completion_Date"]]
     actions.setdefault(action_id, dict(
         action_id=action_id, label=r[idx["Action_Name"]], description=r[idx["Action_Description"]],
-        completion_date=cd.date().isoformat() if cd else None, permit_ref=permit_ref,
+        # xsd:dateTime, the range core:applicableFrom declares. A bare date is not a legal dateTime.
+        completion_date=cd.date().isoformat() + "T00:00:00" if cd else None, permit_ref=permit_ref,
         easting=easting, northing=northing, waterbody_id=r[idx["Waterbody_ID"]]))
 
     for l in emitted:
         limits.append(dict(action_id=action_id, limit_key=l["key"], kind=l["kind"],
-                           substance=l.get("substance"), continues_iri=l.get("continues_iri"),
-                           statement=l.get("statement")))
+                           substance=l.get("substance"), statement=l.get("statement")))
+        # A carried-over limit continues one condition PER EFFLUENT, so continuance is its own table
+        # rather than a column on the limit.
+        for iri in l.get("continues", []):
+            continuances.append(dict(action_id=action_id, limit_key=l["key"], continues_iri=iri))
         for i, b in enumerate(l.get("bounds", [])):
             bounds.append(dict(action_id=action_id, limit_key=l["key"], bound_key=str(i),
                                value=b["value"], unit_slug=UNIT_SLUG[b["unit"]], statistic=b["statistic"]))
@@ -278,6 +299,25 @@ for r in it:
 actions_df = pd.DataFrame(actions.values())
 limits_df = pd.DataFrame(limits)
 bounds_df = pd.DataFrame(bounds)
+continuances_df = pd.DataFrame(continuances, columns=["action_id", "limit_key", "continues_iri"])
+
+# A CRS84 geometry alongside the source EPSG:27700 one. WINEP publishes Easting/Northing (BNG), which
+# is what we reproduce; but GeoSPARQL's geof: functions are defined over CRS84 and oxigraph will not
+# reproject - hand it a British National Grid geometry and it returns UNBOUND, so any spatial query
+# over these sites silently finds nothing. See the long note in ttl/regulation/regulation_to_db.py.
+_T = Transformer.from_crs("EPSG:27700", "EPSG:4326", always_xy=True)
+
+
+def _crs84(e, n):
+    try:
+        lon, lat = _T.transform(float(e), float(n))
+    except (TypeError, ValueError):
+        return None
+    return f"{lon:.7f} {lat:.7f}"
+
+
+if len(actions_df):
+    actions_df["crs84"] = [_crs84(e, n) for e, n in zip(actions_df.easting, actions_df.northing)]
 
 used_subs = sorted({l["substance"] for l in limits if l["substance"]})
 subs_df = pd.DataFrame([dict(notation=n, pref_label=labels.get(n)) for n in used_subs])
@@ -294,6 +334,7 @@ stats_df = pd.DataFrame([dict(slug=s, label=STAT_LABEL[s]) for s in used_stats])
 # --- Write DuckDB ------------------------------------------------------------------
 con = duckdb.connect(str(HERE / "winep.duckdb"))
 for name, df in [("actions", actions_df), ("proposed_limits", limits_df), ("proposed_bounds", bounds_df),
+                 ("limit_continuances", continuances_df),
                  ("substances", subs_df), ("units", units_df), ("statistics", stats_df)]:
     con.execute(f"CREATE OR REPLACE TABLE {name} AS SELECT * FROM df")
 
@@ -303,5 +344,8 @@ print(f"{'proposed_limits':>16}: {len(limits_df)}")
 for k, n in limits_df["kind"].value_counts().items():
     print(f"{'  - ' + k:>16}: {n}")
 print(f"{'proposed_bounds':>16}: {len(bounds_df)}")
+print(f"{'continuances':>16}: {len(continuances_df)}  "
+      f"({continuances_df.limit_key.nunique() if len(continuances_df) else 0} carried-over limits "
+      f"-> one condition per effluent)")
 print(f"{'substances':>16}: {used_subs}")
 print(f"{'statistics':>16}: {used_stats}")

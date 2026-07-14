@@ -21,7 +21,16 @@ river point from 149 observations to 0, and leaves a sewage-effluent point untou
 result VERBATIM, qualifier and all. breaches_to_db.py does the interpreting.
 
 Scope: only the (sampling point, determinand) pairs that an in-scope permit actually has a condition
-for - 175 pairs over 54 sampling points. Read from regulation.duckdb, so run that pipeline first.
+for, AT THE OUTLET THAT POINT MONITORS. Read from regulation.duckdb, so run that pipeline first.
+
+KEEP THIS IN STEP WITH THE REGISTER. The scope is derived, so it MOVES when the register-sourced
+tables move - and this cache is committed, so it does not move with it unless someone re-runs this.
+That has bitten once already: when discharge points were re-sourced from the permit register (rather
+than existing only if they had a numeric observation), the store's monitored sampling points grew from
+54 to 69 and this cache stayed at 54. The 15 new points were assessed against nothing - and an
+unassessed point does not read as "unknown", it reads as NO BREACH. Among them was Blackheath's storm
+overflow, a sewage discharge point with live WINEP actions. If you change what is in scope in
+ttl/regulation, RE-RUN THIS, or the breach count is silently an undercount.
 
     python ttl/breaches/fetch_compliance_observations.py            # incremental; keeps the cache
     python ttl/breaches/fetch_compliance_observations.py --refresh  # discard and re-fetch
@@ -52,16 +61,29 @@ KEEP = ["id", "samplingPoint.notation", "phenomenonTime", "samplingPurpose",
 
 
 def pairs_in_scope() -> list[tuple[str, str]]:
-    """(sampling point, determinand) for every condition an in-scope permit holds at a point it is
-    actually monitored at. A permit with no monitored sampling point cannot be judged at all."""
+    """(sampling point, determinand) for every condition an in-scope permit holds, at the point that
+    monitors THE EFFLUENT THE CONDITION GOVERNS.
+
+    The join is on (permit, outlet, effluent), not on permit alone. That matters now conditions are
+    keyed at the register's own grain: permit 042116 limits BOD to 15 mg/l at effluent 1 and 25 mg/l
+    at effluent 2, sampled at two different points. A permit-level join would ask the archive for
+    every substance at every one of the permit's points, and hand the assessment a sample from the
+    wrong outlet's monitoring point.
+
+    Sampling points the archive does not publish are excluded - there is nothing to fetch. Those
+    outlets are NOT ASSESSABLE, which breaches_to_db.py records explicitly rather than letting them
+    pass for clean.
+    """
     if not REG_DB.exists():
         sys.exit(f"ABORT: {REG_DB} missing - run ttl/regulation/regulation_to_db.py first.")
     con = duckdb.connect(str(REG_DB), read_only=True)
     rows = con.execute("""
         SELECT DISTINCT m.sp_notation, c.substance
         FROM conditions c
-        JOIN discharge_point_monitoring m ON m.permit_ref = c.permit_ref
+        JOIN discharge_point_monitoring m
+          ON m.permit_ref = c.permit_ref AND m.outlet = c.outlet AND m.effluent = c.effluent
         WHERE m.sp_notation IS NOT NULL AND m.sp_notation <> ''
+          AND m.sp_notation NOT IN (SELECT sp_notation FROM unpublished_sampling_points)
         ORDER BY 1, 2
     """).fetchall()
     con.close()

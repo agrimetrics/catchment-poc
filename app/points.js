@@ -1,17 +1,29 @@
 /* Points apart
  * ------------
- * The demonstrator's central argument, laid out as five screens rather than one crowded page:
+ * The demonstrator's central argument, laid out as six screens rather than one crowded page:
  *
- *   #/why        the argument, an abstracted example, and the joins this store actually makes
- *   #/blackheath Example 1 — proximity returns a river, sited UPSTREAM of the works
- *   #/brockhill  Example 2 — seven outlets on one coordinate; proximity cannot tell them apart
- *   #/doreys     Example 3 — the right answer is a kilometre away; no radius works
- *   #/explorer   the collections themselves: permits, outlets, sampling points, WINEP actions
+ *   #/why         the argument, an abstracted example, and the joins this store actually makes
+ *   #/blackheath  Example 1 — proximity returns a river, sited UPSTREAM of the works
+ *   #/brockhill   Example 2 — seven outlets on one coordinate; proximity cannot tell them apart
+ *   #/doreys      Example 3 — the right answer is a kilometre away; no radius works
+ *   #/unlocatable Example 4 — outlets with no coordinate at all; proximity has nothing to measure
+ *   #/explorer    the collections themselves: permits, outlets, sampling points, WINEP actions
  *
  * EA records about the same regulated thing can be merged reliably only by identifier, not by
- * location, and there are three ways proximity fails. Each example is one of them. Every number on
- * these pages is COMPUTED FROM THE STORE at render time (see the fact() helpers) rather than typed
- * into the prose, so the page cannot drift away from the data behind it.
+ * location, and there are four ways proximity fails. Each example is one of them.
+ *
+ * ASSERTED vs DRAWABLE — the distinction this page must never blur, because blurring it is the exact
+ * mistake it exists to warn about. The store holds 122 outlets. 115 of them have a coordinate; 102
+ * have a sampling point; 91 have BOTH, and only those 91 can be SCORED — you cannot test a proximity
+ * join on an outlet that has no position to measure from, or no stated answer to check against.
+ * So 91 is the scoring denominator and it is honest. What it is NOT is "the number of outlets", or
+ * "the outlets the register names a sampling point for". Every count on these screens says which of
+ * the three it means. The page that argues "do not let the presence of geometry decide what exists"
+ * cannot itself quietly count only the things it can draw.
+ *
+ * The counts are COMPUTED FROM THE STORE at render time, so they cannot drift from the data. The
+ * example ledes are hand-written prose and DO name specific figures ("seven outlets", "a kilometre
+ * away"); those are checked against the build output, not derived at runtime.
  *
  * Geometry comes from the same /sparql endpoint as the map app, in the source CRS the EA published
  * it in (EPSG:27700, British National Grid), and is reprojected client-side with proj4 exactly as
@@ -43,25 +55,83 @@ const AMBIENT_COLOR = "#8a94a0";
 const PREFIXES = `
 PREFIX water: <http://environment.data.gov.uk/ontology/water/>
 PREFIX reg:   <http://environment.data.gov.uk/ontology/regulation/>
+PREFIX wr:    <http://example.com/water-regulation/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
 PREFIX sosa:  <http://www.w3.org/ns/sosa/>`;
 
+// THIS PAGE READS THE SOURCE GEOMETRY, NOT THE DERIVED ONE.
+//
+// Every point in the store now carries TWO geometries — the EA's own EPSG:27700 (British National
+// Grid, metres) and a CRS84 one derived from it so that GeoSPARQL's geof: functions can run. That
+// means a bare `geo:hasGeometry/geo:asWKT` now matches BOTH and silently doubles every row. (It did:
+// the app briefly reported 328 breaches for a store holding 164.)
+//
+// So the geometry is selected by CRS, explicitly. This page must have the BRITISH NATIONAL GRID one:
+//
+//   * BNG is a PROJECTED CRS in metres, so Pythagoras on easting/northing is true ground distance.
+//     Every score, radius and leg label on these screens is a real number of metres because of that.
+//   * The collision test — "these two outlets are on the SAME point" — has to be exact equality on
+//     the published coordinate. It must be a fact about the register, not an artefact of reprojection
+//     rounding. Seven outlets sharing one grid reference is the whole of Example 2.
+const BNG = "<http://www.opengis.net/def/crs/EPSG/0/27700>";
+const srcGeom = (feat, out) => `${feat} geo:hasGeometry ?g_${out} .
+             ?g_${out} wr:crs ${BNG} ; geo:asWKT ?${out} .`;
+
 // One row per (discharge point × sampling point × action) for a permit; deduped into sets below.
 //
-// The discharge point's geometry is OPTIONAL, and that is load-bearing. Seven outlets in this
-// catchment have no published coordinate at all — the consents register simply does not give their
-// permit a site grid reference — and this store refuses to invent one for them. Requiring ?dpw here
-// would delete them from the page, which would be the very bug this page is about: letting the
-// presence of geometry decide what exists. They have no location and their link is still exact.
+// EVERY GEOMETRY HERE IS OPTIONAL, and each OPTIONAL is load-bearing. This query is the page's own
+// data, and the page's argument is that geometry must not decide what exists — so it would be an
+// embarrassment for the query to make exactly that mistake. It did, twice:
+//
+//   ?dpw   Seven outlets have no published coordinate at all — the consents register gives their
+//          permit no grid reference and this store refuses to invent one. Requiring ?dpw deletes
+//          them. They have no location and their link is still exact; that IS the argument.
+//
+//   ?spw   Six sampling points are NAMED by the register but not published by the Water Quality
+//          Archive, so the store holds their IRI and nothing else. `?sp geo:hasGeometry ?spw` as a
+//          hard join dropped those six monitoredAt edges — the page reported 96 links where the
+//          register states 102. On the page whose whole thesis is "the identifier keeps working when
+//          the geometry is missing", six identifier links were being thrown away FOR HAVING NO
+//          GEOMETRY. Now the edge is kept and only the drawing of it is conditional.
+//
+// The discharge point's geometry is also pinned to the SITE level. The register carries a grid
+// reference at three levels and the store now publishes all three (see Q_ALT_GEOM below); the SITE
+// reference is the one this store publishes as "the" location, because it is what the public register
+// surfaces. Without the pin, ?dpw would match all three and every row would triple.
+const SITE = "<http://example.com/water-regulation/grid-level/site>";
 const Q_PERMITS = `${PREFIXES}
 SELECT ?permit ?dp ?dpw ?sp ?spw ?action ?al ?aw WHERE {
   ?permit a water:WaterDischargePermit ; reg:permitSite ?dp .
-  OPTIONAL { ?dp geo:hasGeometry/geo:asWKT ?dpw . }
-  OPTIONAL { ?dp water:monitoredAt ?sp . ?sp geo:hasGeometry/geo:asWKT ?spw . }
+  OPTIONAL { ?dp geo:hasGeometry ?gdp . ?gdp wr:gridReferenceLevel ${SITE} ; wr:crs ${BNG} ; geo:asWKT ?dpw . }
+  OPTIONAL { ?dp water:monitoredAt ?sp .
+             OPTIONAL { ?sp geo:hasGeometry ?gsp . ?gsp wr:crs ${BNG} ; geo:asWKT ?spw . } }
   OPTIONAL { ?action reg:targetPermit ?permit ; rdfs:label ?al ; reg:actionSite ?s .
-             ?s geo:hasGeometry/geo:asWKT ?aw . }
+             ?s geo:hasGeometry ?ga . ?ga wr:crs ${BNG} ; geo:asWKT ?aw . }
+}`;
+
+// THE OPPOSITION'S BEST CASE, fetched so the page can score it instead of ducking it.
+//
+// The obvious objection to everything on this page is: "you chose the COARSEST of the three grid
+// references the register carries, and then complained that proximity could not use it." It is a fair
+// objection and it deserves a number, not a paragraph. The register carries:
+//
+//     DISCHARGE_NGR      the SITE      — what the public register surfaces, and what this store publishes
+//     OUTLET_GRID_REF    the OUTLET    — finer
+//     EFFLUENT_GRID_REF  the EFFLUENT  — finest
+//
+// All three are now in the store, each tagged `wr:gridReferenceLevel`. This query pulls the other two
+// so the Why screen can run the same nearest-neighbour join against each and show the result. The
+// argument does not need proximity to look bad; it needs proximity to be shown at its BEST and still
+// be the wrong tool. It is: the finest reference reaches about three in four, and — the part worth
+// noticing — the finest is NOT reliably the most accurate.
+const Q_ALT_GEOM = `${PREFIXES}
+SELECT ?dp ?level ?w WHERE {
+  ?dp a reg:DischargePoint ; geo:hasGeometry ?g .
+  ?g wr:gridReferenceLevel ?lv ; wr:crs ${BNG} ; geo:asWKT ?w .
+  ?lv skos:notation ?level .
+  FILTER(?level != "site")
 }`;
 
 // EVERY sampling point in the store — not just the ones a permit is monitored at. This is what a GIS
@@ -69,25 +139,46 @@ SELECT ?permit ?dp ?dpw ?sp ?spw ?action ?al ?aw WHERE {
 // against only the effluent points would flatter the join by handing it the answer.
 const Q_SP = `${PREFIXES}
 SELECT ?sp ?spw ?spl ?type (COUNT(?dp) AS ?nMon) WHERE {
-  ?sp a sosa:FeatureOfInterest ; geo:hasGeometry/geo:asWKT ?spw .
+  ?sp a sosa:FeatureOfInterest ; geo:hasGeometry ?gsp .
+  ?gsp wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ; geo:asWKT ?spw .
   OPTIONAL { ?sp skos:prefLabel ?spl }
-  OPTIONAL { ?sp water:samplingPointType/skos:prefLabel ?type }
+  OPTIONAL { ?sp wr:samplingPointType/skos:prefLabel ?type }
   OPTIONAL { ?dp water:monitoredAt ?sp }
 } GROUP BY ?sp ?spw ?spl ?type`;
 
 // --- provenance deep-links into the SPARQL editor ---------------------------------------------
+
+// The counter-argument, runnable. Every outlet, with each of the three grid references the register
+// carries and the sampling point the identifier states — so a reader can score all three themselves
+// and see that the store is not hiding behind the coarsest one.
+const THREE_GEOM_QUERY = `${PREFIXES}
+# The register carries a grid reference at THREE levels, and this store publishes all three.
+# The one hung on the discharge point by default is the SITE reference (DISCHARGE_NGR) — the coarsest,
+# because it is what the public register surfaces as "the" discharge location.
+#
+# Run this, then score a nearest-sampling-point join from each column against ?identifierSaysThisOne.
+# The finest reference is not reliably the most accurate. The identifier does not care either way.
+SELECT ?outlet ?level ?gridReference ?identifierSaysThisOne WHERE {
+  ?dp a reg:DischargePoint ; geo:hasGeometry ?g ; water:monitoredAt ?sp .
+  ?g wr:gridReferenceLevel ?lv ; wr:crs ${BNG} ; geo:asWKT ?gridReference .
+  ?lv skos:notation ?level .
+  BIND(REPLACE(STR(?dp), "^.*/permit/", "") AS ?outlet)
+  BIND(REPLACE(STR(?sp), "^.*/sampling-point/", "") AS ?identifierSaysThisOne)
+}
+ORDER BY ?outlet ?level`;
+
 const gisQuery = (permit) => `${PREFIXES}
 # Everything this store knows is at ${shortPermit(permit)} — the three roles, and their geometry.
 # Note they are three DIFFERENT places. The identifier says they belong together anyway.
 SELECT ?role ?feature ?wkt WHERE {
   { <${permit}> reg:permitSite ?feature .
-    ?feature geo:hasGeometry/geo:asWKT ?wkt . BIND("discharge point" AS ?role) }
+    ?feature geo:hasGeometry ?g . ?g wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ; geo:asWKT ?wkt . BIND("discharge point" AS ?role) }
   UNION
   { <${permit}> reg:permitSite/water:monitoredAt ?feature .
-    ?feature geo:hasGeometry/geo:asWKT ?wkt . BIND("sampling point" AS ?role) }
+    ?feature geo:hasGeometry ?g . ?g wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ; geo:asWKT ?wkt . BIND("sampling point" AS ?role) }
   UNION
   { ?a reg:targetPermit <${permit}> ; reg:actionSite ?feature .
-    ?feature geo:hasGeometry/geo:asWKT ?wkt . BIND("WINEP action site" AS ?role) }
+    ?feature geo:hasGeometry ?g . ?g wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ; geo:asWKT ?wkt . BIND("WINEP action site" AS ?role) }
 } ORDER BY ?role`;
 
 // The nearest-neighbour join, run as SPARQL so the reader can perform the mistake herself.
@@ -105,8 +196,9 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 # Outlets that share a coordinate get an IDENTICAL ranking: to a map they are one point.
 SELECT ?outlet ?samplingPoint ?label ?distanceSquared ?monitorsADischarge ?identifierSaysThisOne WHERE {
   <${permit}> reg:permitSite ?dp .
-  ?dp geo:hasGeometry/geo:asWKT ?dpWkt .
-  ?sp a sosa:FeatureOfInterest ; skos:prefLabel ?label ; geo:hasGeometry/geo:asWKT ?spWkt .
+  ?dp geo:hasGeometry ?gdp . ?gdp wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ; geo:asWKT ?dpWkt .
+  ?sp a sosa:FeatureOfInterest ; skos:prefLabel ?label ; geo:hasGeometry ?gsp .
+  ?gsp wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ; geo:asWKT ?spWkt .
 
   BIND(xsd:decimal(STRBEFORE(STRAFTER(STR(?dpWkt), "POINT("), " ")) AS ?dpE)
   BIND(xsd:decimal(STRBEFORE(STRAFTER(STR(?dpWkt), " "), ")"))      AS ?dpN)
@@ -153,16 +245,22 @@ const fmtM = (m) => (m >= 1000 ? (m / 1000).toFixed(2) + " km" : Math.round(m) +
 // collision tests use it: BNG is projected, so Pythagoras on it is true ground distance, and two
 // features are "on the same point" only if the store says so EXACTLY — which keeps a collision a
 // fact about the data rather than an artefact of proj4 rounding.
+// The CRS URI comes FIRST and is stripped before any number is read — it is itself full of digits
+// (".../EPSG/0/27700"), so scraping numbers from the whole literal invents coordinates out of the
+// namespace. See app.js parseWkt for the same note.
+const CRS_URI = /^\s*<([^>]+)>\s*/;
 function parseWkt(wkt) {
-  const bng = wkt.includes("27700");
-  const src = bng ? wkt.slice(0, wkt.indexOf("<") === -1 ? wkt.length : wkt.indexOf("<")) : wkt;
-  const nums = (src.match(/-?\d+\.?\d*/g) || []).map(Number);
+  const m = CRS_URI.exec(wkt);
+  const crs = m ? m[1] : "";
+  const body = m ? wkt.slice(m[0].length) : wkt;
+  const bng = crs.includes("27700");
+  const nums = (body.match(/-?\d+\.?\d*/g) || []).map(Number);
   let lon, lat, en = null;
   if (bng) { en = [nums[0], nums[1]]; [lon, lat] = proj4("EPSG:27700", "EPSG:4326", en); }
   else { lon = nums[0]; lat = nums[1]; }
   return {
     ll: [lat, lon], en,
-    crs: bng ? "EPSG:27700 · British National Grid" : "EPSG:4326 · WGS84",
+    crs: bng ? "EPSG:27700 · British National Grid" : "CRS84 · WGS84 lon/lat",
     key: `${bng ? "BNG" : "WGS84"}:${nums[0]} ${nums[1]}`,
   };
 }
@@ -194,6 +292,10 @@ async function sparql(query) {
 // ---------------------------------------------------------------------------
 // State
 let combos = [], byId = {}, allSp = [], stacks = {}, map = null;
+// { dischargePointIri: { outlet: {en,…}, effluent: {en,…} } } — the register's finer grid references,
+// used ONLY to score the counter-argument on the Why screen. Nothing is ever drawn from them: the
+// store publishes the SITE reference as the discharge point's location, and that is what the map shows.
+let altGeom = {};
 // Explorer layers: the markers, every asserted link drawn faintly, and the selected chain on top.
 let baseLayer = null, linkLayer = null, focusLayer = null;
 
@@ -216,12 +318,26 @@ function buildCombos(rows) {
   const map_ = {};
   for (const r of rows) {
     const id = shortPermit(r.permit);
-    const c = map_[id] ||= { id, permit: r.permit, dp: {}, noGeom: {}, sp: {}, act: {}, monOf: {} };
+    const c = map_[id] ||= {
+      id, permit: r.permit,
+      dp: {},        // outlets we can draw          (have a coordinate)
+      noGeom: {},    // outlets we cannot draw       (the register gives their permit no grid ref)
+      sp: {},        // sampling points we can draw  (the archive publishes them)
+      spNoGeom: {},  // sampling points we cannot    (named by the register, unpublished by the archive)
+      act: {}, monOf: {},
+    };
     // An outlet the register gives no coordinate for goes in `noGeom`: it exists, it is monitored at
     // a sampling point, and it cannot be drawn. It must never be quietly dropped.
     if (r.dp && r.dpw && !c.dp[r.dp]) c.dp[r.dp] = parseWkt(r.dpw);
     if (r.dp && !r.dpw) c.noGeom[r.dp] = true;
-    if (r.sp) { if (!c.sp[r.sp]) c.sp[r.sp] = parseWkt(r.spw); c.monOf[r.dp] = r.sp; }
+    // The EDGE is recorded whether or not the sampling point can be drawn. `monOf` is the identifier
+    // join — the thing this page exists to defend — and it does not depend on geometry any more than
+    // the register's own statement does.
+    if (r.sp) {
+      c.monOf[r.dp] = r.sp;
+      if (r.spw) { if (!c.sp[r.sp]) c.sp[r.sp] = parseWkt(r.spw); }
+      else c.spNoGeom[r.sp] = true;
+    }
     if (r.action && !c.act[r.action]) c.act[r.action] = Object.assign(parseWkt(r.aw), { label: r.al });
   }
   combos = Object.values(map_).map((c) => {
@@ -287,14 +403,20 @@ function buildStacks() {
 }
 
 // ---------------------------------------------------------------------------
-// The three worked examples — one per way that proximity fails.
+// The four worked examples — one per way that proximity fails.
+// (EXAMPLES holds three; the fourth, UNLOCATABLE, is defined separately because it has no geometry
+//  to build a map from. N_EXAMPLES is the total BOTH of them count to — they used to disagree, so
+//  the kicker read "Example 3 of 3" on one screen and "Example 4 of 4" on the next.)
 const EXAMPLES = [
   {
     id: "blackheath", permit: "042451", site: "Blackheath WRC",
     mode: "It can return something that is not an outfall at all",
+    // "the NEAREST place guaranteed to carry none of its effluent" — not "the single place". Ninety-one
+    // sampling points in this catchment carry none of Blackheath's effluent; what makes this one damning
+    // is that it is the one proximity CHOOSES. The overstatement is easy to make and easy to catch.
     lede: "Proximity's nearest sampling point here is a <b>river station</b> — and one sited " +
-          "<b>upstream</b> of the works, the single place in the catchment guaranteed to carry none " +
-          "of its effluent.",
+          "<b>upstream</b> of the works, so it is the nearest place in the catchment guaranteed to " +
+          "carry none of its effluent.",
   },
   {
     id: "brockhill", permit: "043245", site: "Brockhill Watercress Farm",
@@ -317,13 +439,18 @@ const UNLOCATABLE = {
   id: "unlocatable", site: "Outlets with no location",
   mode: "And where there is no geometry, it cannot be run at all",
 };
+// The total BOTH the common renderer and the unlocatable one count to. They used to disagree — the
+// first said "Example 3 of 3" and the next said "Example 4 of 4" — because one used EXAMPLES.length
+// (3) and the other hard-coded 4. Derive it once.
+const N_EXAMPLES = EXAMPLES.length + 1;
 const ROUTES = [
   { id: "why", label: "Why identifiers", nav: "Why identifiers" },
   ...EXAMPLES.map((e, i) => ({
     id: e.id, label: `${i + 1} · ${e.site.split(" ")[0]}`, example: e,
     nav: `Example ${i + 1}: ${e.site}`,
   })),
-  { id: UNLOCATABLE.id, label: "4 · No location", nav: "Example 4: outlets with no location" },
+  { id: UNLOCATABLE.id, label: `${N_EXAMPLES} · No location`,
+    nav: `Example ${N_EXAMPLES}: outlets with no location` },
   { id: "explorer", label: "Explorer", nav: "Explore the collections" },
 ];
 // The radii the reader is invited to draw around a sampling point when asked to guess where the
@@ -333,9 +460,11 @@ const RADII = [5, 50, 500];
 // ---------------------------------------------------------------------------
 // Boot
 async function boot() {
-  let rows, spRows;
-  try { [rows, spRows] = await Promise.all([sparql(Q_PERMITS), sparql(Q_SP)]); }
-  catch (e) {
+  let rows, spRows, altRows;
+  try {
+    [rows, spRows, altRows] =
+      await Promise.all([sparql(Q_PERMITS), sparql(Q_SP), sparql(Q_ALT_GEOM)]);
+  } catch (e) {
     document.getElementById("pts-view").innerHTML =
       `<p class="pts-error">Could not load from <code>${esc(ENDPOINT)}</code>: ${esc(e.message)}</p>`;
     return;
@@ -345,6 +474,9 @@ async function boot() {
     type: r.type || "", monitors: Number(r.nMon || 0) > 0,
     ...parseWkt(r.spw),
   }));
+  // the register's OTHER two grid references, per outlet: { dpIri: { outlet: geom, effluent: geom } }
+  altGeom = {};
+  for (const r of altRows) (altGeom[r.dp] ||= {})[r.level] = parseWkt(r.w);
   buildCombos(rows);
   buildStacks();
 
@@ -442,25 +574,75 @@ function drawLegs(c, target, { dim = false, labels = true } = {}) {
 // ---------------------------------------------------------------------------
 // Screen 1 — Why identifiers, not proximity
 function renderWhy(view) {
-  // The scoreboard is a fact about the whole catchment, so compute it here rather than assert it.
-  const nDp = combos.reduce((n, c) => n + c.nDp, 0);          // outlets that exist
-  const nMapped = combos.reduce((n, c) => n + c.nMapped, 0);  // outlets with a published coordinate
-  const nNoGeom = combos.reduce((n, c) => n + c.nNoGeom, 0);  // outlets with none at all
+  // Every number here is a fact about the whole catchment, so compute it rather than assert it.
+  //
+  // THREE DIFFERENT COUNTS OF "OUTLET", and they must not be merged:
+  //   nDp     the outlets that EXIST     — what the register says
+  //   nMapped the outlets we can DRAW    — what has a coordinate
+  //   nMon    the outlets that are MONITORED — what has a sampling point
+  //   total   the outlets we can SCORE   — both of the above; the only fair test of a spatial join
+  const nDp = combos.reduce((n, c) => n + c.nDp, 0);
+  const nMapped = combos.reduce((n, c) => n + c.nMapped, 0);
+  const nNoGeom = combos.reduce((n, c) => n + c.nNoGeom, 0);
+  const nMon = combos.reduce((n, c) => n + Object.keys(c.monOf).length, 0);
+  const nNoSp = nDp - nMon;                                   // exist, but nobody monitors them
   const nCoords = new Set(combos.flatMap((c) => Object.values(c.dp).map((g) => g.key))).size;
   const stacked = Object.values(stacks).reduce((n, st) => n + st.length, 0);
   const nAmbient = allSp.filter((s) => !s.monitors).length;
+  const nOutfall = allSp.length - nAmbient;
 
-  // What proximity gets right, over every outlet the identifier names a sampling point for.
-  let hit = 0, total = 0, notAnOutfall = 0;
+  // What proximity gets right, over every outlet that has BOTH a coordinate and a stated answer.
+  //
+  // Scored twice. The first is the real test: the join may choose from the WHOLE layer, because that
+  // is what a GIS actually holds. The second is the ORACLE — restrict the layer to the points that
+  // genuinely monitor a discharge, which is the standard objection to this page ("just filter the
+  // layer") and which is circular, since you can only build that filter from the answer. We run it
+  // anyway, because the argument is stronger when it survives its own best objection with a number.
+  let hit = 0, oracleHit = 0, total = 0, notAnOutfall = 0, unscorable = 0;
   for (const c of combos)
     for (const [dpIri, g] of Object.entries(c.dp)) {
       const truth = c.monOf[dpIri];
       if (!truth) continue;
+      // The stated answer is not in the map layer AT ALL — the archive does not publish that point, so
+      // it has no coordinate and a nearest-feature join could never return it however close it is.
+      // Counting these as misses would rig the test in our favour, so they are excluded from the score
+      // and reported on their own. They are the purest form of the argument: geometry cannot even
+      // REPRESENT the answer here, and the identifier names it without difficulty.
+      if (!c.sp[truth]) { unscorable++; continue; }
       total++;
       const near = nearestSp(g);
       if (near.sp.iri === truth) hit++;
       if (!near.sp.monitors) notAnOutfall++;
+      if (nearestSp(g, { onlyOutfalls: true }).sp.iri === truth) oracleHit++;
     }
+
+  // --- THE OBJECTION, ANSWERED WITH THE OPPOSITION'S OWN BEST WEAPON -----------------------------
+  // Score the same join against ALL THREE grid references the register carries, over the outlets that
+  // carry all three (so the rows compare the same outlets three ways and the comparison is honest).
+  const three = [];
+  for (const c of combos)
+    for (const [dpIri, site] of Object.entries(c.dp)) {
+      const truth = c.monOf[dpIri];
+      const alt = altGeom[dpIri];
+      if (!truth || !c.sp[truth] || !alt || !alt.outlet || !alt.effluent) continue;
+      three.push({ truth, site, outlet: alt.outlet, effluent: alt.effluent });
+    }
+  const scoreLevel = (key) => {
+    let ok = 0;
+    const coords = new Set();
+    for (const t of three) {
+      coords.add(t[key].key);
+      if (nearestSp(t[key]).sp.iri === t.truth) ok++;
+    }
+    return { ok, coords: coords.size, pct: Math.round(100 * ok / three.length) };
+  };
+  const LEVELS = [
+    { key: "site", col: "DISCHARGE_NGR", what: "the discharge <b>site</b>",
+      note: "coarsest — one per site, inherited by every outlet of every permit there" },
+    { key: "outlet", col: "OUTLET_GRID_REF", what: "the <b>outlet</b>", note: "finer" },
+    { key: "effluent", col: "EFFLUENT_GRID_REF", what: "the <b>effluent</b>", note: "finest" },
+  ].map((l) => ({ ...l, ...scoreLevel(l.key) }));
+  const best = LEVELS.reduce((a, b) => (b.ok > a.ok ? b : a));
 
   view.innerHTML = `
     <article class="screen">
@@ -506,24 +688,118 @@ function renderWhy(view) {
       </section>
 
       <section class="board">
-        <h3>The guess, scored across this catchment</h3>
+        <h3>What the catchment actually holds</h3>
         <div class="stats">
-          <div class="stat"><b>${total}</b><span>outlets the register names a sampling point for</span></div>
-          <div class="stat bad"><b>${hit} / ${total}</b><span>nearest-point join gets right (${Math.round(100 * hit / total)}%)</span></div>
-          <div class="stat ok"><b>${total} / ${total}</b><span><code>water:monitoredAt</code> gets right (100%)</span></div>
+          <div class="stat"><b>${nDp}</b><span>outlets the register states exist</span></div>
+          <div class="stat"><b>${nMapped}</b><span>of them have a coordinate — the rest cannot be drawn <i>or</i> guessed at</span></div>
+          <div class="stat"><b>${nMon}</b><span>have a sampling point named by the register</span></div>
         </div>
         <p class="note">
-          And the ways it goes wrong are not near-misses. They are the three screens that follow:
+          Those three numbers are deliberately kept apart. <b>${nDp} outlets exist</b>; a map can only
+          show <b>${nMapped}</b> of them; only <b>${total}</b> have <i>both</i> a position to measure
+          from <i>and</i> a stated answer to check against — so <b>${total}</b> is the only honest
+          denominator for scoring a guess. Collapsing them into one figure would be this page's own
+          argument turned on its head: letting the presence of geometry decide what counts as real.
+        </p>
+
+        <h3>How much of the register can a map recover?</h3>
+        <p class="note">
+          The question is not "which join is better" — that would be circular, because
+          <code>water:monitoredAt</code> <i>is</i> the register's own statement of the answer, and
+          scoring it against itself would return 100% by construction. It would prove nothing, and this
+          page used to show it as a green tile as though it had.
+          <b>The honest question is the other one:</b> if you threw the identifier away, how much of it
+          could you get back from the map? That is falsifiable, and this is the answer.
+        </p>
+        <div class="stats">
+          <div class="stat bad"><b>${hit} / ${total}</b><span>recovered from the ${allSp.length}-point layer (${Math.round(100 * hit / total)}%)</span></div>
+          <div class="stat bad"><b>${oracleHit} / ${total}</b><span>recovered <i>even if you already knew which points are outfalls</i> (${Math.round(100 * oracleHit / total)}%)</span></div>
+        </div>
+        <p class="note">
+          The second column is the objection this page has to answer, so it answers it with a number
+          rather than an argument. <i>"Just restrict the layer to outfall points"</i> — very well: hand
+          the join an <b>oracle</b>, a layer containing only the <b>${nOutfall}</b> sampling points that
+          genuinely monitor a discharge, a layer you could only build if you already possessed the answer
+          you are trying to compute. It still recovers just <b>${oracleHit} of ${total}</b>. Even
+          cheating, proximity barely beats a coin toss — and the radius trap below survives the oracle
+          intact.
+        </p>
+        <p class="note">
+          One thing this page cannot show you, and should say so: it can demonstrate that
+          <code>monitoredAt</code> is <b>stated</b>, not that it is <b>correct</b>. If the register's own
+          link were wrong, nothing here would catch it. What it can demonstrate is that a map cannot
+          reconstruct it — and that a link you can check is worth more than one you have to infer.
+        </p>
+      </section>
+
+      <section class="board">
+        <h3>"But you used the worst coordinate"</h3>
+        <p class="note">
+          The fair objection to everything above is that we hung the join on the <b>coarsest</b> of the
+          three grid references the register carries, and then complained that it did not work. So here
+          is the same join, run against <b>all three</b>, over the <b>${three.length}</b> outlets that
+          carry every one of them — the same outlets, three ways.
+        </p>
+        <table class="geo-table">
+          <thead><tr>
+            <th>Grid reference the register carries</th>
+            <th>Locates</th>
+            <th class="num">Distinct coords</th>
+            <th class="num">Nearest point correct</th>
+          </tr></thead>
+          <tbody>
+            ${LEVELS.map((l) => `
+              <tr${l.key === "site" ? ' class="ours"' : ""}>
+                <td><code>${l.col}</code>${l.key === "site" ? ' <span class="tag">what this store publishes</span>' : ""}</td>
+                <td>${l.what} <span class="muted">— ${l.note}</span></td>
+                <td class="num">${l.coords}</td>
+                <td class="num bad"><b>${l.ok} / ${three.length}</b> (${l.pct}%)</td>
+              </tr>`).join("")}
+            <tr class="truth">
+              <td><code>water:monitoredAt</code> <span class="tag ok">the identifier</span></td>
+              <td>nothing — it is <b>not a place</b></td>
+              <td class="num">—</td>
+              <td class="num ok"><b>${three.length} / ${three.length}</b> (100%)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          <b>The objection is real, and it does not rescue the method.</b> The finest coordinate the
+          register holds is worth roughly <b>${best.pct}%</b> — better than the site reference, and still
+          a join you would not want to defend to a regulator. One outlet in four is filed under the wrong
+          watercourse.
+        </p>
+        <p class="note">
+          Two things are worth staring at. <b>Precision is not accuracy:</b> the effluent reference
+          resolves ${LEVELS[2].coords} distinct coordinates against the outlet reference's
+          ${LEVELS[1].coords}, and buys almost nothing for it — so <i>"just use the most precise
+          coordinate"</i> is not a rule that saves you. And the ${LEVELS[0].pct}%-vs-${best.pct}% gap is
+          not a fact about the world at all: it is decided by <b>which column of a spreadsheet</b>
+          somebody hung the geometry on, two levels above the thing being joined. Change the schema
+          choice and the "answer" changes.
+        </p>
+        <p class="note">
+          <code>water:monitoredAt</code> is unmoved by any of it. It is not a better coordinate — it is
+          <b>not a coordinate</b>. It is the regulator's own statement of which sampling point measures
+          which outlet, and it reads the same whether the two are 5 metres apart, 5 kilometres apart, or
+          <a href="#/${UNLOCATABLE.id}">nowhere at all</a>.
+        </p>
+        <a class="sparql-link ext-link" href="sparql.html#q=${encodeURIComponent(THREE_GEOM_QUERY)}"
+           target="_blank" rel="noopener">◈ Run the comparison yourself — all three grid references</a>
+
+        <p class="note">
+          The ways it goes wrong are not near-misses. They are the four screens that follow:
         </p>
         <ol class="modes">
           <li><b>It can return something that is not an outfall.</b> The layer holds
-            <b>${allSp.length}</b> sampling points and only <b>${allSp.length - nAmbient}</b> of them
+            <b>${allSp.length}</b> sampling points and only <b>${nOutfall}</b> of them
             monitor a discharge; the other <b>${nAmbient}</b> are rivers, boreholes and bathing waters.
             For <b>${notAnOutfall}</b> outlets, the closest sampling point is one of those.
             → <a href="#/blackheath">Blackheath</a></li>
           <li><b>It cannot separate things that share a coordinate.</b> <b>${stacked}</b> of the
             <b>${nMapped}</b> mapped outlets share their published coordinate with another outlet — all
-            ${nMapped} of them fit on just <b>${nCoords}</b> distinct points.
+            ${nMapped} of them fit on just <b>${nCoords}</b> distinct points. To a map they are
+            ${nCoords} things, not ${nMapped}.
             → <a href="#/brockhill">Brockhill</a></li>
           <li><b>It cannot be given a radius that works.</b> The gap between an outlet and its own
             sampling point runs from a few metres to over a kilometre, so no single threshold both
@@ -534,6 +810,16 @@ function renderWhy(view) {
             from; the identifier does not notice.
             → <a href="#/${UNLOCATABLE.id}">Outlets with no location</a></li>
         </ol>
+        <p class="note">
+          Two more failures have no screen of their own, because neither is a <i>mis</i>-join — each is
+          a <i>silence</i>. <b>${nNoSp}</b> outlets have no sampling point at all: nobody monitors them,
+          and a proximity join will still hand each one its nearest point and report nothing amiss. And
+          for <b>${unscorable}</b> outlets the correct answer <b>is not in the layer</b> — the register
+          names their sampling point, the Water Quality Archive publishes no coordinate for it, so no
+          spatial join could return it however close it stood. They are excluded from the score above
+          rather than counted as misses, because a test proximity cannot possibly pass is not a fair
+          one. <code>water:monitoredAt</code> names them without noticing the difficulty.
+        </p>
       </section>
 
       ${nav("why")}
@@ -624,7 +910,7 @@ function renderExample(view, ex) {
   view.innerHTML = `
     <article class="screen">
       <section class="hero">
-        <p class="kicker">Example ${n} of ${EXAMPLES.length} · ${esc(ex.site)}</p>
+        <p class="kicker">Example ${n} of ${N_EXAMPLES} · ${esc(ex.site)}</p>
         <h2>${esc(ex.mode)}</h2>
         <p class="lede">${ex.lede}</p>
         <p class="scoreline">
@@ -690,14 +976,23 @@ function exampleDetail(ex, c, outlets) {
         difference between a river and an outfall: both are just points.
       </p>
       <p class="lede">
-        "US" in its name is <b>upstream</b>. So the join has not merely picked the wrong sampling
-        point — it has picked the one place whose readings are, by design, unaffected by this works.
-        Use it to judge the permit and the works looks spotless, because you are measuring water that
-        has not reached it yet.
+        "US" in its name is the EA's own abbreviation for <b>upstream</b>. So the join has not merely
+        picked the wrong sampling point — it has picked the one place whose readings are, by design,
+        unaffected by this works. Use it to judge the permit and the works looks spotless, because you
+        are measuring water that has not reached it yet.
+      </p>
+      <p class="note">
+        A caveat we should own: <i>upstream</i> here rests on the <b>EA's naming convention</b>, not on
+        anything this store can derive. It holds no flow direction and no river network, so it cannot
+        prove which way the water runs. The convention is well corroborated — the other Sherford
+        stations lie east, and the river runs east to Poole Harbour — but it is a convention, and the
+        sentence above leans on it. Load the WFD river network and it becomes a derivation instead.
       </p>
       <p class="note">
         You cannot fix this by filtering the layer down to "just the outfalls", because knowing which
-        points are this permit's outfalls is precisely what the join was supposed to tell you.
+        points are this permit's outfalls is precisely what the join was supposed to tell you. And the
+        <a href="#/why">scoreboard</a> settles it empirically: even <i>given</i> that filter, proximity
+        recovers only about half the register.
       </p>
     </section>`;
   }
@@ -905,7 +1200,7 @@ function renderUnlocatable(view) {
   view.innerHTML = `
     <article class="screen">
       <section class="hero">
-        <p class="kicker">Example 4 of 4 · ${esc(UNLOCATABLE.site)}</p>
+        <p class="kicker">Example ${N_EXAMPLES} of ${N_EXAMPLES} · ${esc(UNLOCATABLE.site)}</p>
         <h2>${esc(UNLOCATABLE.mode)}</h2>
         <p class="lede">
           <b>${nNoGeom}</b> of this catchment's <b>${nDp}</b> outlets have <b>no coordinate at all</b>.
@@ -1112,7 +1407,13 @@ let explorerTab = "permits";
 function renderExplorer(view) {
   const nDp = combos.reduce((n, c) => n + c.nDp, 0);
   const nAct = combos.reduce((n, c) => n + c.nAct, 0);
+  // ASSERTED vs DRAWABLE, again, and this is the count most easily got wrong. `legs` are the links we
+  // can DRAW — both ends need a coordinate. The links the store ASSERTS are more numerous, because an
+  // outlet with no coordinate, or a sampling point the archive does not publish, still has its edge.
+  // Saying "every monitoredAt in the catchment, N of them" while N counts only the drawable ones would
+  // be this page committing its own cardinal sin in its own summary.
   const nLegs = combos.reduce((n, c) => n + c.legs.length, 0);
+  const nAsserted = combos.reduce((n, c) => n + Object.keys(c.monOf).length + c.nAct, 0);
   const counts = {
     permits: combos.length, outlets: nDp, sampling: allSp.length, actions: nAct,
   };
@@ -1123,15 +1424,18 @@ function renderExplorer(view) {
         <p class="kicker">Explorer</p>
         <h2>The collections</h2>
         <p class="lede">
-          Everything the three examples were drawn from. <b>${combos.length}</b> permits own
+          Everything the four examples were drawn from. <b>${combos.length}</b> permits own
           <b>${nDp}</b> discharge points, monitored across a layer of <b>${allSp.length}</b> sampling
           points — of which only <b>${allSp.filter((s) => s.monitors).length}</b> monitor a discharge at
           all — and <b>${nAct}</b> WINEP actions target those permits.
         </p>
         <p class="lede">
-          The faint lines are the <b>asserted links</b>: every
-          <code>reg:targetPermit</code> and every <code>water:monitoredAt</code> in the catchment,
-          <b>${nLegs}</b> of them. Pick anything and its chain lights up —
+          The faint lines are the <b>asserted links</b> — every <code>reg:targetPermit</code> and every
+          <code>water:monitoredAt</code> in the catchment, <b>${nAsserted}</b> of them. Only
+          <b>${nLegs}</b> can be <i>drawn</i>: a line needs a coordinate at both ends, and
+          ${nAsserted - nLegs} of these links have an end the map cannot place. They are no less true
+          for it, which is the entire argument — so they are counted here even though they are not
+          shown. Pick anything and its chain lights up —
           <b>WINEP action → permit → outlet → sampling point</b> — with the distance each link spans.
           None of those distances is small, and none of them is used to make the join.
         </p>

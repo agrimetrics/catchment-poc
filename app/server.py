@@ -205,9 +205,9 @@ def term_to_json(term) -> dict:
 
 
 def results_to_json(results) -> dict:
-    """pyoxigraph query result (SELECT or ASK) -> SPARQL-results-JSON dict."""
-    if isinstance(results, bool):
-        return {"head": {}, "boolean": results}
+    """pyoxigraph SELECT / ASK query result -> SPARQL-results-JSON dict."""
+    if isinstance(results, (bool, ox.QueryBoolean)):
+        return {"head": {}, "boolean": bool(results)}
     variables = [v.value for v in results.variables]
     bindings = []
     for sol in results:
@@ -228,9 +228,26 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def _run_query(self, query: str):
+        """All FOUR SPARQL query forms, not just SELECT.
+
+        This used to read `results.variables` unconditionally, so ASK, CONSTRUCT and DESCRIBE each
+        died with an AttributeError and came back as HTTP 400 — three of the four forms, on an endpoint
+        the README advertises as "SPARQL 1.1" and an editor that invites ad-hoc queries. Anyone who
+        typed a CONSTRUCT got an error that looked like their fault.
+
+        pyoxigraph returns a different type per form, so branch on it:
+            SELECT              -> QuerySolutions  -> SPARQL-results-JSON
+            ASK                 -> QueryBoolean    -> {"boolean": …}
+            CONSTRUCT/DESCRIBE  -> QueryTriples    -> Turtle
+        """
         try:
             results = STORE.query(query)
-            payload = json.dumps(results_to_json(results)).encode("utf-8")
+            if isinstance(results, ox.QueryTriples):
+                payload = ox.serialize(results, format=ox.RdfFormat.TURTLE)
+                content_type = "text/turtle"
+            else:
+                payload = json.dumps(results_to_json(results)).encode("utf-8")
+                content_type = "application/sparql-results+json"
         except Exception as exc:  # surface SPARQL errors to the client
             self.send_response(400)
             self.send_header("Content-Type", "text/plain")
@@ -238,7 +255,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(str(exc).encode("utf-8"))
             return
         self.send_response(200)
-        self.send_header("Content-Type", "application/sparql-results+json")
+        self.send_header("Content-Type", content_type)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(payload)

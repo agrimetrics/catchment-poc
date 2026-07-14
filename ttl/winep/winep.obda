@@ -5,7 +5,7 @@ wat:            http://environment.data.gov.uk/ontology/water/
 core:           http://environment.data.gov.uk/ontology/core/
 qudt:           http://qudt.org/schema/qudt/
 unit:           http://qudt.org/vocab/unit/
-iop:            http://w3id.org/iadopt/ont/
+iop:            https://w3id.org/iadopt/ont/
 geo:            http://www.opengis.net/ont/geosparql#
 sosa:           http://www.w3.org/ns/sosa/
 skos:           http://www.w3.org/2004/02/skos/core#
@@ -31,13 +31,22 @@ source      SELECT action_id, completion_date FROM actions WHERE completion_date
 target      wr:action/{action_id}#applicability rdf:type core:Applicability .
             wr:action/{action_id}#applicability core:applicabilityPeriod wr:action/{action_id}#period .
             wr:action/{action_id}#period rdf:type core:ApplicabilityPeriod .
-            wr:action/{action_id}#period core:applicableFrom {completion_date}^^xsd:date .
+            wr:action/{action_id}#period core:applicableFrom {completion_date}^^xsd:dateTime .
 
 mappingId   ActionGeometry
-source      SELECT action_id, easting, northing FROM actions WHERE easting IS NOT NULL AND northing IS NOT NULL
-target      wr:action/{action_id}#site geo:hasGeometry wr:action/{action_id}#geography .
+source      SELECT action_id, easting, northing, crs84 FROM actions WHERE easting IS NOT NULL AND northing IS NOT NULL AND crs84 IS NOT NULL
+target      wr:action/{action_id}#site rdf:type geo:Feature .
+            wr:action/{action_id}#site geo:hasGeometry wr:action/{action_id}#geography .
             wr:action/{action_id}#geography rdf:type geo:Geometry .
-            wr:action/{action_id}#geography geo:asWKT "POINT({easting} {northing}) <http://www.opengis.net/def/crs/EPSG/0/27700>"^^geo:wktLiteral .
+            wr:action/{action_id}#geography geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT({easting} {northing})"^^geo:wktLiteral .
+            wr:action/{action_id}#geography wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> .
+            wr:action/{action_id}#geography rdfs:comment "WINEP's own Easting/Northing (EPSG:27700), verbatim. WINEP rounds action sites to 1 km, so this is a coarse reference - see ttl/winep/README.md." .
+            wr:action/{action_id}#site geo:hasGeometry wr:action/{action_id}#geography-crs84 .
+            wr:action/{action_id}#site geo:hasDefaultGeometry wr:action/{action_id}#geography-crs84 .
+            wr:action/{action_id}#geography-crs84 rdf:type geo:Geometry .
+            wr:action/{action_id}#geography-crs84 geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT({crs84})"^^geo:wktLiteral .
+            wr:action/{action_id}#geography-crs84 wr:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> .
+            wr:action/{action_id}#geography-crs84 rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so geof: functions can be evaluated against it. Still rounded to 1 km - reprojection does not add precision it never had." .
 
 mappingId   ActionWaterbody
 source      SELECT action_id, waterbody_id FROM actions WHERE waterbody_id IS NOT NULL
@@ -93,7 +102,7 @@ source      SELECT action_id, limit_key, substance FROM proposed_limits WHERE ki
 target      wr:action/{action_id}/limit/{limit_key} reg:regulatedProperty wr:substance/{substance} .
 
 mappingId   CarriedOverContinuance
-source      SELECT action_id, limit_key, continues_iri FROM proposed_limits WHERE kind = 'carried_over' AND continues_iri IS NOT NULL
+source      SELECT action_id, limit_key, continues_iri FROM limit_continuances
 target      wr:action/{action_id}/limit/{limit_key} reg:continuesCondition <{continues_iri}> .
 
 mappingId   LimitStatements

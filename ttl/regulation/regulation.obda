@@ -4,7 +4,7 @@ defra-reg:      http://environment.data.gov.uk/ontology/regulation/
 defra-water:    http://environment.data.gov.uk/ontology/water/
 defra-core:     http://environment.data.gov.uk/ontology/core/
 qudt:           http://qudt.org/schema/qudt/
-iop:            http://w3id.org/iadopt/ont/
+iop:            https://w3id.org/iadopt/ont/
 dcterms:        http://purl.org/dc/terms/
 sosa:           http://www.w3.org/ns/sosa/
 geo:            http://www.opengis.net/ont/geosparql#
@@ -34,11 +34,11 @@ target      wr:permit/{permit_ref}/version/{version} defra-core:hasApplicability
             wr:permit/{permit_ref}/version/{version}#applicability rdf:type defra-core:Applicability .
             wr:permit/{permit_ref}/version/{version}#applicability defra-core:applicabilityPeriod wr:permit/{permit_ref}/version/{version}#period .
             wr:permit/{permit_ref}/version/{version}#period rdf:type defra-core:ApplicabilityPeriod .
-            wr:permit/{permit_ref}/version/{version}#period defra-core:applicableFrom {effective_date}^^xsd:date .
+            wr:permit/{permit_ref}/version/{version}#period defra-core:applicableFrom {effective_date}^^xsd:dateTime .
 
 mappingId   PermitVersionRevoked
 source      SELECT permit_ref, version, revocation_date FROM permit_version_dates WHERE revocation_date <> ''
-target      wr:permit/{permit_ref}/version/{version}#period defra-core:applicableTo {revocation_date}^^xsd:date .
+target      wr:permit/{permit_ref}/version/{version}#period defra-core:applicableTo {revocation_date}^^xsd:dateTime .
 
 mappingId   DischargePoints
 source      SELECT permit_ref, outlet, effluent FROM discharge_points
@@ -49,18 +49,31 @@ mappingId   DischargePointMonitoring
 source      SELECT permit_ref, outlet, effluent, sp_notation FROM discharge_point_monitoring
 target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> .
 
+mappingId   UnpublishedSamplingPoints
+source      SELECT sp_notation FROM unpublished_sampling_points
+target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdfs:comment "Named as an effluent sampling point by the permit register. The Water Quality Archive publishes no reference data for it, so this store holds its identifier and nothing else - no label, no geometry, no type. The point exists; its description is not open." .
+
 mappingId   SamplingPoints
-source      SELECT sp_notation, pref_label, wkt, status_label FROM sampling_points
+source      SELECT sp_notation, pref_label, wkt, wkt_crs84, status_label FROM sampling_points
 target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> rdf:type sosa:FeatureOfInterest, geo:Feature .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> skos:prefLabel {pref_label} .
-            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> defra-water:samplingPointStatus {status_label} .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> wr:samplingPointStatus {status_label} .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> rdf:type geo:Geometry .
             <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> geo:asWKT "{wkt}"^^geo:wktLiteral .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry> rdfs:comment "The Environment Agency's own coordinate, in the CRS the Water Quality Archive publishes it in (EPSG:27700, British National Grid). Reproduced verbatim - not reprojected, not rounded." .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> geo:hasGeometry <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry-crs84> .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> geo:hasDefaultGeometry <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry-crs84> .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry-crs84> rdf:type geo:Geometry .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry-crs84> geo:asWKT "{wkt_crs84}"^^geo:wktLiteral .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry-crs84> wr:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> .
+            <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}#geometry-crs84> rdfs:comment "DERIVED from the source EPSG:27700 geometry by reprojection to CRS84. It exists because GeoSPARQL's geof: functions are defined over CRS84 and most engines will not reproject - given only the British National Grid geometry they return no answer, or worse, read the easting as a longitude and return a confident wrong one." .
 
 mappingId   SamplingPointTypes
 source      SELECT sp_notation, type_notation FROM sampling_points WHERE type_notation <> ''
-target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> defra-water:samplingPointType wr:sampling-point-type/{type_notation} .
+target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> wr:samplingPointType wr:sampling-point-type/{type_notation} .
 
 mappingId   SamplingPointTypeConcepts
 source      SELECT notation, pref_label FROM sampling_point_types
@@ -70,10 +83,21 @@ target      wr:sampling-point-type/{notation} rdf:type skos:Concept .
             wr:sampling-point-type/{notation} skos:prefLabel {pref_label} .
 
 mappingId   DischargePointGeometry
-source      SELECT permit_ref, outlet, effluent, wkt FROM discharge_point_geometry
-target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography .
+source      SELECT permit_ref, outlet, effluent, wkt, wkt_crs84 FROM discharge_point_geometry
+target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} rdf:type geo:Feature .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography .
             wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography rdf:type geo:Geometry .
             wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography geo:asWKT "{wkt}"^^geo:wktLiteral .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography wr:gridReferenceLevel wr:grid-level/site .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasDefaultGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 rdf:type geo:Geometry .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 geo:asWKT "{wkt_crs84}"^^geo:wktLiteral .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 wr:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 wr:gridReferenceLevel wr:grid-level/site .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-crs84 rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
 
 mappingId   Substances
 source      SELECT notation, pref_label FROM substances
@@ -82,6 +106,14 @@ target      wr:substance/{notation} rdf:type skos:Concept, sosa:ObservableProper
             wr:substance/{notation} skos:prefLabel {pref_label} .
             wr:substance/{notation} skos:inScheme wr:substance .
             wr:substance rdf:type skos:ConceptScheme .
+            wr:substance skos:prefLabel "Determinands regulated by permit conditions in the Poole Harbour catchment" .
+
+mappingId   MonitoredSubstances
+source      SELECT notation FROM substances WHERE monitored
+target      wr:substance/{notation} skos:inScheme wr:substance/monitored .
+            wr:substance/monitored rdf:type skos:ConceptScheme .
+            wr:substance/monitored skos:prefLabel "Regulated determinands the catchment holds a time series for" .
+            wr:substance/monitored rdfs:comment "The subset of wr:substance the Water Quality Archive's observations actually cover here, and therefore the only ones a time-series chart can draw. Membership is a fact about the OBSERVATION SET, not about the permits: a determinand outside this scheme is still regulated, still has a limit, and is still a condition of the permit - nobody has measured it." .
 
 mappingId   Units
 source      SELECT unit_slug, unit_label FROM units
@@ -115,31 +147,66 @@ target      wr:substance/{notation} skos:exactMatch wr:substance/{alias} .
             wr:substance/{alias} skos:altLabel {alias_alt_label} .
 
 mappingId   Conditions
-source      SELECT permit_ref, version, substance FROM conditions
-target      wr:permit/{permit_ref}/version/{version}/condition/{substance} rdf:type defra-reg:Condition .
-            wr:permit/{permit_ref} defra-reg:hasCondition wr:permit/{permit_ref}/version/{version}/condition/{substance} .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance} defra-reg:regulatedProperty wr:substance/{substance} .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance} defra-reg:hasLimit wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit rdf:type defra-reg:Limit .
+source      SELECT permit_ref, version, outlet, effluent, substance FROM conditions
+target      wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance} rdf:type defra-reg:Condition .
+            wr:permit/{permit_ref} defra-reg:hasCondition wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance} defra-reg:regulatedProperty wr:substance/{substance} .
 
-mappingId   ConditionLimitStatements
-source      SELECT permit_ref, version, substance, statement FROM limit_statements
-target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:limitStatement {statement} .
+mappingId   ConditionAppliesTo
+source      SELECT permit_ref, version, outlet, effluent, substance FROM conditions
+target      wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance} defra-core:hasApplicability wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#applicability .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#applicability rdf:type defra-core:Applicability .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#applicability defra-core:appliesTo wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} .
+
+mappingId   ConditionLimits
+source      SELECT permit_ref, version, outlet, effluent, substance, statistic, season, statement FROM condition_bounds
+target      wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance} defra-reg:hasLimit wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} rdf:type defra-reg:Limit .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} defra-reg:regulatedProperty wr:substance/{substance} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} defra-reg:limitStatement {statement} .
 
 mappingId   ConditionUpperBounds
-source      SELECT permit_ref, version, substance, statistic, value, unit_slug FROM condition_bounds WHERE bound_kind = 'upper'
-target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:upperBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} rdf:type qudt:QuantityValue .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:numericValue {value}^^xsd:decimal .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:unit wr:unit/{unit_slug} .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
+source      SELECT permit_ref, version, outlet, effluent, substance, statistic, season, value, unit_slug FROM condition_bounds WHERE bound_kind = 'upper'
+target      wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} defra-reg:upperBound wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} rdf:type qudt:QuantityValue .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} qudt:numericValue {value}^^xsd:decimal .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} qudt:unit wr:unit/{unit_slug} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
 
 mappingId   ConditionLowerBounds
-source      SELECT permit_ref, version, substance, statistic, value, unit_slug FROM condition_bounds WHERE bound_kind = 'lower'
-target      wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit defra-reg:lowerBound wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} rdf:type qudt:QuantityValue .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:numericValue {value}^^xsd:decimal .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} qudt:unit wr:unit/{unit_slug} .
-            wr:permit/{permit_ref}/version/{version}/condition/{substance}#limit-{statistic} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
+source      SELECT permit_ref, version, outlet, effluent, substance, statistic, season, value, unit_slug FROM condition_bounds WHERE bound_kind = 'lower'
+target      wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} defra-reg:lowerBound wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} rdf:type qudt:QuantityValue .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} qudt:numericValue {value}^^xsd:decimal .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} qudt:unit wr:unit/{unit_slug} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#value-{statistic}{season} iop:hasStatisticalModifier wr:statistical-modifier/{statistic} .
 
+mappingId   SeasonalLimits
+source      SELECT permit_ref, version, outlet, effluent, substance, statistic, season, month_from, month_to FROM condition_bounds WHERE season <> ''
+target      wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} wr:appliesFromMonth {month_from} .
+            wr:permit/{permit_ref}/version/{version}/outlet/{outlet}/effluent/{effluent}/condition/{substance}#limit-{statistic}{season} wr:appliesToMonth {month_to} .
+
+mappingId   DischargePointGeometryAlt
+source      SELECT permit_ref, outlet, effluent, level, wkt, wkt_crs84 FROM discharge_point_geometry_alt
+target      wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent} geo:hasGeometry wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-{level} .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-{level} rdf:type geo:Geometry .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-{level} geo:asWKT "{wkt}"^^geo:wktLiteral .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-{level} wr:crs <http://www.opengis.net/def/crs/EPSG/0/27700> .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-{level} wr:gridReferenceLevel wr:grid-level/{level} .
+            wr:permit/{permit_ref}/outlet/{outlet}/effluent/{effluent}#geography-{level} rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+mappingId   GridReferenceLevels
+source      SELECT DISTINCT level FROM discharge_point_geometry_alt
+target      wr:grid-level/{level} rdf:type skos:Concept .
+            wr:grid-level/{level} skos:notation {level}^^xsd:string .
+            wr:grid-level/{level} skos:inScheme wr:grid-level .
+            wr:grid-level rdf:type skos:ConceptScheme .
+            wr:grid-level skos:prefLabel "Which register column a discharge point's grid reference came from" .
+            wr:grid-level rdfs:comment "The permit register carries a grid reference at THREE levels - the discharge SITE (DISCHARGE_NGR), the OUTLET (OUTLET_GRID_REF) and the EFFLUENT (EFFLUENT_GRID_REF). A discharge point here is keyed at the finest level but the store's DEFAULT geometry is the coarsest, because the site reference is what the public register surfaces as -the- discharge location. All three are published, each tagged with the level it came from, so a consumer can choose - and so that a query never silently fans out across geometries that mean different things." .
+
+mappingId   GridReferenceLevelSite
+source      SELECT DISTINCT 1 AS one FROM discharge_point_geometry
+target      wr:grid-level/site rdf:type skos:Concept .
+            wr:grid-level/site skos:notation "site"^^xsd:string .
+            wr:grid-level/site skos:inScheme wr:grid-level .
 ]]

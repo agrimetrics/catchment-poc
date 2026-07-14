@@ -31,7 +31,7 @@ a code, so it goes directly to RDF.
 
 ## Model (GeoSPARQL)
 
-- **Class** — `defra-nature:ProtectedSite` (in `ontology-work/defra-nature.ttl`), a subclass of
+- **Class** — `defra-nature:ProtectedSite` (defined in [`canwaf/ontology-work`](https://github.com/canwaf/ontology-work) → `defra-nature.ttl`; that repo is a **sibling**, not a directory of this one), a subclass of
   `defra-core:Site`, which is itself `⊆ geo:Feature` — so a protected site is a GeoSPARQL feature by
   subsumption, with no explicit `geo:Feature` typing on the instances.
 - **Designation type** — a `defra-core:hasClassification` to a SKOS concept. The SSSI/SAC/SPA concept
@@ -56,9 +56,20 @@ a code, so it goes directly to RDF.
   vs `defra-farming:` classes).
 - **IRIs.** Sites are `http://example.com/nature/{sssi|sac|spa}/{code}`; geometry is a `#geometry`
   fragment of the site IRI.
-- **CRS.** WGS84 lon/lat with an explicit `CRS84` URI on every `wktLiteral` — one CRS across the whole
-  graph (discharge points and SFI options are WGS84 too), so `geof:distance(…, …, units:metre)` works
-  directly on GraphDB without reprojection. See `TODO.md` for the CRS caveat.
+- **CRS.** WGS84 lon/lat with an explicit `CRS84` URI at the **start** of every `wktLiteral`, which is
+  where GeoSPARQL requires it. The source GeoJSON carries no `crs` member, and per RFC 7946 that means
+  CRS84 — so the CRS is not guessed here, it is specified by the format.
+
+  The graph as a whole is in **two** CRSs, and this used to claim otherwise. Discharge, sampling and
+  WINEP points are published by the EA in **EPSG:27700** (British National Grid, metres) and the store
+  reproduces those numbers verbatim; the designations and SFI options are CRS84. To make a cross-source
+  `geof:distance` possible at all, every BNG point now *also* carries a **derived CRS84 geometry**
+  (`#geography-crs84`, marked `geo:hasDefaultGeometry`), because `geof:` functions are defined over
+  CRS84 and most engines — oxigraph included — will not reproject.
+
+  The old claim that this was "one CRS across the whole graph" was not merely untidy; the query built
+  on it read a British National Grid easting as a longitude and answered "no discharges are near any
+  protected site." See [`TODO.md`](TODO.md) — it is worth reading.
 
 ## Notes
 

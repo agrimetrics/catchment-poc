@@ -36,7 +36,7 @@ target      :Application/{app_id} skos:notation {app_id} .
 
 mappingId   RelationshipBetweenApplicationAndOption
 source      SELECT app_id, option_code FROM result
-target      :Option/{app_id}/{option_code} rdf:type defra-core:Option.
+target      :Option/{app_id}/{option_code} rdf:type defra-farming:Option.
             :Application/{app_id} defra-core:hasPart :Option/{app_id}/{option_code}.
             :Option/{app_id}/{option_code} defra-core:partOf :Application/{app_id} .
             :Option/{app_id}/{option_code} defra-core:hasClassification :Option/Concept/{option_code} .

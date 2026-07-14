@@ -29,7 +29,16 @@ This demonstrator keeps only what tells the "solving for a substance" story arou
   regulation permits. Both clauses are needed: WINEP sites are rounded to 1 km, so a boundary works
   can land just outside the polygon (kept by the permit clause, e.g. 401336, 401354); conversely a
   site can sit inside the catchment for a permit we hold no regulation data on (kept by the site
-  clause, e.g. 042116). → **11 actions**, **27 proposed limits** across 7 permits.
+  clause). → **11 actions**, **27 proposed limits** across 7 permits.
+
+  > **Note, from an audit of this claim.** In the delivered graph the site clause is currently doing
+  > **nothing**: all **11** emitted actions have a `targetPermit` that is already one of the catchment's
+  > regulation permits, so the permit clause keeps every one of them and **deleting the site clause
+  > would change the output by zero rows**. (This paragraph used to cite `042116` as an example of a
+  > permit kept by the *site* clause — it is one of the 61 regulation permits, so the *permit* clause
+  > keeps it; the example was backwards.) The clause is retained because it is the correct rule and it
+  > will matter the moment WINEP proposes an action for a permit this catchment holds no regulation data
+  > on. But it is not load-bearing today, and the README should not have implied it was.
 - **Only the columns needed.** Reference tables (substances, units, statistics) are built from just
   the values actually used by the emitted limits.
 - **Permit refs canonicalised.** `Licence_Permit_Obstruction_ID` is zero-padded to 6 digits so a

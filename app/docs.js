@@ -23,13 +23,22 @@ const DOCS = [
   ]},
   { group: "Datasets", items: [
     { path: "/ttl/regulation/README.md", title: "Regulation" },
+    // The breaches graph was added and this list never followed it, so the README claiming "all of the
+    // docs below also render in-app" was quietly false about the one graph that holds our OWN
+    // judgements rather than the EA's assertions — the one a reader most needs to be able to audit.
+    { path: "/ttl/breaches/README.md", title: "Breaches — the assessment" },
     { path: "/ttl/winep/README.md", title: "WINEP" },
     { path: "/ttl/winep/TODO.md", title: "WINEP — backlog" },
     { path: "/ttl/sfi/README.md", title: "Sustainable Farming Incentive" },
     { path: "/ttl/designations/README.md", title: "Designations (SSSI/SAC/SPA)" },
     { path: "/ttl/designations/TODO.md", title: "Designations — spatial queries" },
   ]},
+  { group: "Audit", items: [
+    { path: "/audit/README.md", title: "What the audit found, and what was done" },
+    { path: "/audit/findings.md", title: "…the findings, as delivered" },
+  ]},
   { group: "Reference", items: [
+    { path: "/app/TODO.md", title: "App / server — backlog" },
     { path: "/ontop/README.md", title: "Ontop CLI" },
     { path: "/raw_datasets/access_database_csv_files/README.md", title: "Access DB extracts" },
     { path: "/LICENSE.md", title: "License" },
