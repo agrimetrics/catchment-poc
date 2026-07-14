@@ -324,6 +324,14 @@
     ns1:judgedOnUndatedVersion true ;
     rdfs:comment "76.8 above the 75 maximum" .
 
+<http://example.com/water-regulation/breach/2114a1b4c1fc9afc792522573617c2d1> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/2114a1b4c1fc9afc792522573617c2d1#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/6455> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/6455#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153/sample/2939606/observation/6455> ;
+    rdfs:comment "112 above the 75 maximum" .
+
 <http://example.com/water-regulation/breach/2307494f56ef1f0586cd5d68653314b2> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
     ns3:hasApplicability <http://example.com/water-regulation/breach/2307494f56ef1f0586cd5d68653314b2#applicability> ;
@@ -470,6 +478,16 @@
         <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430127/sample/2528187/observation/6455> ;
     ns1:judgedOnUndatedVersion true ;
     rdfs:comment "88.7 above the 75 maximum" .
+
+<http://example.com/water-regulation/breach/2f87fe7e13b5fb0b53215d609772db8d> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/2f87fe7e13b5fb0b53215d609772db8d#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0135> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0135#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3278731/observation/0135>,
+        <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3318891/observation/0135> ;
+    ns1:judgedOnUndatedVersion true ;
+    rdfs:comment "61.9 above the 45 maximum" .
 
 <http://example.com/water-regulation/breach/2fdd7afd21f302ada7403a6346aff1d9> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
@@ -809,6 +827,16 @@
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570220/sample/2865500/observation/0135> ;
     rdfs:comment "37.1 above the 20 maximum" .
 
+<http://example.com/water-regulation/breach/4eafe49f415cb575eb82f5a3739af231> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/4eafe49f415cb575eb82f5a3739af231#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0085> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0085#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3278731/observation/0085>,
+        <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3318891/observation/0085> ;
+    ns1:judgedOnUndatedVersion true ;
+    rdfs:comment "60.9 above the 30 maximum" .
+
 <http://example.com/water-regulation/breach/5296042022a22a10ba9b70cc33e01366> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
     ns3:hasApplicability <http://example.com/water-regulation/breach/5296042022a22a10ba9b70cc33e01366#applicability> ;
@@ -859,6 +887,16 @@
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139/sample/3540955/observation/0135> ;
     ns1:judgedOnUndatedVersion true ;
     rdfs:comment "26 above the 20 maximum" .
+
+<http://example.com/water-regulation/breach/574fa03b9585299c5a79efb03e2bad79> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/574fa03b9585299c5a79efb03e2bad79#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0111> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0111#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3278731/observation/0111>,
+        <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3318891/observation/0111> ;
+    ns1:judgedOnUndatedVersion true ;
+    rdfs:comment "34.3 above the 20 maximum" .
 
 <http://example.com/water-regulation/breach/5782deb11bf7f46d5aed70d40aa96da3> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
@@ -981,6 +1019,14 @@
     ns2:breachesLimit <http://example.com/water-regulation/permit/401056/version/1/outlet/1/effluent/1/condition/0135#limit-maximum> ;
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50580170/sample/3079852/observation/0135> ;
     rdfs:comment "37.8 above the 20 maximum" .
+
+<http://example.com/water-regulation/breach/61351aa9e3fcda785405cbfb2c1103aa> a ns2:LimitBreach,
+        ns2:ShortfallBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/61351aa9e3fcda785405cbfb2c1103aa#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2928> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2928#limit-minimum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901/sample/3577447/observation/2928> ;
+    rdfs:comment "50.3 below the 95 minimum" .
 
 <http://example.com/water-regulation/breach/61be048d063dbc42a965a7be77052bdd> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
@@ -1511,6 +1557,14 @@
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450165/sample/2597620/observation/9901> ;
     rdfs:comment "59.3 below the 60 minimum" .
 
+<http://example.com/water-regulation/breach/937e89868823203b4f983964ce7324fd> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/937e89868823203b4f983964ce7324fd#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/6455> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/6455#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440168/sample/2523021/observation/6455> ;
+    rdfs:comment "79.5 above the 75 maximum" .
+
 <http://example.com/water-regulation/breach/93a43902f532a135566f8152870025f8> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
     ns3:hasApplicability <http://example.com/water-regulation/breach/93a43902f532a135566f8152870025f8#applicability> ;
@@ -1528,6 +1582,16 @@
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392/sample/3196189/observation/0135>,
         <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570392/sample/3199690/observation/0135> ;
     rdfs:comment "24 above the 20 maximum" .
+
+<http://example.com/water-regulation/breach/9508476bd51f78011ce87c6efd866cbb> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/9508476bd51f78011ce87c6efd866cbb#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0911> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0911#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152/sample/2518481/observation/0911>,
+        <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152/sample/2522635/observation/0911> ;
+    ns1:judgedOnUndatedVersion true ;
+    rdfs:comment "0.01 above the 0 maximum" .
 
 <http://example.com/water-regulation/breach/958891e32eb7ea4569d1548cc8b7d6f7> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
@@ -1717,6 +1781,15 @@
     ns2:breachesLimit <http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/1/condition/6455#limit-maximum> ;
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540139/sample/2809442/observation/6455> ;
     rdfs:comment "120 above the 75 maximum" .
+
+<http://example.com/water-regulation/breach/ad55c458d568fb2bd8ffbe360a39271a> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/ad55c458d568fb2bd8ffbe360a39271a#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2934> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2934#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901/sample/3541506/observation/2934>,
+        <http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901/sample/3577447/observation/2934> ;
+    rdfs:comment "282 above the 14 maximum" .
 
 <http://example.com/water-regulation/breach/b11116198e5dbf5a868cece796c986bc> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
@@ -2012,6 +2085,15 @@
     ns1:judgedOnUndatedVersion true ;
     rdfs:comment "3.37 above the 3 maximum" .
 
+<http://example.com/water-regulation/breach/c96e8e3463cab9e9f2aa633b9afd878c> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/c96e8e3463cab9e9f2aa633b9afd878c#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/6455> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/6455#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152/sample/2584057/observation/6455> ;
+    ns1:judgedOnUndatedVersion true ;
+    rdfs:comment "93.5 above the 75 maximum" .
+
 <http://example.com/water-regulation/breach/c9a0a9358671a45c2f5aecc776a238b0> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
     ns3:hasApplicability <http://example.com/water-regulation/breach/c9a0a9358671a45c2f5aecc776a238b0#applicability> ;
@@ -2213,6 +2295,15 @@
     ns2:breachesLimit <http://example.com/water-regulation/permit/401059/version/2/outlet/2/effluent/2/condition/0061#limit-maximum> ;
     ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570386/sample/3114136/observation/0061> ;
     rdfs:comment "9.01 above the 9 maximum" .
+
+<http://example.com/water-regulation/breach/e2d155af9d5cda0d098ae8ddefc2f735> a ns2:ExceedanceBreach,
+        ns2:LimitBreach ;
+    ns3:hasApplicability <http://example.com/water-regulation/breach/e2d155af9d5cda0d098ae8ddefc2f735#applicability> ;
+    ns2:breachesCondition <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/6455> ;
+    ns2:breachesLimit <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/6455#limit-maximum> ;
+    ns2:evidencedByObservation <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570160/sample/2570822/observation/6455> ;
+    ns1:judgedOnUndatedVersion true ;
+    rdfs:comment "90.6 above the 75 maximum" .
 
 <http://example.com/water-regulation/breach/e5637c07e1a4ababfeb7deef1c225394> a ns2:ExceedanceBreach,
         ns2:LimitBreach ;
@@ -2617,20 +2708,18 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040091/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040091/version/1/outlet/1/effluent/2/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/too-few-samples> .
 
 <http://example.com/water-regulation/permit/040091/version/1/outlet/1/effluent/2/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/too-few-samples> .
 
-<http://example.com/water-regulation/permit/040109/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040109/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040109/version/1/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040109/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/040109/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040109/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040109/version/2/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2717,8 +2806,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040137/version/1/outlet/1/effluent/1/condition/3211> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/1/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2730,8 +2818,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040725/version/1/outlet/2/effluent/1/condition/0135> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/2/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2743,8 +2830,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040725/version/2/outlet/2/effluent/1/condition/0135> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/3/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/3/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/3/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2756,8 +2842,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040725/version/3/outlet/2/effluent/1/condition/0135> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/4/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/4/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/4/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2778,8 +2863,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040725/version/4/outlet/2/effluent/1/condition/8174> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/5/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/5/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/5/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2797,8 +2881,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040725/version/5/outlet/2/effluent/1/condition/8174> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/6/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/6/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/6/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -2813,11 +2896,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/040725/version/6/outlet/1/effluent/1/condition/7782> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/040725/version/6/outlet/2/effluent/1/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/6/outlet/2/effluent/1/condition/2932> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/040725/version/6/outlet/2/effluent/1/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/040725/version/6/outlet/2/effluent/1/condition/2933> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/040725/version/6/outlet/2/effluent/1/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -2826,7 +2907,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/too-few-samples> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/1/effluent/1/condition/0111> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/too-few-samples> .
@@ -2844,16 +2925,16 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/2/effluent/1/condition/2928> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/2/effluent/1/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/2/effluent/1/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/2/effluent/1/condition/2934> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/040725/version/7/outlet/2/effluent/1/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -2976,17 +3057,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/1/condition/7782> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2928> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2928> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2932> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2933> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2934> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/2934> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/041324/version/9/outlet/1/effluent/2/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -3134,8 +3211,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/041518/version/1/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/041518/version/1/outlet/2/effluent/1/condition/3527> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041518/version/1/outlet/2/effluent/1/condition/3527> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/041518/version/1/outlet/2/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -3158,11 +3234,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/041639/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041639/version/1/outlet/1/effluent/2/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041639/version/1/outlet/1/effluent/2/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041639/version/1/outlet/1/effluent/2/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041639/version/1/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/041639/version/1/outlet/2/effluent/1/condition/0085> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/sampling-point-unpublished> .
@@ -3172,11 +3246,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/041639/version/2/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041639/version/2/outlet/1/effluent/2/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041639/version/2/outlet/1/effluent/2/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/041639/version/2/outlet/1/effluent/2/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/041639/version/2/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/041639/version/2/outlet/2/effluent/1/condition/0085> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/sampling-point-unpublished> .
@@ -3196,11 +3268,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/042116/version/1/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042116/version/1/outlet/1/effluent/3/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042116/version/1/outlet/1/effluent/3/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042116/version/1/outlet/1/effluent/3/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042116/version/1/outlet/1/effluent/3/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042116/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
@@ -3214,11 +3284,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/042116/version/2/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042116/version/2/outlet/1/effluent/3/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042116/version/2/outlet/1/effluent/3/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042116/version/2/outlet/1/effluent/3/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042116/version/2/outlet/1/effluent/3/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042116/version/3/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
@@ -3233,10 +3301,10 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/042116/version/3/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042116/version/3/outlet/1/effluent/3/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042116/version/3/outlet/1/effluent/3/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042116/version/4/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
@@ -3260,10 +3328,10 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/042116/version/4/outlet/1/effluent/3/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042116/version/4/outlet/1/effluent/3/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042116/version/4/outlet/1/effluent/3/condition/8174> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -3503,11 +3571,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/042451/version/7/outlet/1a/effluent/1/condition/7782> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/042451/version/7/outlet/1a/effluent/2/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042451/version/7/outlet/1a/effluent/2/condition/2932> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042451/version/7/outlet/1a/effluent/2/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042451/version/7/outlet/1a/effluent/2/condition/2933> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042451/version/7/outlet/1a/effluent/2/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -3622,16 +3688,16 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/042451/version/8/outlet/1a/effluent/2/condition/2928> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042451/version/8/outlet/1a/effluent/2/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042451/version/8/outlet/1a/effluent/2/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042451/version/8/outlet/1a/effluent/2/condition/2934> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042451/version/8/outlet/1a/effluent/2/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -3753,11 +3819,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/042453/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042453/version/1/outlet/2/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042453/version/1/outlet/2/effluent/1/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042453/version/1/outlet/2/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042453/version/1/outlet/2/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042453/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
@@ -3765,11 +3829,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/042453/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042453/version/2/outlet/2/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042453/version/2/outlet/2/effluent/1/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/042453/version/2/outlet/2/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/042453/version/2/outlet/2/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042453/version/3/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
@@ -3778,10 +3840,10 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/042453/version/3/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/042453/version/3/outlet/2/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042453/version/3/outlet/2/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/042453/version/4/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -3857,17 +3919,14 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/0511> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/0511> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/3328> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/3328> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/3334> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/ambiguous-version-history> .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/3373> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/3373> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/5565> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/ambiguous-version-history> .
@@ -3885,36 +3944,28 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0108> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0108> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0111> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0511> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/0511> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/3328> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/3328> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/3334> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/3334> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/3373> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/3373> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/5565> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/6452> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/6452> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/6462> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/2/condition/6462> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -3929,16 +3980,16 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/0511> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/3328> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/3334> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/ambiguous-version-history> .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/3373> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/1/condition/5565> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/ambiguous-version-history> .
@@ -3956,34 +4007,26 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0108> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0108> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0511> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0511> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/3328> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/3328> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/3334> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/3334> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/3373> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/3373> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/5565> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/6452> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/6452> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/6462> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/6462> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043091/version/3/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4021,36 +4064,26 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043091/version/4/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4058,8 +4091,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043231/version/2/outlet/2/effluent/2/condition/0061> ns1:assessed true .
 
@@ -4069,22 +4101,20 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/043231/version/2/outlet/2/effluent/2/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/043231/version/2/outlet/2/effluent/2/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043231/version/2/outlet/2/effluent/2/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043232/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043232/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043232/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043232/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043232/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043232/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043232/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043232/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4098,8 +4128,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043233/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043233/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043233/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043233/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
@@ -4108,7 +4137,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/043233/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043233/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043233/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4122,11 +4151,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043234/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4138,36 +4163,31 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/043234/version/2/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/043234/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043234/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043235/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043235/version/1/outlet/2/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043235/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043235/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043235/version/1/outlet/2/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043235/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043235/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043235/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043235/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4176,7 +4196,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/043235/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043235/version/2/outlet/2/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4186,8 +4206,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043236/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043236/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043236/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043236/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
@@ -4206,7 +4225,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/043236/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043236/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043236/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4225,46 +4244,38 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043238/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043238/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043238/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043241/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043241/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043241/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043244/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043244/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043244/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043244/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043245/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043245/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043245/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043245/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043246/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043246/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043246/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043259/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043259/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043259/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043260/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043260/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043260/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043260/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043260/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043260/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4288,18 +4299,16 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043276/version/1/outlet/1/effluent/2/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043276/version/1/outlet/1/effluent/2/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043276/version/1/outlet/1/effluent/2/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043462/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043462/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043462/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043462/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043462/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043462/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4309,13 +4318,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043463/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043463/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043463/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043463/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043463/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/043463/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4325,8 +4333,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043463/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/043478/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/043478/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043478/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
@@ -4338,23 +4345,11 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/050753/version/1/outlet/1/effluent/1/condition/9901> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0111> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0111> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0664> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4368,48 +4363,33 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/051340/version/1/outlet/2/effluent/1/condition/0111> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/2/effluent/2/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/2/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/2/effluent/2/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/2/effluent/2/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/0535> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/1/outlet/3/effluent/3/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4417,32 +4397,22 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
 <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/2/effluent/2/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/2/effluent/2/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/2/effluent/2/condition/6455> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/0061> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/0135> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/6455> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/0135> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400505/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/400505/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/400505/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400505/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400505/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/400505/version/2/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4603,8 +4573,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401050/version/1/outlet/1/effluent/1/condition/6051> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401050/version/1/outlet/1/effluent/1/condition/6452> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401050/version/1/outlet/1/effluent/1/condition/6452> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401050/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4618,8 +4587,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401050/version/2/outlet/1/effluent/1/condition/6051> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401050/version/2/outlet/1/effluent/1/condition/6452> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401050/version/2/outlet/1/effluent/1/condition/6452> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401050/version/3/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4633,8 +4601,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401050/version/3/outlet/1/effluent/1/condition/6051> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401050/version/3/outlet/1/effluent/1/condition/6452> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401050/version/3/outlet/1/effluent/1/condition/6452> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401050/version/4/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4674,8 +4641,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401056/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401056/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401056/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401056/version/1/outlet/2/effluent/2/condition/0061> ns1:assessed true .
 
@@ -4690,8 +4656,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401056/version/1/outlet/3/effluent/3/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401056/version/1/outlet/3/effluent/3/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401056/version/1/outlet/3/effluent/3/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401056/version/1/outlet/3/effluent/3/condition/6455> ns1:assessed true .
 
@@ -4699,8 +4664,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401056/version/1/outlet/4/effluent/4/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401056/version/1/outlet/4/effluent/4/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401056/version/1/outlet/4/effluent/4/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401056/version/1/outlet/4/effluent/4/condition/6455> ns1:assessed true .
 
@@ -4733,8 +4697,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401057/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401057/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401057/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401057/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
@@ -4742,8 +4705,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401057/version/1/outlet/2/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401057/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401057/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401057/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4753,7 +4715,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/401057/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/401057/version/2/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4777,19 +4739,17 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401058/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401058/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401058/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401058/version/1/outlet/2/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401058/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401058/version/1/outlet/2/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401058/version/2/outlet/1/effluent/1/condition/0664> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/401058/version/2/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/401058/version/2/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4809,13 +4769,11 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401059/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401059/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401059/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401059/version/1/outlet/2/effluent/2/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401059/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401059/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401059/version/1/outlet/2/effluent/2/condition/6455> ns1:assessed true .
 
@@ -4847,8 +4805,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401060/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401060/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401060/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401060/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
@@ -4856,8 +4813,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401060/version/1/outlet/2/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401060/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401060/version/1/outlet/2/effluent/2/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401060/version/1/outlet/2/effluent/2/condition/6455> ns1:assessed true .
 
@@ -4887,15 +4843,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/1/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/2/condition/0061> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/2/condition/0135> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/2/condition/0535> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/2/condition/0535> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401223/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
@@ -4922,7 +4876,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/401223/version/2/outlet/2/effluent/1/condition/3527> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/401223/version/2/outlet/2/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4933,7 +4887,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/401223/version/3/outlet/1/effluent/1/condition/3527> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/401223/version/3/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -4948,7 +4902,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
 <http://example.com/water-regulation/permit/401223/version/3/outlet/2/effluent/1/condition/3527> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> .
 
 <http://example.com/water-regulation/permit/401223/version/3/outlet/2/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -5032,17 +4986,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/1/condition/7782> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2928> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2928> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2932> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2933> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2934> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/2934> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401242/version/6/outlet/1/effluent/2/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -5141,17 +5091,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/1/condition/7782> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2928> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2928> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2932> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2933> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2934> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/2934> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401336/version/7/outlet/1/effluent/2/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -5173,17 +5119,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/1/condition/7782> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
-<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2928> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2932> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2932> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2933> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
-
-<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2934> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2933> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/3647> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
@@ -5332,8 +5270,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401521/version/1/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401521/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401521/version/1/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401521/version/1/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -5341,8 +5278,7 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/401521/version/2/outlet/1/effluent/1/condition/0061> ns1:assessed true .
 
-<http://example.com/water-regulation/permit/401521/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed false ;
-    ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
+<http://example.com/water-regulation/permit/401521/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401521/version/2/outlet/1/effluent/1/condition/0111> ns1:assessed true .
 
@@ -5478,6 +5414,24 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/EPRYP3399VF/version/1/outlet/1/effluent/1/condition/6425> ns1:assessed false ;
     ns1:notAssessedBecause <http://example.com/water-regulation/assessment-obstacle/no-observations> .
 
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3278731/observation/0085> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3278731/observation/0111> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3278731/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3318891/observation/0085> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3318891/observation/0111> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270/sample/3318891/observation/0135> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50331270> .
+
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430126/sample/2707509/observation/6455> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50430126> .
 
@@ -5529,6 +5483,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149/sample/3401223/observation/0135> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440149> .
 
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153/sample/2939606/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153> .
+
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153/sample/3201427/observation/0135> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440153> .
 
@@ -5568,6 +5525,9 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166/sample/3577300/observation/0135> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440166> .
 
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50440168/sample/2523021/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50440168> .
+
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450145/sample/3001231/observation/9901> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450145> .
 
@@ -5582,6 +5542,15 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146/sample/3334043/observation/9901> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901/sample/3541506/observation/2934> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901/sample/3577447/observation/2928> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901/sample/3577447/observation/2934> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50459901> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137/sample/2784395/observation/6455> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137> .
@@ -5661,8 +5630,20 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150/sample/3570200/observation/0135> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570150> .
 
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152/sample/2518481/observation/0911> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152/sample/2522635/observation/0911> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152/sample/2584057/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570152> .
+
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570155/sample/2648320/observation/0135> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570155> .
+
+<http://environment.data.gov.uk/water-quality/sampling-point/SW-50570160/sample/2570822/observation/6455> a sosa:Observation ;
+    sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570160> .
 
 <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570220/sample/2523024/observation/6455> a sosa:Observation ;
     sosa:hasFeatureOfInterest <http://environment.data.gov.uk/water-quality/sampling-point/SW-50570220> .
@@ -6276,6 +6257,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns3:applicableFrom "2003-11-20T13:30:00"^^xsd:dateTime ;
     ns3:applicableTo "2003-11-20T13:30:00"^^xsd:dateTime .
 
+<http://example.com/water-regulation/breach/2114a1b4c1fc9afc792522573617c2d1#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/2114a1b4c1fc9afc792522573617c2d1#period> .
+
+<http://example.com/water-regulation/breach/2114a1b4c1fc9afc792522573617c2d1#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2008-01-08T10:40:00"^^xsd:dateTime ;
+    ns3:applicableTo "2008-01-08T10:40:00"^^xsd:dateTime .
+
 <http://example.com/water-regulation/breach/2307494f56ef1f0586cd5d68653314b2#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/2307494f56ef1f0586cd5d68653314b2#period> .
 
@@ -6394,6 +6382,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/breach/2f6ffc55e6a731cbf974ea345c0836de#period> a ns3:ApplicabilityPeriod ;
     ns3:applicableFrom "2000-02-07T10:30:00"^^xsd:dateTime ;
     ns3:applicableTo "2000-04-02T09:50:00"^^xsd:dateTime .
+
+<http://example.com/water-regulation/breach/2f87fe7e13b5fb0b53215d609772db8d#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/2f87fe7e13b5fb0b53215d609772db8d#period> .
+
+<http://example.com/water-regulation/breach/2f87fe7e13b5fb0b53215d609772db8d#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2016-05-04T10:50:00"^^xsd:dateTime .
 
 <http://example.com/water-regulation/breach/2fdd7afd21f302ada7403a6346aff1d9#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/2fdd7afd21f302ada7403a6346aff1d9#period> .
@@ -6654,6 +6648,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns3:applicableFrom "2006-05-16T08:45:00"^^xsd:dateTime ;
     ns3:applicableTo "2006-05-16T08:45:00"^^xsd:dateTime .
 
+<http://example.com/water-regulation/breach/4eafe49f415cb575eb82f5a3739af231#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/4eafe49f415cb575eb82f5a3739af231#period> .
+
+<http://example.com/water-regulation/breach/4eafe49f415cb575eb82f5a3739af231#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2016-05-04T10:50:00"^^xsd:dateTime .
+
 <http://example.com/water-regulation/breach/5296042022a22a10ba9b70cc33e01366#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/5296042022a22a10ba9b70cc33e01366#period> .
 
@@ -6695,6 +6695,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/breach/573216f26cb113c4832fbbe9a3290783#period> a ns3:ApplicabilityPeriod ;
     ns3:applicableFrom "2025-02-20T09:58:00"^^xsd:dateTime ;
     ns3:applicableTo "2025-02-20T09:58:00"^^xsd:dateTime .
+
+<http://example.com/water-regulation/breach/574fa03b9585299c5a79efb03e2bad79#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/574fa03b9585299c5a79efb03e2bad79#period> .
+
+<http://example.com/water-regulation/breach/574fa03b9585299c5a79efb03e2bad79#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2016-05-04T10:50:00"^^xsd:dateTime .
 
 <http://example.com/water-regulation/breach/5782deb11bf7f46d5aed70d40aa96da3#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/5782deb11bf7f46d5aed70d40aa96da3#period> .
@@ -6793,6 +6799,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/breach/6088c54818f9a720d8aacf37cb6efdaf#period> a ns3:ApplicabilityPeriod ;
     ns3:applicableFrom "2011-07-06T12:30:00"^^xsd:dateTime ;
     ns3:applicableTo "2011-07-06T12:30:00"^^xsd:dateTime .
+
+<http://example.com/water-regulation/breach/61351aa9e3fcda785405cbfb2c1103aa#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/61351aa9e3fcda785405cbfb2c1103aa#period> .
+
+<http://example.com/water-regulation/breach/61351aa9e3fcda785405cbfb2c1103aa#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2025-12-31T23:59:00"^^xsd:dateTime .
 
 <http://example.com/water-regulation/breach/61be048d063dbc42a965a7be77052bdd#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/61be048d063dbc42a965a7be77052bdd#period> .
@@ -7221,6 +7233,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns3:applicableFrom "2001-07-17T10:07:00"^^xsd:dateTime ;
     ns3:applicableTo "2001-07-17T10:07:00"^^xsd:dateTime .
 
+<http://example.com/water-regulation/breach/937e89868823203b4f983964ce7324fd#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/937e89868823203b4f983964ce7324fd#period> .
+
+<http://example.com/water-regulation/breach/937e89868823203b4f983964ce7324fd#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2000-02-25T09:40:00"^^xsd:dateTime ;
+    ns3:applicableTo "2000-02-25T09:40:00"^^xsd:dateTime .
+
 <http://example.com/water-regulation/breach/93a43902f532a135566f8152870025f8#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/93a43902f532a135566f8152870025f8#period> .
 
@@ -7234,6 +7253,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/breach/9447c9f3b388fb2722db6434192d73f7#period> a ns3:ApplicabilityPeriod ;
     ns3:applicableFrom "2014-02-13T09:58:00"^^xsd:dateTime ;
     ns3:applicableTo "2014-03-24T13:31:00"^^xsd:dateTime .
+
+<http://example.com/water-regulation/breach/9508476bd51f78011ce87c6efd866cbb#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/9508476bd51f78011ce87c6efd866cbb#period> .
+
+<http://example.com/water-regulation/breach/9508476bd51f78011ce87c6efd866cbb#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2000-01-10T14:50:00"^^xsd:dateTime .
 
 <http://example.com/water-regulation/breach/958891e32eb7ea4569d1548cc8b7d6f7#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/958891e32eb7ea4569d1548cc8b7d6f7#period> .
@@ -7388,6 +7413,12 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/breach/abb8a47db09a426338dfff80e89967dd#period> a ns3:ApplicabilityPeriod ;
     ns3:applicableFrom "2005-03-31T09:52:00"^^xsd:dateTime ;
     ns3:applicableTo "2005-03-31T09:52:00"^^xsd:dateTime .
+
+<http://example.com/water-regulation/breach/ad55c458d568fb2bd8ffbe360a39271a#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/ad55c458d568fb2bd8ffbe360a39271a#period> .
+
+<http://example.com/water-regulation/breach/ad55c458d568fb2bd8ffbe360a39271a#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2024-12-31T23:59:00"^^xsd:dateTime .
 
 <http://example.com/water-regulation/breach/b11116198e5dbf5a868cece796c986bc#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/b11116198e5dbf5a868cece796c986bc#period> .
@@ -7627,6 +7658,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
     ns3:applicableFrom "2012-04-04T10:48:00"^^xsd:dateTime ;
     ns3:applicableTo "2012-04-04T10:48:00"^^xsd:dateTime .
 
+<http://example.com/water-regulation/breach/c96e8e3463cab9e9f2aa633b9afd878c#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/c96e8e3463cab9e9f2aa633b9afd878c#period> .
+
+<http://example.com/water-regulation/breach/c96e8e3463cab9e9f2aa633b9afd878c#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2001-02-14T11:45:00"^^xsd:dateTime ;
+    ns3:applicableTo "2001-02-14T11:45:00"^^xsd:dateTime .
+
 <http://example.com/water-regulation/breach/c9a0a9358671a45c2f5aecc776a238b0#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/c9a0a9358671a45c2f5aecc776a238b0#period> .
 
@@ -7794,6 +7832,13 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/breach/ded1443120bd30bee1c766fb94abe6e5#period> a ns3:ApplicabilityPeriod ;
     ns3:applicableFrom "2012-05-09T14:52:00"^^xsd:dateTime ;
     ns3:applicableTo "2012-05-09T14:52:00"^^xsd:dateTime .
+
+<http://example.com/water-regulation/breach/e2d155af9d5cda0d098ae8ddefc2f735#applicability> a ns3:Applicability ;
+    ns3:applicabilityPeriod <http://example.com/water-regulation/breach/e2d155af9d5cda0d098ae8ddefc2f735#period> .
+
+<http://example.com/water-regulation/breach/e2d155af9d5cda0d098ae8ddefc2f735#period> a ns3:ApplicabilityPeriod ;
+    ns3:applicableFrom "2000-11-08T12:25:00"^^xsd:dateTime ;
+    ns3:applicableTo "2000-11-08T12:25:00"^^xsd:dateTime .
 
 <http://example.com/water-regulation/breach/e5637c07e1a4ababfeb7deef1c225394#applicability> a ns3:Applicability ;
     ns3:applicabilityPeriod <http://example.com/water-regulation/breach/e5637c07e1a4ababfeb7deef1c225394#period> .
@@ -7998,7 +8043,11 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043091/version/2/outlet/1/effluent/2/condition/0111> ns1:assessed true .
 
+<http://example.com/water-regulation/permit/043231/version/1/outlet/2/effluent/2/condition/6455> ns1:assessed true .
+
 <http://example.com/water-regulation/permit/043231/version/2/outlet/2/effluent/2/condition/0135> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/043234/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/043235/version/1/outlet/2/effluent/1/condition/0135> ns1:assessed true .
 
@@ -8024,7 +8073,19 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 
 <http://example.com/water-regulation/permit/043478/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
+<http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0085> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0111> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/050922/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/0911> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/1/effluent/1/condition/6455> ns1:assessed true .
+
 <http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/2/effluent/2/condition/0135> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/400114%2FCF%2F01/version/2/outlet/3/effluent/3/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/400505/version/2/outlet/1/effluent/1/condition/0135> ns1:assessed true .
 
@@ -8067,6 +8128,10 @@ ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version" ;
 <http://example.com/water-regulation/permit/401223/version/1/outlet/1/effluent/1/condition/6455> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401223/version/3/outlet/2/effluent/1/condition/6455> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2928> ns1:assessed true .
+
+<http://example.com/water-regulation/permit/401336/version/8/outlet/1/effluent/2/condition/2934> ns1:assessed true .
 
 <http://example.com/water-regulation/permit/401747/version/1/outlet/1/effluent/1/condition/6051> ns1:assessed true .
 
@@ -8457,17 +8522,12 @@ ns1:assessment-obstacle a skos:ConceptScheme ;
 
 <http://example.com/water-regulation/permit/041518/version/1/outlet/1/effluent/1/condition/9901> ns1:assessed true .
 
+<http://example.com/water-regulation/permit/043241/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
+
 <http://example.com/water-regulation/assessment-obstacle/too-few-samples> a skos:Concept ;
     skos:definition "Assessed, but every 12-month window held fewer samples than the method needs (n < 4 for the 95th-percentile look-up table, n < 2 for a mean)." ;
     skos:inScheme ns1:assessment-obstacle ;
     skos:notation "too-few-samples" .
-
-<http://example.com/water-regulation/permit/043241/version/1/outlet/1/effluent/1/condition/0135> ns1:assessed true .
-
-<http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> a skos:Concept ;
-    skos:definition "Compliance samples exist for this determinand at this point, but none of them falls inside a dated window of this permit version." ;
-    skos:inScheme ns1:assessment-obstacle ;
-    skos:notation "no-observations-in-a-dated-window" .
 
 <http://example.com/water-regulation/assessment-obstacle/sampling-point-unpublished> a skos:Concept ;
     skos:definition "The register names a sampling point, but the Water Quality Archive publishes no data for it. The point exists; its observations are not open." ;
@@ -8480,6 +8540,11 @@ ns1:assessment-obstacle a skos:ConceptScheme ;
     skos:notation "ambiguous-version-history" .
 
 <http://example.com/water-regulation/permit/051340/version/1/outlet/2/effluent/1/condition/0135> ns1:assessed true .
+
+<http://example.com/water-regulation/assessment-obstacle/no-observations-in-a-dated-window> a skos:Concept ;
+    skos:definition "Compliance samples exist for this determinand at this point, but none of them falls inside a dated window of this permit version." ;
+    skos:inScheme ns1:assessment-obstacle ;
+    skos:notation "no-observations-in-a-dated-window" .
 
 <http://example.com/water-regulation/assessment-obstacle/no-sampling-point> a skos:Concept ;
     skos:definition "The permit register names no sampling point for this effluent. Nothing monitors it, so nothing can evidence a breach of it." ;

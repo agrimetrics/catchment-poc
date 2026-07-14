@@ -72,6 +72,11 @@ CONSENTS_CSVS = [
 # (rivers, boreholes, bathing waters) that belong to no permit at all and so could never have been
 # reached through the permit join.
 SAMPLING_POINTS_CSV = HERE / "sampling_points.csv"
+# Which determinands each point is actually sampled for, swept from the archive. The measured view
+# filters its map on this, so a point missing from the SWEEP file is a point that would silently
+# vanish from the map - see the abort below.
+SP_DETERMINANDS_CSV = HERE / "sampling_point_determinands.csv"
+SP_SWEEP_CSV = HERE / "sampling_point_sweep.csv"
 
 con = duckdb.connect(str(HERE / "regulation.duckdb"))
 
@@ -232,6 +237,50 @@ CREATE OR REPLACE TABLE sampling_points AS
 SELECT sp_notation, pref_label, type_notation, type_label, status_label, wkt, wkt_crs84
 FROM sp_df;
 """)
+
+# --- Which determinands each point is actually sampled for, so the measured view can filter its map
+#     by the chosen one instead of drawing all 161 and making you click to find out.
+#
+#     THE SWEEP FILE IS THE GATE, and it is not the same file as the edges. A point the archive holds
+#     nothing for contributes no edge rows, so in the edges file it is indistinguishable from a point
+#     nobody ever swept - and those mean opposite things. "Nothing is measured here" is a finding;
+#     "we never looked" is a stale cache. Filtering a map on the second is how you delete a real,
+#     sampled point from the picture and never hear about it. So: every point in the register must
+#     appear in the sweep record, or the build stops. (This is the same trap the breach pipeline fell
+#     into twice, where an absence in a cached extract was read as an absence in the world.) ---
+if not SP_SWEEP_CSV.exists() or not SP_DETERMINANDS_CSV.exists():
+    raise SystemExit(
+        f"ABORT: {SP_SWEEP_CSV.name} / {SP_DETERMINANDS_CSV.name} missing. The measured view filters "
+        f"its sampling points on these; without them it cannot tell 'not sampled for this determinand' "
+        f"from 'never asked'.\n  Run: python ttl/regulation/fetch_sampling_point_determinands.py")
+
+con.execute(f"""
+CREATE OR REPLACE TABLE sampling_point_sweep AS
+SELECT sp_notation, n_observations, n_determinands
+FROM read_csv('{SP_SWEEP_CSV}', header=true, types={{'sp_notation': 'VARCHAR',
+    'n_observations': 'BIGINT', 'n_determinands': 'BIGINT'}});
+""")
+con.execute(f"""
+CREATE OR REPLACE TABLE sampling_point_determinands AS
+SELECT sp_notation, lpad(determinand, 4, '0') AS determinand, n_observations
+FROM read_csv('{SP_DETERMINANDS_CSV}', header=true, types={{'sp_notation': 'VARCHAR',
+    'determinand': 'VARCHAR', 'n_observations': 'BIGINT'}});
+""")
+
+never_swept = [r[0] for r in con.execute("""
+    SELECT sp_notation FROM sampling_points
+    WHERE sp_notation NOT IN (SELECT sp_notation FROM sampling_point_sweep)
+    ORDER BY 1
+""").fetchall()]
+if never_swept:
+    shown = "\n".join(f"    {sp}" for sp in never_swept[:10])
+    more = f"\n    ... and {len(never_swept) - 10} more" if len(never_swept) > 10 else ""
+    raise SystemExit(
+        f"ABORT: the determinand sweep does not cover the register.\n\n"
+        f"  {len(never_swept)} sampling point(s) were NEVER SWEPT:\n{shown}{more}\n\n"
+        f"  These are not 'nothing is measured here' - nobody asked the archive. The measured view "
+        f"would hide them for every determinand, so a sampled point would drop off the map in "
+        f"silence.\n  Re-run: python ttl/regulation/fetch_sampling_point_determinands.py")
 
 # --- Sampling-point type vocabulary (rivers / boreholes / watercress farming / storm overflow ...).
 #     The archive nests the type as a blank-node skos:Concept with no resolvable IRI of its own, so

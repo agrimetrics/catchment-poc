@@ -7,6 +7,7 @@ qudt:           http://qudt.org/schema/qudt/
 iop:            https://w3id.org/iadopt/ont/
 dcterms:        http://purl.org/dc/terms/
 sosa:           http://www.w3.org/ns/sosa/
+ssn:            http://www.w3.org/ns/ssn/
 geo:            http://www.opengis.net/ont/geosparql#
 skos:           http://www.w3.org/2004/02/skos/core#
 owl:            http://www.w3.org/2002/07/owl#
@@ -74,6 +75,15 @@ target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_not
 mappingId   SamplingPointTypes
 source      SELECT sp_notation, type_notation FROM sampling_points WHERE type_notation <> ''
 target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> wr:samplingPointType wr:sampling-point-type/{type_notation} .
+
+mappingId   SamplingPointDeterminands
+source      SELECT d.sp_notation, d.determinand FROM sampling_point_determinands d JOIN substances s ON s.notation = d.determinand
+target      <http://environment.data.gov.uk/water-quality/sampling-point/{sp_notation}> ssn:hasProperty wr:substance/{determinand} .
+
+mappingId   SamplingPointDeterminandsProperty
+source      SELECT DISTINCT 1 AS one FROM sampling_point_determinands
+target      ssn:hasProperty rdfs:label "is sampled for" .
+            ssn:hasProperty rdfs:comment "What this sampling point is actually SAMPLED FOR, swept from the Water Quality Archive. sosa:hasFeatureOfInterest runs observation -> point, one link per observation; this is the standing edge, point -> property, which is what a map needs to answer 'where can I see nitrate?' without dereferencing every observation there has ever been. It is ssn:hasProperty and not a sosa: term because SOSA has no feature -> property predicate at all - observedProperty hangs off the Observation - and minting sosa:hasObservableProperty because it reads well would be inventing a term in someone else's namespace. The ABSENCE of this edge is itself a claim: nobody samples this point for that determinand. It can only be read that way because regulation_to_db.py refuses to build unless every point in the register was actually swept, so an unswept point can never masquerade as a point measured for nothing. Asserted only for determinands the register governs, so that no edge points at a substance IRI the store does not otherwise define; the archive holds some 535 determinands, and the rest stay in sampling_point_determinands, ungoverned rather than lost." .
 
 mappingId   SamplingPointTypeConcepts
 source      SELECT notation, pref_label FROM sampling_point_types

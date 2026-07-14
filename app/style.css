@@ -125,6 +125,17 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 }
 #lede b { color: var(--text); }
 
+/* The measured view's receipt for what its substance filter has hidden. Set off from the lede with a
+   rule, because it is not more prose about the catchment — it is a statement about what this map is
+   NOT showing you, and it has to survive being skimmed. */
+#lede .note {
+  display: block;
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+#lede .note a { color: var(--text); }
+
 #stage { display: flex; align-items: stretch; height: 56vh; min-height: 360px; }
 #map { flex: 1 1 auto; height: 100%; background: #0a1017; }
 
@@ -177,6 +188,15 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 /* Internal clickable (stays in the app): dashed underline, no arrow. */
 .sub-link { cursor: pointer; border-bottom: 1px dashed currentColor; }
 .sub-link:hover { color: var(--accent); }
+
+/* The sampling-point popup's determinand menu, shown when no substance is filtered: what this point is
+   actually sampled for. One line per determinand, because these are choices to be read and clicked, not
+   a sentence — and a point can offer a dozen.
+   NOT var(--text): that is the near-white of the app's dark chrome, and a Leaflet popup is white. These
+   have to be dark to be legible, and legible is the whole job of a menu. */
+.pp-dets { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 8px; }
+.pp-dets a { color: #14314d; text-decoration: none; font-weight: 500; width: fit-content; }
+.pp-dets a:hover { color: #0a63b8; border-bottom-color: currentColor; }
 
 /* Farming pie + application selection */
 svg.pie { max-width: 320px; margin: 4px auto 0; }

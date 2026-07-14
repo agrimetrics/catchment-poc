@@ -22,7 +22,6 @@ const ENDPOINT = CONFIG.sparqlEndpoint || "sparql";
 const OBSERVATIONS_ENDPOINT = CONFIG.observationsEndpoint || "observations";
 const TILES_URL = CONFIG.tilesUrl || "tiles/{z}/{x}/{y}.png";
 const CENTER = [50.731, -2.370];
-const NITROGEN = "0111"; // Ammoniacal Nitrogen as N — the default for the substance story
 const WQE = "https://environment.data.gov.uk/water-quality/sampling-point/";
 
 // Conservation-designation underlays (clipped to the catchment by raw_datasets/prep_designations.py).
@@ -95,6 +94,7 @@ PREFIX iop:   <https://w3id.org/iadopt/ont/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
 PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
 PREFIX sosa:  <http://www.w3.org/ns/sosa/>
+PREFIX ssn:   <http://www.w3.org/ns/ssn/>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 PREFIX wr:    <http://example.com/water-regulation/>
@@ -256,13 +256,19 @@ const Q = {
   // the effluent points. (Before the store took its sampling points from the archive rather than
   // from the observations that happened to match a permit rule, only the 54 permit-monitored points
   // existed at all, and this query could not have been written.)
+  // ?dets is the point's OWN determinand list — what the archive actually holds a series for here,
+  // swept from the archive and asserted as ssn:hasProperty. It is what lets the view filter by the
+  // chosen substance. It is OPTIONAL because a point measured for nothing is still a point, and it
+  // must come back (with an empty ?dets) rather than being dropped by the join.
   samplingPoints: `${PREFIXES}
-    SELECT ?sp ?label ?typeLabel ?status (SAMPLE(?w) AS ?wkt) (SAMPLE(?p) AS ?permit) WHERE {
+    SELECT ?sp ?label ?typeLabel ?status (SAMPLE(?w) AS ?wkt) (SAMPLE(?p) AS ?permit)
+           (GROUP_CONCAT(DISTINCT ?dn; separator=",") AS ?dets) WHERE {
       ?sp a sosa:FeatureOfInterest ; geo:hasDefaultGeometry/geo:asWKT ?w .
       OPTIONAL { ?sp skos:prefLabel ?label }
       OPTIONAL { ?sp wr:samplingPointType/skos:prefLabel ?typeLabel }
       OPTIONAL { ?sp wr:samplingPointStatus ?status }
       OPTIONAL { ?dp water:monitoredAt ?sp . ?p reg:permitSite ?dp }
+      OPTIONAL { ?sp ssn:hasProperty/skos:notation ?dn }
     } GROUP BY ?sp ?label ?typeLabel ?status`,
 
   // Farming: one row per application with its option count and TOTAL annual payment summed live.
@@ -325,12 +331,16 @@ const PQ = {
   // GROUP BY + SAMPLE, because 22 points are monitored by MORE THAN ONE outlet and the table shows one
   // row per point. Without it this returned 187 rows for a 161-row table — and a provenance link that
   // returns more rows than the table it claims to reproduce makes the app look like it is hiding some.
-  samplingPoints: () => `${PREFIXES}
+  // The ssn:hasProperty line appears only when a substance is chosen, because that is when the table is
+  // filtered by it — a provenance link that returns the unfiltered 161 for a 123-row table is not
+  // provenance, it is a different query wearing its badge.
+  samplingPoints: (sub) => `${PREFIXES}
     SELECT ?sp ?label ?typeLabel (SAMPLE(?p) AS ?permit) WHERE {
       ?sp a sosa:FeatureOfInterest ; geo:hasDefaultGeometry/geo:asWKT ?wkt .
       OPTIONAL { ?sp skos:prefLabel ?label }
       OPTIONAL { ?sp wr:samplingPointType/skos:prefLabel ?typeLabel }
-      OPTIONAL { ?dp water:monitoredAt ?sp . ?p reg:permitSite ?dp }
+      OPTIONAL { ?dp water:monitoredAt ?sp . ?p reg:permitSite ?dp }${sub ? `
+      ?sp ssn:hasProperty wr:substance/${sub} .   # sampled for the chosen determinand` : ""}
     } GROUP BY ?sp ?label ?typeLabel ORDER BY ?typeLabel ?label`,
 
   // Breaches — one row per breach period. reg:breachesLimit names the LIMIT that actually failed:
@@ -1197,6 +1207,7 @@ window.clearBreachFilter = () => { breachPermit = null; render(); };
 
 const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
 const actionMarkers = {}; // WINEP action IRI -> marker (current render), for table<->map focus
+const spMarkers = {};     // sampling point id -> marker (current render), so the table can open its popup
 // Farming overlap disambiguation: applications overlap heavily, so we keep each drawn polygon and
 // its ring to (a) list ALL applications under the cursor on hover, and (b) pick one from a popup.
 const appShapes = {}; // app IRI -> polygon layer (current render)
@@ -1277,6 +1288,9 @@ async function loadAll() {
       type: r.typeLabel || "", family: familyOf(r.typeLabel),
       status: r.status || "", permit: r.permit || null,
       lat: p ? p[0] : null, lon: p ? p[1] : null,
+      // The determinands this point is actually sampled for. A Set, because the only question ever
+      // asked of it is membership.
+      dets: new Set((r.dets || "").split(",").filter(Boolean)),
     };
   }).filter((s) => s.lat != null);
 
@@ -1626,14 +1640,39 @@ const LEDE = {
       `<b>${plural(n.outlets, "outlet")}</b>: <b>${plural(n.limits, "limit")}</b> in force, ${breached}. ` +
       notAssessed + works("the limits in force") + geometry;
   },
+  // `catchment` is how many points there ARE; `shown` is how many survived the substance filter. They
+  // have to be two numbers: with a substance chosen, "123 sampling points in the catchment" would be
+  // a plain untruth about the world dressed up as a headline.
+  // `lbl` is "" when no substance is chosen, and the closing sentence changes rather than naming one
+  // anyway: with "All substances" the point tells you what IT holds, which is the only truthful way to
+  // offer a time series when the filter is off — a chart is always OF a determinand.
   measured: (n, lbl) =>
     `<b>The measured world</b> — what the sampling actually finds, whatever the source. ` +
-    `<b>${n.total} sampling points</b> in the catchment, of which <b>${n.unpermitted}</b> belong to ` +
+    `<b>${n.catchment} sampling points</b> in the catchment, of which <b>${n.unpermitted}</b> belong to ` +
     `<b>no permit at all</b> (rivers, boreholes, bathing waters), so the regulated world is ` +
     `structurally blind to them — there is no permit to reach them through. Coloured by what the EA ` +
-    `samples there. Click a point for its <b>${esc(lbl)}</b> time series, pulled live from the Water ` +
-    `Quality Archive.`,
+    `samples there. ` + (lbl
+      ? `Click a point for its <b>${esc(lbl)}</b> time series, pulled live from the Water Quality Archive.`
+      : `Click a point to see <b>which determinands it is sampled for</b>, and pick one to chart — ` +
+        `pulled live from the Water Quality Archive. Choose a substance above to filter the map to ` +
+        `the points that measure it.`) + unsampledNote(n, lbl),
 };
+
+// The filter's receipt. A hidden point is a fact about the monitoring network — 38 places nobody tests
+// for phosphate is the kind of thing this app exists to show — so it is never merely dropped: the count
+// is stated, and the points can be put back. Says nothing when nothing is hidden.
+function unsampledNote(n, lbl) {
+  if (!n.hidden) return "";
+  const s = n.hidden === 1;
+  return showUnsampled
+    ? ` <span class="note">Showing <b>all ${n.catchment}</b>, including the <b>${n.hidden}</b> the ` +
+      `archive holds no <b>${esc(lbl)}</b> series for (drawn hollow) — those cannot be charted for it. ` +
+      `<a href="#" id="toggle-unsampled">Hide them</a>.</span>`
+    : ` <span class="note">Showing the <b>${n.shown}</b> that are sampled for <b>${esc(lbl)}</b>. The ` +
+      `other <b>${n.hidden}</b> ${s ? "is" : "are"} <b>not sampled for it</b> and ${s ? "is" : "are"} ` +
+      `hidden — that is an absence of measurement, not an absence of pollution. ` +
+      `<a href="#" id="toggle-unsampled">Show them</a>.</span>`;
+}
 
 function clearLayers() {
   Object.values(layers).forEach((l) => map.removeLayer(l));
@@ -2047,10 +2086,27 @@ function render() {
   // Ambient: every sampling point, coloured by the family of thing the EA samples there. No permit
   // status is encoded — that is the Permits view's job, and most of these have no permit at all.
   if (show.sampling) {
+    for (const k in spMarkers) delete spMarkers[k];   // markers are rebuilt every render
     for (const s of measuredPoints()) {
-      const mk = circle(s.lat, s.lon, dot(s.family.color, s.permit ? 6 : 7, 0.9), samplingPointPopup(s));
-      mk.on("click", () => openChart(currentSubstance || NITROGEN, s.id, s.permit, [s.lat, s.lon]));
+      // Only reachable with the toggle on: a point kept on the map despite having no series for the
+      // chosen substance. Drawn hollow and faint so it reads as "here, but not measured for this" —
+      // if the escape hatch drew it like the rest, showing the gaps would just mean hiding them
+      // among the points that do have data.
+      const unsampled = currentSubstance && !s.dets.has(currentSubstance);
+      const style = unsampled
+        ? { radius: 5, color: s.family.color, weight: 1, opacity: 0.55, dashArray: "2,2",
+            fillColor: s.family.color, fillOpacity: 0.08 }   // hollow: present, but not measured for this
+        : dot(s.family.color, s.permit ? 6 : 7, 0.9);
+      const mk = circle(s.lat, s.lon, style, samplingPointPopup(s));
+      // Chart on click ONLY when a substance is chosen. With "All substances" there is nothing to
+      // chart yet — the popup lists what this point holds and the choice is the user's, not a
+      // constant's. The popup's links do the charting; see bindPopupDets.
+      mk.on("click", () => {
+        if (currentSubstance) openChart(currentSubstance, s.id, s.permit, [s.lat, s.lon]);
+      });
+      mk.on("popupopen", (e) => bindPopupDets(e.popup, s));
       mk.addTo(layers.samplingPoints);
+      spMarkers[s.id] = mk;      // so the table can open the same popup the map does
       drawnBounds.push([s.lat, s.lon]);
     }
     layers.samplingPoints.addTo(map);
@@ -2509,43 +2565,119 @@ function actionTable(actions, limByAction) {
 // That is the "regardless of sampling-point source" bit: the effluent points are here too, drawn the
 // same size and read the same way, because a nitrate reading is a nitrate reading.
 //
-// Sampling points are NOT filtered by the chosen substance. A point with no ammonia record is not a
-// point with no ammonia — it is a point nobody sampled for it, and hiding it would quietly turn an
-// absence of measurement into an absence of pollution. Instead every point is drawn, and the chart
-// tells you (per point) whether the archive has anything for that substance.
-const measuredPoints = () => DB.samplingPoints;
+// Pick a substance and the map shows only the points that are actually sampled for it — drawing all
+// 161 and letting you click one at a time to find the dozen with a nitrate series was not a view, it
+// was a search.
+//
+// But a point with no ammonia record is NOT a point with no ammonia; it is a point nobody sampled for
+// it, and a filter that simply deletes it turns an absence of measurement into an absence of
+// pollution. That is the same mistake the breach pipeline shipped twice. So the filter is allowed
+// here on two conditions, and it is only honest while both hold:
+//
+//   1. The absence must be KNOWN, not merely unrecorded. `dets` comes from a sweep of the archive
+//      itself, and regulation_to_db.py refuses to build unless every point in the register was swept
+//      — so "not in dets" means the archive was asked and holds nothing, never "we never looked".
+//   2. What is hidden must still be SAID. renderMeasured reports the count of points removed and
+//      offers to put them back; it never just shows a smaller map.
+
+// The escape hatch behind condition (2): "not sampled for this" is itself a finding about the
+// monitoring network, and someone looking for the gaps must be able to see them.
+let showUnsampled = false;
+
+const measuredPoints = () =>
+  currentSubstance && !showUnsampled
+    ? DB.samplingPoints.filter((s) => s.dets.has(currentSubstance))
+    : DB.samplingPoints;
+
+// The points the filter is currently removing — what renderMeasured has to account for.
+const unsampledPoints = () =>
+  currentSubstance ? DB.samplingPoints.filter((s) => !s.dets.has(currentSubstance)) : [];
+
+// The determinands a point is sampled for, as the dropdown would name them — its own menu, in the
+// dropdown's order so the two never disagree about what a substance is called.
+const detsAt = (s) => DB.substances.filter((x) => s.dets.has(x.notation));
+
+// Make the popup's determinand menu live. Bound on popupopen because Leaflet builds the popup's DOM
+// only when it is shown, so there is nothing to attach to before that. Charts the determinand WITHOUT
+// touching currentSubstance: you asked to see one series at this point, not to filter the whole map
+// down to it — that is what the dropdown is for, and doing both from one click would silently hide
+// every point that lacks the substance you just glanced at.
+function bindPopupDets(popup, s) {
+  popup.getElement()?.querySelectorAll("[data-det]").forEach((a) => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      openChart(a.dataset.det, s.id, s.permit, [s.lat, s.lon]);
+    };
+  });
+}
 
 function samplingPointPopup(s) {
   const permitted = s.permit
     ? `<div class="pp-row">Permit <span class="mono">${esc(permitRef(s.permit))}</span> discharges here` +
       ` <span class="muted">— this point is in the regulated world too</span></div>`
     : `<div class="pp-row muted">No permit discharges here — measured only, never regulated.</div>`;
-  const sub = currentSubstance || NITROGEN;
-  const subLbl = (DB.substances.find((x) => x.notation === sub) || {}).label || sub;
+
+  // NO SUBSTANCE CHOSEN. There is no honest single answer here: a time series is OF a determinand, and
+  // "all substances" is not one. This used to quietly substitute ammoniacal nitrogen — the dropdown
+  // said "All substances" and the app charted one, picked by a constant. So instead the point names
+  // what it actually holds and lets you choose; that IS "all substances", per point.
+  if (!currentSubstance) {
+    const opts = detsAt(s);
+    const menu = opts.length
+      ? `<div class="pp-row">Sampled here — pick a series:</div>
+         <div class="pp-dets">${opts.map((x) =>
+           `<a href="#" class="sub-link" data-det="${esc(x.notation)}">${esc(x.label)}</a>`).join("")}</div>`
+      : `<div class="pp-row muted">The archive holds no series here for any determinand this ` +
+        `register governs.</div>`;
+    return `<b>${esc(s.label)}</b><br>
+      <span class="mono">${esc(s.id)}</span>
+      <div class="pp-row"><span class="dot" style="background:${s.family.color}"></span>${esc(s.type || "untyped")}</div>
+      ${s.status && s.status !== "OPEN" ? `<div class="pp-row muted">Status: ${esc(s.status)}</div>` : ""}
+      ${permitted}
+      ${menu}
+      <a href="${WQE}${encodeURIComponent(s.id)}" target="_blank" rel="noopener">Water Quality Explorer ↗</a>`;
+  }
+
+  const subLbl = (DB.substances.find((x) => x.notation === currentSubstance) || {}).label || currentSubstance;
+  // Say which of the two it is, rather than leaving the chart to break the news after the click.
+  const series = s.dets.has(currentSubstance)
+    ? `<div class="pp-row"><span class="sub-link">Charting ${esc(subLbl)}…</span></div>`
+    : `<div class="pp-row muted">The archive holds no <b>${esc(subLbl)}</b> series here — this point ` +
+      `is not sampled for it.</div>`;
   return `<b>${esc(s.label)}</b><br>
     <span class="mono">${esc(s.id)}</span>
     <div class="pp-row"><span class="dot" style="background:${s.family.color}"></span>${esc(s.type || "untyped")}</div>
     ${s.status && s.status !== "OPEN" ? `<div class="pp-row muted">Status: ${esc(s.status)}</div>` : ""}
     ${permitted}
-    <div class="pp-row"><span class="sub-link">Charting ${esc(subLbl)}…</span></div>
+    ${series}
     <a href="${WQE}${encodeURIComponent(s.id)}" target="_blank" rel="noopener">Water Quality Explorer ↗</a>`;
 }
 
 function renderMeasured(tables) {
   const pts = measuredPoints();
-  const unpermitted = pts.filter((s) => !s.permit);
-  // With no substance chosen, clicking a point charts the default (ammoniacal nitrogen) — so the
-  // lede has to name THAT, not "all substances", which is not something a time series can be of.
-  const sub = currentSubstance || NITROGEN;
-  const subLbl = (DB.substances.find((s) => s.notation === sub) || {}).label || sub;
+  // Counted over the WHOLE catchment, not the drawn set: this clause is the standing fact that 91 of
+  // the EA's points belong to no permit, and it does not change because you picked a determinand.
+  const unpermitted = DB.samplingPoints.filter((s) => !s.permit);
+  const hidden = unsampledPoints();
+  // No substance chosen means no series to name. The lede used to name ammoniacal nitrogen here, which
+  // was the app quietly answering a question the user had explicitly declined to ask.
+  const subLbl = currentSubstance
+    ? (DB.substances.find((s) => s.notation === currentSubstance) || {}).label || currentSubstance
+    : "";
 
   // Legend: one entry per family PRESENT, in the palette's fixed slot order — the order is the
   // colourblind-safety mechanism, so it never re-sorts by count.
   const present = [...SP_FAMILIES, OTHER_FAMILY].filter((f) => pts.some((s) => s.family.key === f.key));
   setLegend(present.map((f) => ({ c: f.color, t: `${f.label} (${pts.filter((s) => s.family.key === f.key).length})` })));
 
-  document.getElementById("lede").innerHTML =
-    LEDE.measured({ total: pts.length, unpermitted: unpermitted.length }, subLbl);
+  document.getElementById("lede").innerHTML = LEDE.measured({
+    catchment: DB.samplingPoints.length,
+    shown: DB.samplingPoints.length - hidden.length,   // what the filter WOULD leave, toggle aside
+    unpermitted: unpermitted.length,
+    hidden: hidden.length,
+  }, subLbl);
+  const toggle = document.getElementById("toggle-unsampled");
+  if (toggle) toggle.onclick = (e) => { e.preventDefault(); showUnsampled = !showUnsampled; render(); };
 
   tables.append(measuredTable(pts));
 }
@@ -2567,13 +2699,17 @@ function measuredTable(pts) {
     `Sampling points <span class="count">— ${pts.filter((s) => !s.permit).length} measured but never regulated</span>`,
     pts.length,
     pagedTable(["Point", "Name", "What is sampled here", "Permit"], rows),
-    PQ.samplingPoints());
-  // Same gesture as the map: open the substance time series for this point.
+    PQ.samplingPoints(showUnsampled ? "" : currentSubstance));
+  // Same gesture as the map: with a substance chosen, chart it. Without one there is nothing to chart,
+  // so the row opens the point's own popup — the same menu the map offers — rather than charting a
+  // determinand the user never picked.
   c.addEventListener("click", (e) => {
     const tr = e.target.closest(".sp-row");
     if (!tr) return;
     const s = DB.samplingPoints.find((x) => x.id === tr.dataset.sp);
-    if (s) openChart(currentSubstance || NITROGEN, s.id, s.permit, [s.lat, s.lon]);
+    if (!s) return;
+    if (currentSubstance) openChart(currentSubstance, s.id, s.permit, [s.lat, s.lon]);
+    else spMarkers[s.id]?.openPopup();
   });
   return c;
 }
@@ -2878,7 +3014,11 @@ async function main() {
     return;
   }
   document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
-  document.getElementById("substance").addEventListener("change", (e) => { currentSubstance = e.target.value; breachPermit = null; render(); });
+  // showUnsampled resets with the substance: it is an answer to "who is not measured for THIS one?",
+  // so carrying it silently into the next substance would show a different question's answer.
+  document.getElementById("substance").addEventListener("change", (e) => {
+    currentSubstance = e.target.value; breachPermit = null; showUnsampled = false; render();
+  });
   document.getElementById("optionType").addEventListener("change", (e) => {
     currentOptionType = e.target.value;
     // drop the selection if the filter no longer includes it

@@ -294,6 +294,7 @@ so regulation must be built first).
 ```bash
 python link_data.py                                  # joins raw CSVs → output_data/observations_with_permits_and_rules.csv
 python ttl/regulation/fetch_version_dates.py         # (occasional) refresh permit_version_dates.csv from the EA public register
+python ttl/regulation/fetch_sampling_point_determinands.py   # (occasional) sweep the archive for what each point is sampled for
 python ttl/regulation/regulation_to_db.py            # shred → regulation.duckdb
 ./ontop/ontop materialize --mapping ttl/regulation/regulation.obda \
     --properties ontop/duckdb-regulation.properties \

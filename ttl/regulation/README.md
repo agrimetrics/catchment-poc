@@ -9,6 +9,7 @@ registers into a small star schema in `regulation.duckdb`) → ontop (`regulatio
 python link_data.py                              # upstream join → output_data/observations_with_permits_and_rules.csv
 python ttl/regulation/fetch_version_dates.py     # (occasional) refresh permit_version_dates.csv from the EA public register
 python ttl/regulation/fetch_sampling_points.py   # (occasional) refresh sampling_points.csv from the EA Water Quality Archive
+python ttl/regulation/fetch_sampling_point_determinands.py   # (occasional) sweep which determinands each point is sampled for
 python ttl/regulation/regulation_to_db.py
 ./ontop/ontop materialize --mapping ttl/regulation/regulation.obda \
     --properties ontop/duckdb-regulation.properties \

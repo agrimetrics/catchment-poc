@@ -114,6 +114,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 REG_DB = ROOT / "ttl" / "regulation" / "regulation.duckdb"
 OBS_CSV = HERE / "compliance_observations.csv"
+OBS_MANIFEST = HERE / "compliance_fetch_manifest.csv"
 
 # --- The EA's 95-percentile look-up table: samples in the 12-month period -> exceedances allowed. ---
 LUT = [(4, 7, 1), (8, 16, 2), (17, 28, 3), (29, 40, 4), (41, 53, 5), (54, 67, 6), (68, 81, 7),
@@ -231,6 +232,46 @@ unpublished = {r[0] for r in reg.execute(
     "SELECT sp_notation FROM unpublished_sampling_points").fetchall()}
 vdates = reg.execute("SELECT permit_ref, version, effective_date, revocation_date FROM permit_version_dates").df()
 reg.close()
+
+# =====================================================================================
+# The observation cache must COVER the register, or every reason below is a lie
+# =====================================================================================
+# `no-observations` claims the archive holds nothing for a (point, determinand). It is inferred from
+# absence in the cache - so it is only true if the cache was actually asked about that pair. The scope
+# is derived from the register, the cache is committed, and the two drift apart the moment ttl/regulation
+# is rebuilt without re-running the fetcher. That drift has shipped twice: monitored points grew 54 -> 69
+# and the cache stayed at 54, and the 15 new points - including a sewage overflow with live WINEP actions
+# - were all published as "not assessed: no observations" when the archive in fact held their samples.
+#
+# The fetcher's module docstring has warned about this in prose since the first time. Prose does not
+# hold a build to account, so this does: an in-scope pair the fetcher never asked about is a STALE CACHE,
+# not a finding, and it stops the build rather than being laundered into a regulatory verdict.
+if not OBS_MANIFEST.exists():
+    sys.exit(f"ABORT: {OBS_MANIFEST.name} missing - it records which (point, determinand) pairs were "
+             f"actually asked of the archive, which {OBS_CSV.name} cannot show (a pair the archive has "
+             f"nothing for leaves no rows). Re-run ttl/breaches/fetch_compliance_observations.py.")
+
+manifest = pd.read_csv(OBS_MANIFEST, dtype={"samplingPoint.notation": str,
+                                            "determinand.notation": str, "n_observations": int})
+asked = {(r[0], r[1]) for r in manifest.itertuples(index=False)}
+# The same join the fetcher scopes on: the point that monitors THE EFFLUENT THE CONDITION GOVERNS.
+# Keep the two in step - if one drifts, this check goes blind in exactly the case it exists to catch.
+scope = conditions.merge(dp_monitoring, on=["permit_ref", "outlet", "effluent"], how="inner")
+scope = scope[scope.sp_notation.notna() & (scope.sp_notation != "")
+              & ~scope.sp_notation.isin(unpublished)]
+in_scope = set(zip(scope.sp_notation, scope.substance))
+never_asked = sorted(in_scope - asked)
+if never_asked:
+    shown = "\n".join(f"    {sp}  {det}" for sp, det in never_asked[:10])
+    more = f"\n    ... and {len(never_asked) - 10} more" if len(never_asked) > 10 else ""
+    sys.exit(
+        f"ABORT: the observation cache does not cover the register.\n\n"
+        f"  {len(never_asked)} of {len(in_scope)} in-scope (sampling point, determinand) pairs were "
+        f"NEVER FETCHED:\n{shown}{more}\n\n"
+        f"  These are not 'no observations' - nobody asked the archive. Assessing them would publish "
+        f"{len(never_asked)} conditions as unassessed when their samples may well show breaches.\n"
+        f"  The register moved and the cache did not. Re-run:\n"
+        f"    python ttl/breaches/fetch_compliance_observations.py")
 
 obs = pd.read_csv(OBS_CSV, dtype=str)
 obs["substance"] = obs["determinand.notation"].str.zfill(4)
@@ -526,6 +567,8 @@ for c in conditions.itertuples():
         reason = "no-sampling-point"
     elif sp in unpublished:
         reason = "sampling-point-unpublished"
+    # Safe to read absence as a FINDING only because the coverage gate above proved every in-scope pair
+    # was actually asked of the archive. Without it this branch silently absorbs a stale cache.
     elif (sp, c.substance) not in obs_pairs:
         reason = "no-observations"
     elif key in too_few_keys:

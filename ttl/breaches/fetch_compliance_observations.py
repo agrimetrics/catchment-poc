@@ -52,6 +52,11 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 REG_DB = ROOT / "ttl" / "regulation" / "regulation.duckdb"
 OUT = HERE / "compliance_observations.csv"
+# The record of what was ASKED, which the observation CSV cannot hold: a pair the archive has nothing
+# for contributes no rows, so it is indistinguishable there from a pair nobody ever fetched. Those two
+# states carry opposite meanings downstream - "the archive holds nothing" is a finding, "we never
+# asked" is a stale cache - and breaches_to_db.py refuses to run without this file to tell them apart.
+MANIFEST = HERE / "compliance_fetch_manifest.csv"
 
 BASE = "https://environment.data.gov.uk/water-quality/sampling-point"
 PAGE = 250                      # the archive rejects limit > 250
@@ -128,12 +133,26 @@ def main() -> None:
     refresh = "--refresh" in sys.argv
     todo = pairs_in_scope()
     have: set[tuple[str, str]] = set()
+    fetched: dict[tuple[str, str], int] = {}         # every pair ASKED -> how many came back
     rows: list[dict] = []
 
     if OUT.exists() and not refresh:
         prev = pd.read_csv(OUT, dtype=str)
         rows = prev.to_dict("records")
-        have = set(zip(prev["samplingPoint.notation"], prev["determinand.notation"]))
+        if MANIFEST.exists():
+            man = pd.read_csv(MANIFEST, dtype={"samplingPoint.notation": str,
+                                               "determinand.notation": str,
+                                               "n_observations": int})
+            fetched = {(r[0], r[1]): r[2] for r in man.itertuples(index=False)}
+        else:
+            # Migration for a cache written before the manifest existed. A pair with rows was
+            # demonstrably asked; a pair that returned zero left no trace and cannot be recovered from
+            # the CSV, so it is simply absent here and gets re-fetched once. Self-healing, not silent.
+            fetched = {p: n for p, n in
+                       prev.groupby(["samplingPoint.notation", "determinand.notation"]).size().items()}
+            print(f"no manifest: seeding it from {len(fetched)} pairs that have rows in the cache; "
+                  "any pair the archive returned zero for will be re-fetched once")
+        have = set(fetched)
         print(f"cache: {len(prev)} observations over {len(have)} pairs (use --refresh to discard)")
 
     missing = [p for p in todo if p not in have]
@@ -143,14 +162,31 @@ def main() -> None:
         try:
             got = fetch(sp, det)
         except requests.RequestException as e:
+            # NOT recorded in the manifest: we do not know what the archive holds for this pair, so it
+            # must stay "never asked" and be retried, never pass for "the archive holds nothing".
             print(f"  [{i}/{len(missing)}] {sp} {det}: FAILED ({e}) - skipped, re-run to retry")
             continue
         rows.extend(got)
+        fetched[(sp, det)] = len(got)                # including len(got) == 0: asked, archive was empty
         print(f"  [{i}/{len(missing)}] {sp} {det}: {len(got)}")
         time.sleep(0.1)                              # be kind to the archive
 
     df = pd.DataFrame(rows, columns=KEEP).drop_duplicates(subset=["id"])
     df.to_csv(OUT, index=False)
+
+    man = pd.DataFrame(
+        [{"samplingPoint.notation": sp, "determinand.notation": det, "n_observations": n}
+         for (sp, det), n in sorted(fetched.items())])
+    man.to_csv(MANIFEST, index=False)
+
+    still_missing = [p for p in todo if p not in fetched]
+    empty = sum(1 for n in fetched.values() if n == 0)
+    print(f"\nmanifest -> {MANIFEST.relative_to(ROOT)}")
+    print(f"  pairs asked        : {len(fetched)} of {len(todo)} in scope")
+    print(f"  archive held none  : {empty}  (a finding - NOT a missing fetch)")
+    if still_missing:
+        print(f"  NEVER ASKED        : {len(still_missing)}  <- re-run to retry; "
+              "breaches_to_db.py will ABORT until this is 0")
 
     # What the assessment is about to be handed - the non-detect share is the headline, because it
     # is exactly what the old pipeline was throwing away.
