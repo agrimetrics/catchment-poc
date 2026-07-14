@@ -303,6 +303,32 @@ const Q = {
                  OPTIONAL { ?con skos:broader ?broader . OPTIONAL { ?broader skos:prefLabel ?broaderLabel } } }
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?cost }
     } GROUP BY ?app ?opt ?def ?broader ?broaderLabel ?cost`,
+
+  // MODELLED pollutant removal, per application and per option (FARMSCOPER via the SFI concept
+  // scheme). These are a SEPARATE query rather than columns on `applications`/`sfiOptions` for a
+  // plain reason: an application carries one impact PER SUBSTANCE, so folding them in would multiply
+  // every row by the substance count and quietly double the option counts and cost sums.
+  //
+  // This is also the join the whole exercise exists for: farm:substance points at the SAME
+  // skos:Concept the Water Quality Archive's observations are measured against, so `?sub` here is the
+  // very notation the substance dropdown filters water by. Nitrogen and Phosphorus are therefore the
+  // two substances that mean something on BOTH sides of the app — which is what the dropdown's
+  // "Water & Land" group is derived from (at runtime, from this result — not hard-coded).
+  //
+  // Values are NEGATIVE = a reduction in pollutant loss. Nothing here is measured; see landCaveat().
+  appImpacts: `${PREFIXES}
+    SELECT ?app ?sub ?label ?kg WHERE {
+      ?app a farm:Application ; farm:annualPollutantImpact ?i .
+      ?i farm:substance ?s ; qudt:numericValue ?kg .
+      ?s skos:notation ?sub ; skos:prefLabel ?label .
+    }`,
+
+  optionImpacts: `${PREFIXES}
+    SELECT ?opt ?sub ?kg WHERE {
+      ?opt a farm:Option ; farm:annualPollutantImpact ?i .
+      ?i farm:substance ?s ; qudt:numericValue ?kg .
+      ?s skos:notation ?sub .
+    }`,
 };
 
 // ---------------------------------------------------------------------------
@@ -457,15 +483,27 @@ ${CUR_VERSION}
       FILTER EXISTS { ?action reg:proposesLimit/reg:regulatedProperty/skos:notation "${sub}" }` : ""}
     } GROUP BY ?action ?label ?completion ?permit ORDER BY ?completion`,
 
-  // Applications — one row per SFI application with its option count and total annual payment
-  // (Q.applications; the runtime also filters by option-type in JS, which this base question omits).
+  // Applications — one row per SFI application with its option count, total annual payment, and the
+  // MODELLED annual removal of nitrogen (9686) and phosphorus (0348). The two impact figures are
+  // pulled through scalar sub-selects rather than joined in, for the same reason the runtime keeps
+  // them in a separate query: an application has one impact per substance, so a plain join would
+  // multiply the rows and inflate ?total and ?options. Impact values are negative (a reduction), so
+  // the sign is flipped here to read as "removed", exactly as the table shows it.
   applications: () => `${PREFIXES}
-    SELECT ?app ?appId ?scheme (SUM(COALESCE(?c, 0)) AS ?total) (COUNT(DISTINCT ?opt) AS ?options) WHERE {
+    SELECT ?app ?appId ?scheme (SUM(COALESCE(?c, 0)) AS ?total) (COUNT(DISTINCT ?opt) AS ?options)
+           ?nitrogenRemovedKgYr ?phosphorusRemovedKgYr WHERE {
       ?app a farm:Application ; core:hasPart ?opt .
       OPTIONAL { ?app skos:notation ?appId }
       OPTIONAL { ?app ex:scheme ?scheme }
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?c }
-    } GROUP BY ?app ?appId ?scheme ORDER BY DESC(?total)`,
+      OPTIONAL { ?app farm:annualPollutantImpact ?ni .
+                 ?ni farm:substance/skos:notation "9686" ; qudt:numericValue ?nkg .
+                 BIND(-?nkg AS ?nitrogenRemovedKgYr) }
+      OPTIONAL { ?app farm:annualPollutantImpact ?pi .
+                 ?pi farm:substance/skos:notation "0348" ; qudt:numericValue ?pkg .
+                 BIND(-?pkg AS ?phosphorusRemovedKgYr) }
+    } GROUP BY ?app ?appId ?scheme ?nitrogenRemovedKgYr ?phosphorusRemovedKgYr
+    ORDER BY DESC(?total)`,
 
   // Options for the selected application — one row per option with its concept and payment.
   sfiOptions: (appIri) => `${PREFIXES}
@@ -1050,8 +1088,32 @@ function groupCountsForApp(appIri) {
   return Object.values(byGroup).sort((a, b) => b.count - a.count);
 }
 
+// Removals view: the application's MODELLED annual pollutant removal for one substance, split into
+// the intervention groups that contribute it — "the high-level code which produced that share of the
+// nitrogen reduction". Sums the per-option impact up to the broader group, exactly as the cost view
+// sums payments. Values are negative (a reduction in loss) and stay negative: the chart plots them
+// below a zero baseline rather than quietly flipping the store's sign.
+function groupRemovalsForApp(appIri, sub) {
+  const byGroup = {};
+  for (const o of DB.optionsByApp[appIri] || []) {
+    const kg = (DB.optionImpacts[o.iri] || {})[sub];
+    if (kg == null) continue;
+    (byGroup[o.broader] ||= { code: o.broader, label: o.broaderLabel, value: 0 }).value += kg;
+  }
+  // Biggest CONTRIBUTOR first — i.e. most negative first, since these are reductions.
+  return Object.values(byGroup).sort((a, b) => a.value - b.value);
+}
+
+// Which substances the removals view can speak about for this application, honouring the substance
+// filter. An empty list is a real answer, not a bug, and the view says which kind of empty it is.
+function removalSubstancesFor(appIri) {
+  const have = Object.keys(DB.appImpacts[appIri] || {});
+  return currentSubstance ? have.filter((s) => s === currentSubstance) : have;
+}
+
 // Open (and keep open) the chart for a selected application. Priced applications default to the cost
-// pie with a Cost/Count toggle; unpriced ones show the count bar chart directly (no prices to show).
+// pie with a Cost/Count/Removals toggle; unpriced ones show the count bar chart directly (no prices
+// to show).
 function openAppChart(appIri) {
   const app = DB.appById[appIri];
   document.getElementById("chart-title").textContent = `Application ${app ? app.id : last(appIri)}`;
@@ -1071,18 +1133,128 @@ function renderAppChart(appIri) {
   const total = slices.reduce((s, g) => s + g.value, 0);
   const unpriced = (DB.optionsByApp[appIri] || []).filter((o) => o.cost == null).length;
   const hasPrices = total > 0;
-  const mode = hasPrices ? farmChartMode : "count"; // no prices -> force the count view
-  const toggle = hasPrices
-    ? `<div class="chart-toggle">
-         <button class="${mode === "value" ? "on" : ""}" onclick="setFarmChartMode('value')">Cost</button>
-         <button class="${mode === "count" ? "on" : ""}" onclick="setFarmChartMode('count')">Count</button>
-       </div>`
-    : "";
-  const body = mode === "value"
-    ? renderPie(slices, total, unpriced, app)
+  // Cost is the only mode that can be unavailable (SFI 2023 has no published rates). Count and
+  // Removals always have something to say — including "nothing modelled here", which is an answer.
+  let mode = farmChartMode;
+  if (mode === "value" && !hasPrices) mode = "count";
+  const btn = (m, lbl) => `<button class="${mode === m ? "on" : ""}" onclick="setFarmChartMode('${m}')">${lbl}</button>`;
+  const toggle = `<div class="chart-toggle">${hasPrices ? btn("value", "Cost") : ""}${btn("count", "Count")}${btn("removal", "Removals")}</div>`;
+  const body = mode === "value" ? renderPie(slices, total, unpriced, app)
+    : mode === "removal" ? renderRemovals(appIri)
     : renderBars(groupCountsForApp(appIri), app, hasPrices, unpriced);
   document.getElementById("chart-body").innerHTML = toggle + body;
 }
+
+// Removals: one small multiple per substance, each a single bar stacked by intervention group.
+//
+// TWO CHARTS, NOT TWO BARS ON ONE AXIS. Nitrogen and phosphorus differ by roughly 24x (the catchment
+// models -120t N/yr against -5t P/yr), so a shared y-axis would render phosphorus as a sliver a few
+// pixels tall and invite the eye to read "phosphorus barely matters" — which is a statement about the
+// axis, not about phosphorus. Different measures, different scales, separate axes, each labelled.
+function renderRemovals(appIri) {
+  const subs = removalSubstancesFor(appIri);
+  if (!subs.length) {
+    // Distinguish the two ways this can be empty. They mean completely different things and the
+    // store should not blur them: one is "we modelled it and there is nothing", the other is
+    // "nobody has ever modelled this substance on land".
+    const filtered = currentSubstance && !(currentSubstance in DB.landSubstances);
+    const sub = DB.substances.find((s) => s.notation === currentSubstance);
+    return filtered
+      ? `<p class="chart-note">No modelled land impact for <b>${esc(sub ? sub.label : currentSubstance)}</b>. ` +
+        `FARMSCOPER models this scheme's effect on <b>nitrogen</b> and <b>phosphorus</b> only — the store ` +
+        `holds no land figure for any other substance, so there is nothing to show rather than nothing to find.</p>`
+      : `<p class="chart-note">No modelled removal for this application — none of its options has a ` +
+        `FARMSCOPER-modelled impact (only options measured in hectares can carry one).</p>`;
+  }
+  // ONE chart, both substances on a shared x-axis and a single y-axis — never two y-scales. They are
+  // the same measure (kg/yr of pollutant) so a common mass axis is legitimate, and it says something
+  // true: nitrogen removal dwarfs phosphorus BY MASS. What a common axis cannot say is that the two
+  // matter equally per kilogram — they do not — so each bar is direct-labelled with its own total and
+  // phosphorus stays readable as a number even when its bar is only a few pixels tall.
+  const bars = subs.map((sub) => {
+    const groups = groupRemovalsForApp(appIri, sub);
+    return { sub, label: DB.landSubstances[sub] || sub, groups, total: groups.reduce((s, g) => s + g.value, 0) };
+  }).filter((b) => b.total);
+  if (!bars.length) return `<p class="chart-note">No modelled removal for this application.</p>`;
+
+  // The legend is shared by the bars — colour follows the intervention group, the same group colours
+  // the cost pie and the count bars use, so identity carries across all three modes.
+  const seen = {};
+  for (const b of bars) for (const g of b.groups) seen[g.code] = g;
+  const legend = Object.values(seen).map((g) =>
+    `<div class="pie-leg"><span class="dot" style="background:${groupColor(g.code)}"></span>` +
+    `<span class="pie-name">${esc(g.label)} <span class="mono">${esc(g.code)}</span></span></div>`).join("");
+
+  return removalChart(bars) +
+    `<p class="chart-note modelled-note"><b>Modelled, not measured.</b> FARMSCOPER estimates a per-hectare ` +
+    `change in loss for each intervention; this is that rate × the option's mapped area. Negative = kept out ` +
+    `of the catchment. Both bars share one kg/yr axis, so phosphorus reads small <i>by mass</i> — that is a ` +
+    `fact about kilograms, not about how much phosphorus matters.</p>` +
+    `<div class="pie-legend">${legend}</div>`;
+}
+
+// One stacked bar per substance on a shared x- and y-axis. Segments run DOWNWARD from the zero
+// baseline (the values are negative and stay negative), biggest contributor first.
+function removalChart(bars) {
+  const W = 340, H = 290, m = { l: 54, r: 14, t: 20, b: 58 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const yMin = niceFloor(Math.min(...bars.map((b) => b.total)));
+  const y = (v) => m.t + (ih * v) / yMin;   // v=0 -> top (zero baseline); v=yMin -> bottom
+  const zero = y(0);
+
+  // Gridlines. The axis runs 0 down to yMin, so every tick below the baseline is a negative kg/yr.
+  let grid = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = (yMin * i) / 4, yy = y(v);
+    grid += `<line x1="${m.l}" y1="${yy.toFixed(1)}" x2="${W - m.r}" y2="${yy.toFixed(1)}" stroke="${i ? "#2b3a49" : "#4a5b6b"}"/>` +
+      `<text x="${m.l - 6}" y="${(yy + 3).toFixed(1)}" fill="#93a4b3" font-size="10" text-anchor="end">${fmtNum(Math.round(v))}</text>`;
+  }
+
+  const slot = iw / bars.length, bw = Math.min(96, slot * 0.5);
+  let cols = "";
+  bars.forEach((b, i) => {
+    const bx = m.l + i * slot + (slot - bw) / 2;
+    let cursor = 0;
+    for (const g of b.groups) {
+      const yTop = y(cursor), yBot = y(cursor + g.value);
+      const h = Math.max(1, yBot - yTop - 2);   // 2px surface gap between stacked segments
+      const share = Math.round((g.value / b.total) * 100);
+      cols += `<rect x="${bx.toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${groupColor(g.code)}" rx="2">` +
+        `<title>${esc(g.label)} (${esc(g.code)}) — ${fmtKg(g.value)} · ${share}% of this application's ${esc(b.label)} reduction</title></rect>`;
+      // Direct-label only segments with room for the code; the tooltip and legend carry the rest.
+      if (h >= 15) cols += `<text x="${(bx + bw / 2).toFixed(1)}" y="${(yTop + h / 2 + 3.5).toFixed(1)}" fill="#0b1016" font-size="10" font-weight="600" text-anchor="middle">${esc(g.code)}</text>`;
+      cursor += g.value;
+    }
+    // Name and total both sit UNDER the axis, stacked. Putting the total at the bar's end instead
+    // would collide with the axis label whenever a bar runs the full height of the plot — which the
+    // biggest one always does, since the scale is built from it. Down here it is legible for a bar of
+    // any length, which is the point: phosphorus's bar can be four pixels tall and still be readable.
+    const cx = (bx + bw / 2).toFixed(1);
+    cols += `<text x="${cx}" y="${(m.t + ih + 16).toFixed(1)}" fill="#e8eef4" font-size="11" text-anchor="middle">${esc(shortSub(b.label))}</text>` +
+      `<text x="${cx}" y="${(m.t + ih + 31).toFixed(1)}" fill="#46b978" font-size="11" font-weight="600" text-anchor="middle">${fmtKg(b.total)}</text>`;
+  });
+
+  return `<div class="removal-chart">
+    <svg viewBox="0 0 ${W} ${H}" class="bars" preserveAspectRatio="xMidYMid meet">${grid}${cols}
+      <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${(m.t + ih).toFixed(1)}" stroke="#4a5b6b"/>
+      <line x1="${m.l}" y1="${zero.toFixed(1)}" x2="${W - m.r}" y2="${zero.toFixed(1)}" stroke="#4a5b6b"/>
+      <text transform="translate(13 ${(m.t + ih / 2).toFixed(1)}) rotate(-90)" fill="#93a4b3" font-size="10" text-anchor="middle">modelled change in loss (kg/yr)</text>
+    </svg></div>`;
+}
+
+// "Nitrogen, Total as N" -> "Nitrogen". The axis tick has room for the element, not the determinand's
+// full registry name; the legend, tooltip and table all still carry it in full.
+const shortSub = (label) => String(label).split(",")[0];
+
+// Round a negative total outward to a readable axis minimum (-5,343 -> -6,000).
+function niceFloor(v) {
+  if (!v) return -1;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.abs(v))));
+  return -Math.ceil(Math.abs(v) / (mag / 2)) * (mag / 2);
+}
+// kg/yr, sign preserved. The graph's sign IS the meaning (negative = a reduction in loss), so the
+// charts never strip it — only the applications table flips it, under a column that says "Removed".
+const fmtKg = (v) => `${v < 0 ? "−" : ""}${fmtNum(Math.abs(Math.round(v)))} kg/yr`;
 
 function setFarmChartMode(m) {
   farmChartMode = m;
@@ -1165,7 +1337,9 @@ function renderPie(slices, total, unpriced, app) {
 // Select (toggle) an application: redraw the map emphasis + spider + tables, and open its pie.
 function selectApp(iri) {
   selectedApp = selectedApp === iri ? null : iri;
-  farmChartMode = "value"; // each new selection defaults to the cost view (falls back to count if unpriced)
+  // Each new selection defaults to the cost view (falling back to count if unpriced) — unless a
+  // substance the land side models is filtered on, in which case that IS the question being asked.
+  farmChartMode = currentSubstance in DB.landSubstances ? "removal" : "value";
   render();
 }
 window.selectApp = selectApp;
@@ -1270,12 +1444,12 @@ function styleActionMarker(mk, on) {
 // Load everything once
 // ---------------------------------------------------------------------------
 async function loadAll() {
-  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory, samplingPoints] =
+  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory, samplingPoints, appImpacts, optionImpacts] =
     await Promise.all([
       sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
       sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed),
       sparql(Q.applications), sparql(Q.groupLabels), sparql(Q.sfiOptions), sparql(Q.limitHistory),
-      sparql(Q.samplingPoints),
+      sparql(Q.samplingPoints), sparql(Q.appImpacts), sparql(Q.optionImpacts),
     ]);
 
   // Sampling points (the Ambient view). `permit` is a SAMPLE: a point can be monitored by more than
@@ -1443,11 +1617,27 @@ async function loadAll() {
   }
   DB.proposed = Object.values(limMap);
 
-  // Farming applications: id, option count, total annual payment (£). Keyed by IRI for selection.
+  // MODELLED pollutant impact. The graph stores these NEGATIVE (a reduction in loss). We keep that
+  // sign here — it is the store's sign and the removals chart plots it as-is, below a zero baseline.
+  // Only the applications table flips it, because a column headed "Removed" showing "−5,344" would
+  // read as an increase. `landSubstances` is derived from what the graph actually carries, so the
+  // dropdown's Water & Land group cannot drift from the data: add sediment tomorrow and it appears.
+  DB.appImpacts = {};       // app IRI  -> { notation: kg/yr (negative) }
+  DB.landSubstances = {};   // notation -> label, for the substances land can speak about at all
+  for (const r of appImpacts) {
+    (DB.appImpacts[r.app] ||= {})[r.sub] = Number(r.kg);
+    DB.landSubstances[r.sub] = r.label;
+  }
+  DB.optionImpacts = {};    // option IRI -> { notation: kg/yr (negative) }
+  for (const r of optionImpacts) (DB.optionImpacts[r.opt] ||= {})[r.sub] = Number(r.kg);
+
+  // Farming applications: id, option count, total annual payment (£), modelled removals. Keyed by
+  // IRI for selection.
   DB.applications = applications.map((a) => ({
     iri: a.app, id: a.appId || last(a.app), scheme: a.scheme || "—",
     total: a.total != null ? Number(a.total) : 0,
     n: a.n != null ? Number(a.n) : 0,
+    impact: DB.appImpacts[a.app] || {},
   })).sort((a, b) => b.total - a.total);
   DB.appById = {};
   for (const a of DB.applications) DB.appById[a.iri] = a;
@@ -1472,12 +1662,30 @@ async function loadAll() {
     a.priced = opts.length - a.unpriced;
   }
 
-  // Substance dropdown (Water super-box)
+  // Substance dropdown — now a WATER & LAND filter, grouped by which domains can actually answer for
+  // the substance. The split is computed from the graph (`DB.landSubstances`), not hard-coded:
+  //
+  //   Water & Land  — the store holds BOTH measured observations AND a modelled land impact
+  //                   (nitrogen, phosphorus: the two FARMSCOPER binds to monitored determinands)
+  //   Water only    — a monitored determinand with nothing on the land side to say about it
+  //
+  // There is no "Land only" group, and that is a fact about the data rather than an omission: every
+  // substance the SFI graph models an impact for is also one the archive samples. If a land-only
+  // substance ever appears (sediment is the live candidate — see ttl/sfi/TODO.md), it belongs in a
+  // third optgroup, and the code below will need one; today asserting an empty group would be a
+  // promise the store cannot keep.
   DB.substances = substances;
+  const isLand = (n) => n in DB.landSubstances;
+  const opt = (s) => `<option value="${s.notation}">${esc(s.label)} (${s.notation})</option>`;
+  const both = substances.filter((s) => isLand(s.notation));
+  const waterOnly = substances.filter((s) => !isLand(s.notation));
   const sel = document.getElementById("substance");
   sel.innerHTML =
     `<option value="">All substances</option>` +
-    substances.map((s) => `<option value="${s.notation}">${esc(s.label)} (${s.notation})</option>`).join("");
+    (both.length ? `<optgroup label="Water &amp; Land — measured and modelled">${both.map(opt).join("")}</optgroup>` : "") +
+    `<optgroup label="Water only — measured, no modelled land impact">${waterOnly.map(opt).join("")}</optgroup>`;
+  document.getElementById("substance-note").innerHTML =
+    `<b>${both.length}</b> of ${substances.length} substances carry both measured water quality and a modelled land impact.`;
 
   // Option-type dropdown (Land super-box): the distinct broader intervention groups.
   DB.optionTypes = {};
@@ -2810,10 +3018,27 @@ function farmingLede() {
   const filterNote = currentOptionType
     ? ` Filtered to agreements with a <b>${esc(DB.optionTypes[currentOptionType] || currentOptionType)}</b> option.`
     : "";
+
+  // What these agreements are modelled to remove, across whatever is currently in view. Scoped to the
+  // substance filter when it names one the land side models; when it names a water-only substance we
+  // say so outright rather than showing nitrogen and phosphorus as if they were the answer.
+  const subs = currentSubstance
+    ? (currentSubstance in DB.landSubstances ? [currentSubstance] : [])
+    : Object.keys(DB.landSubstances);
+  const totals = subs.map((s) => {
+    const kg = apps.reduce((t, a) => t + ((a.impact || {})[s] || 0), 0);
+    return `<span class="prog-chip removal-chip">${esc(DB.landSubstances[s])}: <b>${fmtKg(kg)}</b></span>`;
+  }).join("");
+  const sub = DB.substances.find((s) => s.notation === currentSubstance);
+  const removalNote = currentSubstance && !subs.length
+    ? ` The land side models <b>nitrogen</b> and <b>phosphorus</b> only, so it has nothing to say about ` +
+      `<b>${esc(sub ? sub.label : currentSubstance)}</b> — the agreements below are shown unfiltered.`
+    : ` Removal figures are <b>modelled</b> (FARMSCOPER), never measured.`;
+
   return `<b>Farming (SFI)</b> — ${apps.length} agreement${apps.length === 1 ? "" : "s"} ` +
     `paying farmers to cut diffuse pollution at source. Only <b>SFI Expanded Offer</b> rates are published in our ` +
-    `source, so <b>SFI 2023</b> agreements show as <b>unpriced</b>.${filterNote} Click an application to value it.` +
-    `<span class="prog-summary">${chips}</span>`;
+    `source, so <b>SFI 2023</b> agreements show as <b>unpriced</b>.${filterNote}${removalNote} Click an application to value it.` +
+    `<span class="prog-summary">${chips}${totals}</span>`;
 }
 
 function renderFarming(tables) {
@@ -2881,6 +3106,21 @@ function renderFarming(tables) {
   }
 }
 
+// The modelled-removal cell. The graph stores a NEGATIVE kg/yr (a reduction in loss); under a column
+// headed "Removed" we show the magnitude, because "−5,344 removed" reads as an increase. The sign is
+// not lost — the removals chart plots the store's own negative value against a zero baseline, and the
+// column header carries the (Modelled) tag that explains what kind of number this is.
+//
+// A dash here is NOT zero. It means the application has no FARMSCOPER-modelled option at all, which is
+// a different claim from "modelled, and removes nothing" — so it sorts as unknown (-1), below every
+// real figure, rather than tying with a genuine zero.
+function removalCell(a, sub) {
+  const kg = (a.impact || {})[sub];
+  if (kg == null) return `<td class="num" data-sort="-1"><span class="muted" title="No FARMSCOPER-modelled option in this agreement">—</span></td>`;
+  return `<td class="num modelled" data-sort="${-kg}" title="Modelled by FARMSCOPER: an estimated rate per hectare of intervention x this agreement's mapped area. Not measured.">` +
+    `${fmtNum(Math.round(-kg))}<span class="unit"> kg/yr</span></td>`;
+}
+
 function applicationsTable() {
   const apps = farmingApps();
   const rows = apps.map((a) => {
@@ -2894,19 +3134,42 @@ function applicationsTable() {
       <td>${swatch(prog.color)}${esc(prog.label)}</td>
       <td class="num">${a.n}</td>
       <td class="num" data-sort="${prog.priced ? a.total : -1}">${cost}</td>
+      ${removalCell(a, "9686")}
+      ${removalCell(a, "0348")}
     </tr>`;
   }).join("");
   const hint = selectedApp
     ? '<span class="count">— <span class="sub-link clear-sel" title="Reset focus back to the filters">✕ clear selection</span></span>'
     : '<span class="count">— click one to value it</span>';
-  const c = card(`Applications ${hint}`,
-    apps.length, pagedTable(["Application", "Programme", "Options|r", "Total cost|r"], rows), PQ.applications());
+  // The two removal columns are flagged in the header itself, not only in a footnote: a reader who
+  // sorts by "Nitrogen Removed" and screenshots the top row must carry the word "modelled" with them.
+  const modelled = (name) => `${name} Removed <span class="modelled-tag" title="Modelled by FARMSCOPER — an estimated per-hectare rate applied to mapped area. NOT measured, and not verified against water quality observations.">(Modelled)</span>`;
+  const c = card(`Applications ${hint}`, apps.length,
+    pagedTable(["Application", "Programme", "Options|r", "Total cost|r", `${modelled("Nitrogen")}|r`, `${modelled("Phosphorus")}|r`], rows),
+    PQ.applications());
+  c.append(modelledCaveat());
   c.addEventListener("click", (e) => {
     if (e.target.closest(".clear-sel")) { clearAppFocus(); return; }
     const tr = e.target.closest(".app-row");
     if (tr) selectApp(tr.dataset.app);
   });
   return c;
+}
+
+// The standing caveat under the applications table. This is deliberately not a tooltip-only note: the
+// removal figures are the only numbers in this app that no one has ever measured, and they sit in the
+// same row as a payment that is a real contractual rate. A reader is entitled to know which is which.
+function modelledCaveat() {
+  const d = document.createElement("p");
+  d.className = "table-caveat";
+  d.innerHTML =
+    `<b>Nitrogen &amp; Phosphorus Removed are modelled, not measured.</b> They come from FARMSCOPER, ` +
+    `which estimates a per-hectare change in pollutant loss for each intervention; the store multiplies ` +
+    `that rate by the option's mapped area. No observation anywhere in this catchment has been used to ` +
+    `check them, and what "per hectare per year" means at source is still being validated ` +
+    `(<code>ttl/sfi/TODO.md</code>). Treat them as relative scale and ranking — not as a reportable load. ` +
+    `A <span class="muted">—</span> means the agreement has no modelled option, which is not the same as zero.`;
+  return d;
 }
 
 // Options for the selected application, grouped by broader concept (expandable to the components).
@@ -3017,7 +3280,10 @@ async function main() {
   // showUnsampled resets with the substance: it is an answer to "who is not measured for THIS one?",
   // so carrying it silently into the next substance would show a different question's answer.
   document.getElementById("substance").addEventListener("change", (e) => {
-    currentSubstance = e.target.value; breachPermit = null; showUnsampled = false; render();
+    currentSubstance = e.target.value; breachPermit = null; showUnsampled = false;
+    // Choosing a substance the land side can actually answer for is a request to see the land answer.
+    if (currentSubstance in DB.landSubstances) farmChartMode = "removal";
+    render();
   });
   document.getElementById("optionType").addEventListener("change", (e) => {
     currentOptionType = e.target.value;

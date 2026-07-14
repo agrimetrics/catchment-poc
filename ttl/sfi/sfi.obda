@@ -100,5 +100,33 @@ target      :Option/{app_id}/{option_code} defra-farming:annualPayment :Option/{
             :Option/{app_id}/{option_code}#payment rdf:type qudt:QuantityValue .
             :Option/{app_id}/{option_code}#payment qudt:numericValue {cost}^^xsd:decimal .
             :Option/{app_id}/{option_code}#payment qudt:unit currency:GBP .
+
+mappingId   SFIConceptPollutantImpactRate
+source      SELECT notation, substance_code, substance_uri, substance_label, kg_per_ha_yr, treatment FROM concept_impact
+target      :Option/Concept/{notation} defra-farming:pollutantImpactRate :Option/Concept/{notation}#impact-{substance_code} .
+            :Option/Concept/{notation}#impact-{substance_code} rdf:type defra-farming:PollutantImpactRate .
+            :Option/Concept/{notation}#impact-{substance_code} defra-farming:substance <{substance_uri}> .
+            :Option/Concept/{notation}#impact-{substance_code} qudt:numericValue {kg_per_ha_yr}^^xsd:decimal .
+            :Option/Concept/{notation}#impact-{substance_code} qudt:unit unit:KiloGM-PER-HA-YR .
+            :Option/Concept/{notation}#impact-{substance_code} rdfs:label {substance_label} .
+            :Option/Concept/{notation}#impact-{substance_code} defra-farming:impactNote {treatment} .
+
+mappingId   OptionPollutantImpact
+source      SELECT app_id, option_code, substance_code, substance_uri, substance_label, kg_per_yr FROM option_impact
+target      :Option/{app_id}/{option_code} defra-farming:annualPollutantImpact :Option/{app_id}/{option_code}#impact-{substance_code} .
+            :Option/{app_id}/{option_code}#impact-{substance_code} rdf:type qudt:QuantityValue .
+            :Option/{app_id}/{option_code}#impact-{substance_code} defra-farming:substance <{substance_uri}> .
+            :Option/{app_id}/{option_code}#impact-{substance_code} qudt:numericValue {kg_per_yr}^^xsd:decimal .
+            :Option/{app_id}/{option_code}#impact-{substance_code} qudt:unit unit:KiloGM-PER-YR .
+            :Option/{app_id}/{option_code}#impact-{substance_code} rdfs:label {substance_label} .
+
+mappingId   ApplicationPollutantImpact
+source      SELECT app_id, substance_code, substance_uri, substance_label, kg_per_yr FROM application_impact
+target      :Application/{app_id} defra-farming:annualPollutantImpact :Application/{app_id}#impact-{substance_code} .
+            :Application/{app_id}#impact-{substance_code} rdf:type qudt:QuantityValue .
+            :Application/{app_id}#impact-{substance_code} defra-farming:substance <{substance_uri}> .
+            :Application/{app_id}#impact-{substance_code} qudt:numericValue {kg_per_yr}^^xsd:decimal .
+            :Application/{app_id}#impact-{substance_code} qudt:unit unit:KiloGM-PER-YR .
+            :Application/{app_id}#impact-{substance_code} rdfs:label {substance_label} .
 ]]
 

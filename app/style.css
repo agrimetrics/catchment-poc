@@ -67,6 +67,7 @@ select {
 
 nav#views {
   display: flex;
+  flex-wrap: wrap; /* so the Water & Land substance filter can take a full-width row of its own */
   gap: 14px;
   padding: 10px 20px 14px;
   background: var(--panel);
@@ -85,6 +86,17 @@ nav#views {
 }
 .view-group.water { flex: 3 1 0; background: rgba(90, 169, 255, .04); }
 .view-group.land { flex: 1 1 0; background: rgba(70, 185, 120, .05); }
+/* Substance spans BOTH domains now: nitrogen and phosphorus are measured in the water and modelled
+   on the land, so the filter cannot live inside either box. It gets its own full-width row. */
+.view-group.both {
+  flex: 1 1 100%;
+  background: linear-gradient(90deg, rgba(90, 169, 255, .05), rgba(70, 185, 120, .05));
+}
+.view-group.both > legend { color: #7fc4c9; }
+.view-group.both .group-filter { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.view-group.both .group-filter select { margin-top: 0; width: auto; min-width: 320px; }
+.filter-note { text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--muted); }
+.filter-note b { color: var(--text); }
 .view-group > legend {
   padding: 0 8px; margin-left: 2px;
   font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
@@ -222,8 +234,31 @@ tbody tr.action-row { cursor: pointer; }
 tbody tr.action-row.sel { background: #241f33; box-shadow: inset 3px 0 0 #a06bff; }
 tbody tr.action-row.sel:hover { background: #2b2540; }
 
+/* Removals: nitrogen & phosphorus share one x- and y-axis (one chart, no scrolling), each bar
+   stacked by intervention group and direct-labelled with its own total. */
+.removal-chart { margin-bottom: 2px; }
+.removal-chip b { color: #46b978; }
+
 .muted { color: var(--muted); }
 .unpriced-tag { color: #d9a441; font-size: 11px; white-space: nowrap; }
+
+/* MODELLED, NOT MEASURED. These figures are the only numbers in the app that nobody observed, and
+   they sit in the same row as a real contractual payment — so the flag rides in the column header
+   and the cell, not just a footnote a screenshot would crop away. */
+.modelled-tag {
+  display: inline-block; font-size: 9.5px; font-weight: 600; letter-spacing: .4px;
+  color: #d9a441; border: 1px solid rgba(217, 164, 65, .45); border-radius: 3px;
+  padding: 0 4px; margin-left: 4px; vertical-align: middle; text-transform: uppercase; cursor: help;
+}
+td.modelled { color: #7fd8a4; font-variant-numeric: tabular-nums; }
+td.modelled .unit { color: var(--muted); font-size: 11px; }
+.table-caveat {
+  margin: 0; padding: 8px 12px 10px; font-size: 11.5px; line-height: 1.5;
+  color: var(--muted); border-top: 1px solid var(--line); background: rgba(217, 164, 65, .05);
+}
+.table-caveat b { color: #d9a441; }
+.table-caveat code { font-size: 11px; }
+.chart-note.modelled-note { border-left: 2px solid #d9a441; padding-left: 8px; }
 .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 /* programme prices summary in the lede */
 .prog-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; }

@@ -206,3 +206,106 @@ FROM option_geometry g
 JOIN concepts c ON c.notation = g.option_code
 WHERE c.per_unit_slug IS NOT NULL AND c.pay_amount IS NOT NULL;
 """)
+
+
+# --- Farmscoper pollutant impact ---------------------------------------------
+# "Scheme details.xlsx" / Farmscoper sheet holds one row per FARMSCOPER *treatment* (a mitigation
+# measure modelled by ADAS), giving the modelled annual change in pollutant loss per hectare for
+# three pollutants. Each treatment row also carries a concatenated "Scheme Actions" list naming the
+# scheme actions that enact it, tagged with their scheme, e.g.
+#
+#     "OFDB-0087,OFDB-0088,OFDB-0095,OFDB-0492,AB3 (CS),AHW3 (SFI)"
+#
+# We take only the "(SFI)" tokens and hang the treatment's per-hectare figures on the matching SFI
+# concept. Values are NEGATIVE = a reduction in pollutant loss (the point of the intervention).
+#
+# The pollutant columns are bound to the substances the water-quality side of the store already
+# monitors, so an SFI option's modelled impact and a sampling point's observations refer to the SAME
+# skos:Concept and can be joined:
+#     Kg Nitrate Ha-1 Yr-1 -> substance 9686  "Nitrogen, Total as N"
+#     Kg P Ha-1 Yr-1       -> substance 0348  "Phosphorus, Total as P"
+#
+# The sheet's third column, `Kg Z Ha-1 Yr-1`, is DELIBERATELY NOT SHREDDED. Read literally it is
+# zinc, but its magnitudes are physically impossible for zinc (rates to -1,651 kg/ha/yr against a
+# soil zinc stock of ~150-250 kg/ha) and it tracks the phosphorus column at a near-constant ~870:1 —
+# the sediment-to-particulate-P ratio, not anything to do with zinc. We do not know what it measures,
+# so the store does not claim to. See TODO.md; rebind it only once the source is confirmed.
+SUBSTANCE_BASE = "http://example.com/water-regulation/substance/"
+IMPACT_COLUMNS = [
+    ("Kg Nitrate Ha-1 Yr-1", "9686", "Nitrogen, Total as N"),
+    ("Kg P Ha-1 Yr-1", "0348", "Phosphorus, Total as P"),
+]
+
+fs = pd.read_excel(RAW / "Scheme details.xlsx", sheet_name="Farmscoper")
+impact_rows = []
+for _, r in fs.iterrows():
+    treatment = clean_text(r["Name"])
+    # Only the SFI-tagged tokens of the concatenated action list; other tokens are OFDB or CS actions.
+    codes = [
+        m.group(1)
+        for m in (re.match(r"^(.+?)\s*\(SFI\)$", t.strip())
+                  for t in str(r["Scheme Actions"] or "").split(","))
+        if m
+    ]
+    for column, substance_code, substance_label in IMPACT_COLUMNS:
+        value = r[column]
+        if pd.isna(value):
+            continue
+        for notation in codes:
+            impact_rows.append({
+                "notation": notation,
+                "substance_code": substance_code,
+                "substance_uri": SUBSTANCE_BASE + substance_code,
+                "substance_label": substance_label,
+                "kg_per_ha_yr": round(float(value), 4),
+                "treatment": treatment,
+            })
+impact_df = pd.DataFrame(impact_rows)
+
+# One SFI action can only carry one figure per pollutant. The source happens to name each SFI code in
+# exactly one treatment row, so there is nothing to reconcile — but if that ever changes we want to be
+# told rather than silently pick a row.
+clashes = impact_df.groupby(["notation", "substance_code"]).size()
+clashes = clashes[clashes > 1]
+if not clashes.empty:
+    raise ValueError(
+        "An SFI code is named by more than one Farmscoper treatment for the same pollutant, so its "
+        f"impact is ambiguous and no rule exists to combine them:\n{clashes}")
+
+con.register("impact_df", impact_df)
+con.execute("""
+CREATE OR REPLACE TABLE concept_impact AS
+SELECT notation, substance_code, substance_uri, substance_label,
+       CAST(kg_per_ha_yr AS DECIMAL(18,4)) AS kg_per_ha_yr, treatment
+FROM impact_df
+WHERE notation IN (SELECT notation FROM concepts);
+""")
+
+# --- Per-option and per-application applied impact -----------------------------
+# The concept rate is per hectare per year; an in-catchment option's modelled impact is therefore its
+# summed AREA x the rate, giving kg/yr. Options measured in metres or units (e.g. hedgerow actions)
+# have no hectarage to multiply, so they get no applied impact — the rate stays on the concept only.
+con.execute("""
+CREATE OR REPLACE TABLE option_impact AS
+SELECT g.app_id,
+       g.option_code,
+       i.substance_code,
+       i.substance_uri,
+       i.substance_label,
+       CAST(g.total_area * i.kg_per_ha_yr AS DECIMAL(18,4)) AS kg_per_yr
+FROM option_geometry g
+JOIN concept_impact i ON i.notation = g.option_code
+WHERE g.total_area IS NOT NULL AND g.total_area > 0;
+""")
+
+# An application is a whole farm agreement made of many options; its impact is the sum of its options'.
+con.execute("""
+CREATE OR REPLACE TABLE application_impact AS
+SELECT app_id,
+       substance_code,
+       ANY_VALUE(substance_uri)   AS substance_uri,
+       ANY_VALUE(substance_label) AS substance_label,
+       CAST(SUM(kg_per_yr) AS DECIMAL(18,4)) AS kg_per_yr
+FROM option_impact
+GROUP BY app_id, substance_code;
+""")

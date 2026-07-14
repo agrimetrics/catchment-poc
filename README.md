@@ -178,8 +178,24 @@ The two water views are the demonstrator's argument in miniature. They are two d
   limit, so its chart shows readings and no pass mark; a river is not "compliant", it is merely
   measured. (View key: `?view=measured`.)
 - **Sustainable Farming Incentive** — SFI agreements as convex-hull polygons coloured by programme,
-  with a cost-per-intervention pie (or count bar chart), an option-type filter, and per-application
-  valuations. See the [SFI data warnings](ttl/sfi/README.md#data-warnings) for the pricing caveats.
+  with an option-type filter, per-application valuations, and three chart modes: **Cost** (a
+  cost-per-intervention pie), **Count** (intervention locations) and **Removals** — the agreement's
+  **modelled** annual nitrogen and phosphorus reduction, stacked by the intervention group that
+  produced each share of it. The applications table carries the same two figures as *Nitrogen /
+  Phosphorus Removed (Modelled)*. See the [SFI data warnings](ttl/sfi/README.md#data-warnings) for the
+  pricing caveats, and **[ttl/sfi/TODO.md](ttl/sfi/TODO.md) before trusting a removal figure** — they
+  are FARMSCOPER model output, never measured, and what the source's `kg ha-1 yr-1` denominator means
+  is still being validated.
+
+**The substance filter spans Water and Land.** It used to sit inside the Water box, because substances
+were something only the water side had. They are not any more: the SFI concept scheme binds FARMSCOPER's
+impact figures to the **same `skos:Concept`s** the Water Quality Archive's observations are measured
+against, so nitrogen and phosphorus now mean something on both sides of the app. The dropdown is grouped
+accordingly — **Water & Land** (nitrogen, phosphorus: measured *and* modelled) and **Water only**
+(measured, with nothing on the land side to say about them) — and the split is computed from the graph
+at runtime, not hard-coded, so it cannot drift from the data. Picking a water-only substance on the Land
+view gets an explicit "the land side models nitrogen and phosphorus only" rather than a blank chart.
+There is no *Land only* group: today every substance the land models is also one the archive samples.
 
 **Conservation designations** (SSSI / SAC / SPA) can be toggled on any map view from the legend —
 individually or by category — and render beneath all plotted locations. The legend collapses while

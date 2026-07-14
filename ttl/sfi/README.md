@@ -43,7 +43,42 @@ python ttl/sfi/sfi_to_db.py
   per-100-metres rate and summed area (hectares) for a per-hectare rate. e.g. option `1805262/CHRW3`
   at 12,900 m against £10 per 100 m → **£1,290**.
 
-Result: ~1,115 options across the catchment.
+- **Pollutant impact modelled with QUDT; option and application impact computed.** The Farmscoper
+  sheet of `raw_datasets/Scheme details.xlsx` holds one row per **FARMSCOPER treatment** (an ADAS-
+  modelled mitigation measure) with its modelled annual change in pollutant loss **per hectare**, and
+  a concatenated `Scheme Actions` list naming the scheme actions that enact it, each tagged with its
+  scheme — e.g. `OFDB-0087,OFDB-0088,AB3 (CS),AHW3 (SFI)`. We take only the `(SFI)`-tagged tokens and
+  hang the treatment's figures on the matching SFI concept. **41 of the 62 SFI codes named by the
+  sheet carry values** (the rest are modelled with no quantified effect); all 62 already exist in the
+  scheme. Values are **negative = a reduction** in pollutant loss.
+
+  Each concept gets a `defra-farming:pollutantImpactRate` per pollutant — a
+  `defra-farming:PollutantImpactRate` with `qudt:numericValue` and `qudt:unit unit:KiloGM-PER-HA-YR`,
+  a `defra-farming:substance`, and a `defra-farming:impactNote` naming the FARMSCOPER treatment it
+  came from. Each in-catchment option and each application then gets a
+  `defra-farming:annualPollutantImpact` (a `qudt:QuantityValue` in `unit:KiloGM-PER-YR`):
+  **option = summed area (ha) × the rate**, **application = sum of its options**. e.g. option
+  `1929500/CSAM2` ("Establish cover crops in the autumn") over 213.39 ha at −24.4915 kg N/ha/yr →
+  **−5,226 kg N/yr**.
+
+- **The pollutants are the store's own substances.** The columns bind to the *same* `skos:Concept`s
+  the water-quality side of the store monitors, so an option's modelled impact and a sampling point's
+  observations are joinable rather than merely adjacent:
+
+  | Farmscoper column | Substance concept | prefLabel |
+  |---|---|---|
+  | `Kg Nitrate Ha-1 Yr-1` | `water-regulation:substance/9686` | Nitrogen, Total as N |
+  | `Kg P Ha-1 Yr-1` | `water-regulation:substance/0348` | Phosphorus, Total as P |
+  | `Kg Z Ha-1 Yr-1` | — | **not shredded — see `TODO.md`** |
+
+  The sheet's third column is **deliberately absent from the graph**. Read literally it is zinc, but
+  its magnitudes are physically impossible for zinc and it tracks the phosphorus column at a
+  near-constant ~870:1 — the sediment-to-particulate-P ratio. It is most likely FARMSCOPER's
+  **sediment** output under a wrong header, but that is unconfirmed, so the store says nothing about
+  it rather than asserting a substance it cannot stand behind.
+
+Result: ~1,115 options across the catchment; 41 concepts carry impact rates, 272 options and 160
+applications carry a computed impact.
 
 ## Data warnings
 
@@ -61,6 +96,28 @@ Result: ~1,115 options across the catchment.
 - **Concept scheme covers the expanded offer.** Payment/comment/duration enrichment only exists for
   the workbook's C-prefixed codes; older SFI 2023 / pilot codes in the catchment get definition +
   `broader` only (from the PDF).
+
+- **⚠️ What `Kg … Ha-1 Yr-1` means is NOT yet validated — see `TODO.md`.** We read the headers
+  literally ("kilograms per hectare per year") and the graph acts on that reading: the applied impact
+  is the option's **summed area × the rate**. If the denominator is not the treated area — e.g. if
+  FARMSCOPER quotes per hectare of the *whole modelled farm* — then the concept rates still stand
+  (they are verbatim) but every computed `annualPollutantImpact` is wrong. Treat those figures as
+  indicative of scale and ranking, not as reportable kg. Also unvalidated: whether the figure is loss
+  at the field edge or load delivered to water — only the latter is comparable to what a sampling
+  point observes.
+
+- **Nitrogen, not nitrate.** The source column is headed `Kg Nitrate Ha-1 Yr-1`, but the store's
+  substance vocabulary has **no nitrate concept** — the monitored nitrogen determinand is 9686
+  "Nitrogen, Total as N", so that is what the figure binds to. FARMSCOPER reports nitrate loss as
+  kg of N, so the units are consistent, but the bound concept is *total* nitrogen and the source
+  figure is a *nitrate* loss: they are not the same measurand.
+
+- **Impacts are modelled, not measured, and are per-hectare.** The figures are FARMSCOPER model
+  output for a treatment applied to a hectare, multiplied by the option's mapped extent. They carry
+  none of the model's own context (soil type, rainfall, farm system), and options measured in metres
+  or units (e.g. hedgerow actions) have no hectarage to multiply, so they get **no** applied impact —
+  the rate stays on the concept only. An SFI code is expected to be named by exactly one FARMSCOPER
+  treatment; the shredder raises if that ever stops being true rather than silently picking a row.
 
 ## Notes
 
