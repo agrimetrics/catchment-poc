@@ -312,10 +312,20 @@ python link_data.py                                  # joins raw CSVs → output
 python ttl/regulation/fetch_version_dates.py         # (occasional) refresh permit_version_dates.csv from the EA public register
 python ttl/regulation/fetch_sampling_point_determinands.py   # (occasional) sweep the archive for what each point is sampled for
 python ttl/regulation/regulation_to_db.py            # shred → regulation.duckdb
-./ontop/ontop materialize --mapping ttl/regulation/regulation.obda \
-    --properties ontop/duckdb-regulation.properties \
-    --output ttl/regulation/regulation_raw.ttl --format turtle \
-  && rdfpipe -i turtle -o turtle ttl/regulation/regulation_raw.ttl > ttl/regulation.ttl
+./ontop/ontop materialize \
+  --mapping ttl/regulation/regulation.obda \
+  --properties ontop/duckdb-regulation.properties \
+  --output ttl/regulation/regulation_raw.ttl \
+  --format turtle \
+&& rdfpipe \
+  -i turtle \
+  -o turtle \
+  --ns defra-core=http://environment.data.gov.uk/ontology/core/ \
+  --ns defra-reg=http://environment.data.gov.uk/ontology/regulation/ \
+  --ns defra-water=http://environment.data.gov.uk/ontology/water/ \
+  --ns qudt=http://qudt.org/schema/qudt/ \
+  --ns iop=https://w3id.org/iadopt/ont/ \
+  ttl/regulation/regulation_raw.ttl > ttl/regulation.ttl
 ```
 
 **2. Breaches** — [`ttl/breaches/README.md`](ttl/breaches/README.md)
@@ -326,10 +336,17 @@ reads `regulation.duckdb`, so regulation must be built first.
 ```bash
 python ttl/breaches/fetch_compliance_observations.py  # (occasional, needs EA egress) refresh compliance_observations.csv
 python ttl/breaches/breaches_to_db.py                 # assess → breaches.duckdb
-./ontop/ontop materialize --mapping ttl/breaches/breaches.obda \
+./ontop/ontop materialize \
+    --mapping ttl/breaches/breaches.obda \
     --properties ontop/duckdb-breaches.properties \
-    --output ttl/breaches/breaches_raw.ttl --format turtle \
-  && rdfpipe -i turtle -o turtle ttl/breaches/breaches_raw.ttl > ttl/breaches.ttl
+    --output ttl/breaches/breaches_raw.ttl \
+    --format turtle \
+  && rdfpipe \
+    -i turtle \
+    -o turtle \
+    --ns defra-core=http://environment.data.gov.uk/ontology/core/ \
+    --ns defra-reg=http://environment.data.gov.uk/ontology/regulation/ \
+    ttl/breaches/breaches_raw.ttl > ttl/breaches.ttl
 ```
 
 > **Re-run the fetch whenever the regulation SCOPE changes.** `compliance_observations.csv` is a
@@ -343,19 +360,37 @@ python ttl/breaches/breaches_to_db.py                 # assess → breaches.duck
 
 ```bash
 python ttl/winep/winep_to_db.py                      # shred PR24 xlsx (+ regulation.duckdb, + catchment) → winep.duckdb
-./ontop/ontop materialize --mapping ttl/winep/winep.obda \
+./ontop/ontop materialize \
+    --mapping ttl/winep/winep.obda \
     --properties ontop/duckdb-winep.properties \
-    --output ttl/winep/winep_raw.ttl --format turtle \
-  && rdfpipe -i turtle -o turtle ttl/winep/winep_raw.ttl > ttl/winep.ttl
+    --output ttl/winep/winep_raw.ttl \
+    --format turtle \
+&& rdfpipe \
+    -i turtle \
+    -o turtle \
+    --ns defra-core=http://environment.data.gov.uk/ontology/core/ \
+    --ns defra-reg=http://environment.data.gov.uk/ontology/regulation/ \
+    --ns qudt=http://qudt.org/schema/qudt/ \
+    --ns iop=https://w3id.org/iadopt/ont/ \
+    ttl/winep/winep_raw.ttl > ttl/winep.ttl
 ```
 
 **4. SFI** — [`ttl/sfi/README.md`](ttl/sfi/README.md)
 
 ```bash
 python ttl/sfi/sfi_to_db.py                          # spatial clip + aggregate + concept scheme → sfi.duckdb
-./ontop/ontop materialize --mapping ttl/sfi/sfi.obda --properties ontop/duckdb.properties \
-    --output ttl/sfi/sfi_raw.ttl --format turtle \
-  && rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
+./ontop/ontop materialize \
+    --mapping ttl/sfi/sfi.obda \
+    --properties ontop/duckdb-sfi.properties \
+    --output ttl/sfi/sfi_raw.ttl \
+    --format turtle \
+&& rdfpipe \
+    -i turtle \
+    -o turtle \
+    --ns defra-core=http://environment.data.gov.uk/ontology/core/ \
+    --ns defra-farming=http://environment.data.gov.uk/ontology/farming/ \
+    --ns qudt=http://qudt.org/schema/qudt/ \
+    ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
 ```
 
 **5. Designations** (SSSI/SAC/SPA) — [`ttl/designations/README.md`](ttl/designations/README.md) · spatial queries in [`ttl/designations/TODO.md`](ttl/designations/TODO.md)
