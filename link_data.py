@@ -1,4 +1,8 @@
 import pandas as pd
+from pathlib import Path
+
+output_dir = Path("output_data")
+output_dir.mkdir(exist_ok=True)
 
 ###### Create a dataset between sampling points and permits from the effluents dataset
 effluents = pd.read_csv("raw_datasets/access_database_csv_files/effluents.csv")
@@ -18,8 +22,8 @@ effluents_subset = effluents[[
     "EFFLUENT_NUMBER"]]
 effluents_subset=effluents_subset.drop_duplicates()
 # Save to file
-effluents.to_csv("output_data/sampling_point_to_permit_relationship.csv", index=False)
-effluents_subset.to_csv("output_data/sampling_point_to_permit_relationship_mapping_columns_only.csv",index=False)
+effluents.to_csv(output_dir / "sampling_point_to_permit_relationship.csv", index=False)
+effluents_subset.to_csv(output_dir / "sampling_point_to_permit_relationship_mapping_columns_only.csv",index=False)
 
 ###### For our 2020-2026 Poole Harbour Rivers Water Quality observations dataset we create a dataset where we have the observation rows with their associated permits (one observation row can become multiple if one sampling point links to multiple (PERMIT_REF,VERSION,OUTLET_NUMBER,EFFLUENT_NUMBER) combinations
 observations = pd.read_csv("raw_datasets/poole_harbour_rivers_water_quality_observations_2020_2026_combined.csv")
@@ -31,7 +35,7 @@ numeric_observations = numeric_observations.dropna(subset=["result"])
 
 # Create dataframe of observations that we have permits for
 observations_with_permits = numeric_observations.merge(effluents_subset, on="samplingPoint.notation",how="inner")
-observations_with_permits.to_csv("output_data/observations_with_permits.csv", index=False)
+observations_with_permits.to_csv(output_dir / "observations_with_permits.csv", index=False)
 
 ###### Filter and shape determinands dataset (permits and their rules) in order to later merge with the observations dataset
 determinands = pd.read_csv("raw_datasets/access_database_csv_files/determinands.csv")
@@ -64,7 +68,7 @@ long = (
 # ever by MEAN VALUE, so it never reached the graph at all).
 long = long[long["RULE_TYPE"].notna() & (long["RULE_TYPE"] != "")]
 long=long.drop_duplicates()
-long.to_csv("output_data/filtered_determinands_long.csv",index=False)
+long.to_csv(output_dir / "filtered_determinands_long.csv",index=False)
 
 ###### Create observational data which contains permits and their rules
 long=long.rename(columns={
@@ -120,4 +124,4 @@ observations_with_permits_and_rules = owpr
 #filter for only latest version per determinand?
 #DWF data?
 
-observations_with_permits_and_rules.to_csv("output_data/observations_with_permits_and_rules.csv",index=False)
+observations_with_permits_and_rules.to_csv(output_dir / "observations_with_permits_and_rules.csv",index=False)
