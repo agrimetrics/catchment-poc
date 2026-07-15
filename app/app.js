@@ -88,7 +88,7 @@ PREFIX reg:   <http://environment.data.gov.uk/ontology/regulation/>
 PREFIX water: <http://environment.data.gov.uk/ontology/water/>
 PREFIX core:  <http://environment.data.gov.uk/ontology/core/>
 PREFIX farm:  <http://environment.data.gov.uk/ontology/farming/>
-PREFIX ex:    <http://example.com/>
+PREFIX ex-farm:    <http://example.com/farming/>
 PREFIX qudt:  <http://qudt.org/schema/qudt/>
 PREFIX iop:   <https://w3id.org/iadopt/ont/>
 PREFIX geo:   <http://www.opengis.net/ont/geosparql#>
@@ -279,7 +279,7 @@ const Q = {
     SELECT ?app ?appId ?scheme (SUM(COALESCE(?c, 0)) AS ?total) (COUNT(DISTINCT ?opt) AS ?n) WHERE {
       ?app a farm:Application ; core:hasPart ?opt .
       OPTIONAL { ?app skos:notation ?appId }
-      OPTIONAL { ?app ex:scheme ?scheme }
+      OPTIONAL { ?app ex-farm:scheme ?scheme }
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?c }
     } GROUP BY ?app ?appId ?scheme`,
 
@@ -494,7 +494,7 @@ ${CUR_VERSION}
            ?nitrogenRemovedKgYr ?phosphorusRemovedKgYr WHERE {
       ?app a farm:Application ; core:hasPart ?opt .
       OPTIONAL { ?app skos:notation ?appId }
-      OPTIONAL { ?app ex:scheme ?scheme }
+      OPTIONAL { ?app ex-farm:scheme ?scheme }
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?c }
       OPTIONAL { ?app farm:annualPollutantImpact ?ni .
                  ?ni farm:substance/skos:notation "9686" ; qudt:numericValue ?nkg .

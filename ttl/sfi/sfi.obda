@@ -1,6 +1,6 @@
 [PrefixDeclaration]
 :               http://example.com/sfi/
-ex:             http://example.com/
+ex:             http://example.com/farming/
 xsd:            http://www.w3.org/2001/XMLSchema#
 rdf:            http://www.w3.org/1999/02/22-rdf-syntax-ns#
 defra-farming:  http://environment.data.gov.uk/ontology/farming/
