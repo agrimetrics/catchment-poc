@@ -64,7 +64,7 @@ EFFLUENTS_CSV = ROOT / "raw_datasets" / "access_database_csv_files" / "effluents
 # the same column layout.
 CONSENTS_CSVS = [
     ROOT / "raw_datasets" / "access_database_csv_files" / "consents_active.csv",
-    ROOT / "raw_datasets" / "access_database_csv_files" / "consents_all.csv",
+    ROOT / "raw_datasets" / "access_database_csv_files" / "consents_all_poole_harbour.csv",
 ]
 # Sampling-point reference data resolved from the EA Water Quality Archive by
 # fetch_sampling_points.py: label, geometry in the SOURCE CRS (EPSG:27700), type and status. Covers

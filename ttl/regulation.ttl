@@ -3772,7 +3772,7 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040015/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(366751 99843)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(366750 99850)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040015/version/1#applicability> a defra-core:Applicability ;
@@ -4332,13 +4332,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040067/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(372165 96316)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(372160 96320)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040067/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(372165 96316)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(372170 96310)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040067/version/1#applicability> a defra-core:Applicability ;
@@ -5010,6 +5010,42 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040070#id> a defra-core:Identifier ;
     defra-core:identifierValue "040070" .
 
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(375050 94950)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(375100 94950)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(375060 94910)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(375050 94950)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(375090 94960)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(375060 94910)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/040070/version/1/outlet/1/effluent/1/condition/0085> a defra-reg:Condition ;
     defra-core:hasApplicability <http://example.com/water-regulation/permit/040070/version/1/outlet/1/effluent/1/condition/0085#applicability> ;
     defra-reg:hasLimit <http://example.com/water-regulation/permit/040070/version/1/outlet/1/effluent/1/condition/0085#limit-percentile-95> ;
@@ -5239,6 +5275,42 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040091#id> a defra-core:Identifier ;
     defra-core:identifierValue "040091" .
 
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363130 98610)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363040 98800)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363200 98450)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363130 98610)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363130 98680)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363200 98450)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/040091/version/1/outlet/1/effluent/1/condition/0085> a defra-reg:Condition ;
     defra-core:hasApplicability <http://example.com/water-regulation/permit/040091/version/1/outlet/1/effluent/1/condition/0085#applicability> ;
     defra-reg:hasLimit <http://example.com/water-regulation/permit/040091/version/1/outlet/1/effluent/1/condition/0085#limit-percentile-95> ;
@@ -5332,11 +5404,59 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040096#id> a defra-core:Identifier ;
     defra-core:identifierValue "040096" .
 
-<http://example.com/water-regulation/permit/040096/outlet/1/effluent/1> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520131> .
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/1> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520131> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography>,
+        <http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-outlet> .
 
-<http://example.com/water-regulation/permit/040096/outlet/1/effluent/2> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520133> .
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356623 98014)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356620 98030)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356700 97960)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/2> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50520133> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography>,
+        <http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-outlet> .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356623 98014)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356620 98020)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356700 97960)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040109#id> a defra-core:Identifier ;
     defra-core:identifierValue "040109" .
@@ -6093,6 +6213,24 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040137#id> a defra-core:Identifier ;
     defra-core:identifierValue "040137" .
 
+<http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389530 88180)"^^geo:wktLiteral ;
+    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389350 88150)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389350 88150)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/040137/version/1/outlet/1/effluent/1/condition/0462> a defra-reg:Condition ;
     defra-core:hasApplicability <http://example.com/water-regulation/permit/040137/version/1/outlet/1/effluent/1/condition/0462#applicability> ;
     defra-reg:hasLimit <http://example.com/water-regulation/permit/040137/version/1/outlet/1/effluent/1/condition/0462#limit-maximum> ;
@@ -6195,13 +6333,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040725/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(373446 86703)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(373450 86710)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040725/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(373449 86696)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(373450 86710)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040725/outlet/2/effluent/1#geography> a geo:Geometry ;
@@ -6213,7 +6351,7 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/040725/outlet/2/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(373400 86814)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(373390 86800)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/040725/outlet/2/effluent/1#geography-outlet> a geo:Geometry ;
@@ -7218,13 +7356,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/041324/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(396172 83126)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(396140 83130)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/041324/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(396096 83153)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(396110 83140)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/041324/outlet/1/effluent/2#geography> a geo:Geometry ;
@@ -8795,13 +8933,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/041353/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360452 97268)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360450 97250)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/041353/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360253 97176)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360280 97160)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/041353/outlet/1/effluent/2#geography> a geo:Geometry ;
@@ -8827,6 +8965,18 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360454 97257)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360450 97250)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(360280 97160)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/041353/version/1#applicability> a defra-core:Applicability ;
     defra-core:applicabilityPeriod <http://example.com/water-regulation/permit/041353/version/1#period> .
@@ -11151,11 +11301,35 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
 
+<http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389770 93260)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390943 92658)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389774 93251)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390943 92658)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/042451/outlet/1a/effluent/1#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
@@ -11235,11 +11409,35 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
 
+<http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389770 93260)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390943 92658)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389774 93251)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390943 92658)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/042451/outlet/2a/effluent/1#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
@@ -11319,11 +11517,35 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
 
+<http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389770 93260)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390920 92600)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389774 93251)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390933 92599)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
@@ -11331,11 +11553,35 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
 
+<http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389780 93270)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390920 92600)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
 <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389950 93350)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(389774 93251)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(390933 92599)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/042451/version/1#applicability> a defra-core:Applicability ;
     defra-core:applicabilityPeriod <http://example.com/water-regulation/permit/042451/version/1#period> .
@@ -14851,13 +15097,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/042453/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(357811 104374)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(357810 104370)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/042453/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(357828 104359)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(357820 104360)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/042453/outlet/2/effluent/1#geography> a geo:Geometry ;
@@ -15635,93 +15881,9 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/043091#id> a defra-core:Identifier ;
     defra-core:identifierValue "043091" .
 
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400690 93850)"^^geo:wktLiteral ;
-    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+<http://example.com/water-regulation/permit/043091/outlet/1/effluent/3> a defra-reg:DischargePoint .
 
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400710 93590)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400700 93570)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400690 93850)"^^geo:wktLiteral ;
-    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400700 93570)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400700 93570)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/3> a defra-reg:DischargePoint,
-        geo:Feature ;
-    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-crs84> ;
-    geo:hasGeometry <http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-crs84>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-effluent>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-outlet> .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400690 93850)"^^geo:wktLiteral ;
-    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-effluent> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400700 93570)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-outlet> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400700 93570)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/2/effluent/1> a defra-reg:DischargePoint,
-        geo:Feature ;
-    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-crs84> ;
-    geo:hasGeometry <http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-crs84>,
-        <http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-effluent>,
-        <http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-outlet> .
-
-<http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400690 93850)"^^geo:wktLiteral ;
-    rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
-
-<http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-effluent> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400870 93150)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
-
-<http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-outlet> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(400870 93150)"^^geo:wktLiteral ;
-    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+<http://example.com/water-regulation/permit/043091/outlet/2/effluent/1> a defra-reg:DischargePoint .
 
 <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/0061> a defra-reg:Condition ;
     defra-core:hasApplicability <http://example.com/water-regulation/permit/043091/version/1/outlet/1/effluent/1/condition/0061#applicability> ;
@@ -20957,13 +21119,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/050922/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(376354 102752)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(376350 102750)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/050922/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(376359 102752)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(376350 102750)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/050922/version/1/outlet/1/effluent/1/condition/0085> a defra-reg:Condition ;
@@ -22015,13 +22177,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/400607/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356611 98022)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356620 98020)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/400607/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356698 97970)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356650 97960)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/400607/outlet/1/effluent/2#geography> a geo:Geometry ;
@@ -22033,13 +22195,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/400607/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356615 98022)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356620 98020)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/400607/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356698 97970)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(356650 97960)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/400607/version/1#applicability> a defra-core:Applicability ;
@@ -22859,13 +23021,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/401025/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363111 98656)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363200 98450)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401025/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363201 98437)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363200 98450)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401025/outlet/1/effluent/2#geography> a geo:Geometry ;
@@ -22877,13 +23039,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/401025/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363125 98695)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363120 98690)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401025/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363201 98437)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363200 98450)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401025/version/1#applicability> a defra-core:Applicability ;
@@ -23367,13 +23529,27 @@ ssn:hasProperty rdfs:label "is sampled for" ;
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-crs84> .
+        <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(370900 90230)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(370930 90250)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/401050/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(370970 90360)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401050/outlet/2/effluent/1#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
@@ -26846,13 +27022,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/401223/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363554 96030)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363560 96200)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401223/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363554 96030)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363550 96030)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography> a geo:Geometry ;
@@ -26860,6 +27036,18 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363480 96120)"^^geo:wktLiteral ;
     rdfs:comment "The discharge SITE's National Grid Reference from the consents register (EPSG:27700), verbatim. It is a site-level, 100 m reference inherited by every outlet of every permit at that site - see ttl/regulation/README.md and app/points.html. Coarse, and reproduced as published." .
+
+<http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-effluent> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363530 96080)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
+
+<http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-outlet> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(363550 96030)"^^geo:wktLiteral ;
+    rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/401223/outlet/2/effluent/1#geography> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
@@ -32917,13 +33105,13 @@ ssn:hasProperty rdfs:label "is sampled for" ;
 <http://example.com/water-regulation/permit/EPRBB3593EG/outlet/1/effluent/1#geography-effluent> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/effluent> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(391552 84834)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(391370 84538)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/EPRBB3593EG/outlet/1/effluent/1#geography-outlet> a geo:Geometry ;
     ns1:crs <http://www.opengis.net/def/crs/EPSG/0/27700> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/outlet> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(391552 84834)"^^geo:wktLiteral ;
+    geo:asWKT "<http://www.opengis.net/def/crs/EPSG/0/27700> POINT(391370 84538)"^^geo:wktLiteral ;
     rdfs:comment "The register's grid reference for this outlet/effluent specifically, as opposed to the SITE reference the store publishes as the discharge point's default geometry. Published so that app/points.html can score a proximity join against ALL THREE references the register carries, rather than only the coarsest one - the strongest version of the counter-argument, computed rather than asserted." .
 
 <http://example.com/water-regulation/permit/EPRBB3593EG/version/1/outlet/1/effluent/1/condition/0061> a defra-reg:Condition ;
@@ -34463,6 +34651,42 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     defra-reg:permitSite <http://example.com/water-regulation/permit/040070/outlet/1/effluent/1>,
         <http://example.com/water-regulation/permit/040070/outlet/1/effluent/2> .
 
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.3550527 50.7536068)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.3550527 50.7536068)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.5243904 50.7858811)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.5243904 50.7858811)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/1#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.6166204 50.7800702)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
+<http://example.com/water-regulation/permit/040096/outlet/1/effluent/2#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.6166204 50.7800702)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
 <http://example.com/water-regulation/permit/040109> a defra-water:WaterDischargePermit ;
     defra-core:hasIdentifier <http://example.com/water-regulation/permit/040109#id> ;
     defra-reg:hasCondition <http://example.com/water-regulation/permit/040109/version/1/outlet/1/effluent/1/condition/0085>,
@@ -34496,6 +34720,12 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.1650376 50.6966577)"^^geo:wktLiteral ;
+    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
+
+<http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-crs84> a geo:Geometry ;
+    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
+    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
+    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.1495935 50.6931714)"^^geo:wktLiteral ;
     rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
 
 <http://example.com/water-regulation/permit/040725/outlet/1/effluent/1#geography-crs84> a geo:Geometry ;
@@ -34761,30 +34991,6 @@ ssn:hasProperty rdfs:label "is sampled for" ;
     ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
     ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
     geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-2.6007765 50.8375529)"^^geo:wktLiteral ;
-    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-crs84> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-1.9915858 50.7442559)"^^geo:wktLiteral ;
-    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-crs84> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-1.9915858 50.7442559)"^^geo:wktLiteral ;
-    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
-
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/3#geography-crs84> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-1.9915858 50.7442559)"^^geo:wktLiteral ;
-    rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
-
-<http://example.com/water-regulation/permit/043091/outlet/2/effluent/1#geography-crs84> a geo:Geometry ;
-    ns1:crs <http://www.opengis.net/def/crs/OGC/1.3/CRS84> ;
-    ns1:gridReferenceLevel <http://example.com/water-regulation/grid-level/site> ;
-    geo:asWKT "<http://www.opengis.net/def/crs/OGC/1.3/CRS84> POINT(-1.9915858 50.7442559)"^^geo:wktLiteral ;
     rdfs:comment "DERIVED by reprojecting the source EPSG:27700 geometry to CRS84, so that geof: functions can be evaluated against it. Reprojection does not make a coarse coordinate finer: this is the same 100 m site reference, in different units." .
 
 <http://example.com/water-regulation/permit/043231> a defra-water:WaterDischargePermit ;
@@ -35672,8 +35878,14 @@ ns1:grid-level a skos:ConceptScheme ;
     rdfs:comment "The permit register carries a grid reference at THREE levels - the discharge SITE (DISCHARGE_NGR), the OUTLET (OUTLET_GRID_REF) and the EFFLUENT (EFFLUENT_GRID_REF). A discharge point here is keyed at the finest level but the store's DEFAULT geometry is the coarsest, because the site reference is what the public register surfaces as -the- discharge location. All three are published, each tagged with the level it came from, so a consumer can choose - and so that a query never silently fans out across geometries that mean different things." ;
     skos:prefLabel "Which register column a discharge point's grid reference came from" .
 
-<http://example.com/water-regulation/permit/040091/outlet/1/effluent/2> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540184> .
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/2> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540184> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography>,
+        <http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/040091/outlet/1/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/041353/outlet/1/effluent/2> a defra-reg:DischargePoint,
         geo:Feature ;
@@ -35689,25 +35901,33 @@ ns1:grid-level a skos:ConceptScheme ;
     defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50951082> ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2> a defra-reg:DischargePoint,
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2> a defra-reg:DischargePoint,
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2> a defra-reg:DischargePoint,
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/400607/outlet/1/effluent/2> a defra-reg:DischargePoint,
         geo:Feature ;
@@ -35785,8 +36005,14 @@ ns1:grid-level a skos:ConceptScheme ;
 <http://example.com/water-regulation/unit/coded-result> a qudt:Unit ;
     skos:prefLabel "Coded Result" .
 
-<http://example.com/water-regulation/permit/040091/outlet/1/effluent/1> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540186> .
+<http://example.com/water-regulation/permit/040091/outlet/1/effluent/1> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540186> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography>,
+        <http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/040091/outlet/1/effluent/1#geography-outlet> .
 
 <http://example.com/water-regulation/permit/040111> a defra-water:WaterDischargePermit ;
     defra-core:hasIdentifier <http://example.com/water-regulation/permit/040111#id> ;
@@ -36216,8 +36442,14 @@ ns1:statistical-modifier a skos:ConceptScheme .
     owl:sameAs <http://qudt.org/vocab/unit/NanoGM-PER-L> ;
     skos:prefLabel "NANOGRAM PER LITRE" .
 
-<http://example.com/water-regulation/permit/040137/outlet/1/effluent/1> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146> .
+<http://example.com/water-regulation/permit/040137/outlet/1/effluent/1> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50450146> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography>,
+        <http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/040137/outlet/1/effluent/1#geography-outlet> .
 
 <http://example.com/water-regulation/permit/041353> a defra-water:WaterDischargePermit ;
     defra-core:hasIdentifier <http://example.com/water-regulation/permit/041353#id> ;
@@ -36405,11 +36637,23 @@ ns1:statistical-modifier a skos:ConceptScheme .
         <http://example.com/water-regulation/permit/040015/version/7/outlet/1/effluent/1/condition/7782> ;
     defra-reg:permitSite <http://example.com/water-regulation/permit/040015/outlet/1/effluent/1> .
 
-<http://example.com/water-regulation/permit/040070/outlet/1/effluent/1> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410119> .
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/1> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410119> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography>,
+        <http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/040070/outlet/1/effluent/1#geography-outlet> .
 
-<http://example.com/water-regulation/permit/040070/outlet/1/effluent/2> a defra-reg:DischargePoint ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410121> .
+<http://example.com/water-regulation/permit/040070/outlet/1/effluent/2> a defra-reg:DischargePoint,
+        geo:Feature ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50410121> ;
+    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-crs84> ;
+    geo:hasGeometry <http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography>,
+        <http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/040070/outlet/1/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/040725> a defra-water:WaterDischargePermit ;
     defra-core:hasIdentifier <http://example.com/water-regulation/permit/040725#id> ;
@@ -36967,7 +37211,9 @@ ns1:statistical-modifier a skos:ConceptScheme .
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-crs84> .
+        <http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/041353/outlet/2/effluent/1#geography-outlet> .
 
 <http://example.com/water-regulation/permit/050922/outlet/1/effluent/1> a defra-reg:DischargePoint,
         geo:Feature ;
@@ -36983,7 +37229,9 @@ ns1:statistical-modifier a skos:ConceptScheme .
     defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50540137> ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-crs84> .
+        <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-crs84>,
+        <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-effluent>,
+        <http://example.com/water-regulation/permit/401223/outlet/1/effluent/2#geography-outlet> .
 
 <http://example.com/water-regulation/permit/401242/outlet/1/effluent/2> a defra-reg:DischargePoint,
         geo:Feature ;
@@ -37392,7 +37640,9 @@ ns1:statistical-modifier a skos:ConceptScheme .
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/4/effluent/1#geography-outlet> .
 
 <http://example.com/water-regulation/permit/401223/outlet/2/effluent/1> a defra-reg:DischargePoint,
         geo:Feature ;
@@ -37425,7 +37675,9 @@ ns1:statistical-modifier a skos:ConceptScheme .
         geo:Feature ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/3/effluent/1#geography-outlet> .
 
 <http://example.com/water-regulation/sampling-point-type/PE> a skos:Concept ;
     skos:inScheme ns1:sampling-point-type ;
@@ -37519,7 +37771,9 @@ ns1:statistical-modifier a skos:ConceptScheme .
     defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50951082> ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/2/effluent/1#geography-outlet> .
 
 <http://example.com/water-regulation/substance/0511> a skos:Concept,
         sosa:ObservableProperty ;
@@ -37575,16 +37829,12 @@ ns1:statistical-modifier a skos:ConceptScheme .
     defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50951080> ;
     geo:hasDefaultGeometry <http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-crs84> ;
     geo:hasGeometry <http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-crs84> .
+        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-crs84>,
+        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-effluent>,
+        <http://example.com/water-regulation/permit/042451/outlet/1/effluent/1#geography-outlet> .
 
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/2> a defra-reg:DischargePoint,
-        geo:Feature ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709> ;
-    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-crs84> ;
-    geo:hasGeometry <http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-crs84>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-effluent>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/2#geography-outlet> .
+<http://example.com/water-regulation/permit/043091/outlet/1/effluent/2> a defra-reg:DischargePoint ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709> .
 
 <http://example.com/water-regulation/substance/2928> a skos:Concept,
         sosa:ObservableProperty ;
@@ -37700,14 +37950,8 @@ ns1:substance a skos:ConceptScheme ;
     skos:notation "6396" ;
     skos:prefLabel "Turbidity" .
 
-<http://example.com/water-regulation/permit/043091/outlet/1/effluent/1> a defra-reg:DischargePoint,
-        geo:Feature ;
-    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709> ;
-    geo:hasDefaultGeometry <http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-crs84> ;
-    geo:hasGeometry <http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-crs84>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-effluent>,
-        <http://example.com/water-regulation/permit/043091/outlet/1/effluent/1#geography-outlet> .
+<http://example.com/water-regulation/permit/043091/outlet/1/effluent/1> a defra-reg:DischargePoint ;
+    defra-water:monitoredAt <http://environment.data.gov.uk/water-quality/sampling-point/SW-50950709> .
 
 <http://example.com/water-regulation/permit/401336/outlet/1/effluent/1> a defra-reg:DischargePoint,
         geo:Feature ;
@@ -37807,14 +38051,6 @@ ns1:substance a skos:ConceptScheme ;
     skos:notation "6051" ;
     skos:prefLabel "Iron" .
 
-<http://example.com/water-regulation/grid-level/effluent> a skos:Concept ;
-    skos:inScheme ns1:grid-level ;
-    skos:notation "effluent" .
-
-<http://example.com/water-regulation/grid-level/outlet> a skos:Concept ;
-    skos:inScheme ns1:grid-level ;
-    skos:notation "outlet" .
-
 <http://example.com/water-regulation/substance/9901> a skos:Concept,
         sosa:ObservableProperty ;
     skos:inScheme ns1:substance,
@@ -37825,6 +38061,14 @@ ns1:substance a skos:ConceptScheme ;
 <http://example.com/water-regulation/unit/cubic-metre-per-day> a qudt:Unit ;
     owl:sameAs <http://qudt.org/vocab/unit/M3-PER-DAY> ;
     skos:prefLabel "CUBIC METRE PER DAY" .
+
+<http://example.com/water-regulation/grid-level/effluent> a skos:Concept ;
+    skos:inScheme ns1:grid-level ;
+    skos:notation "effluent" .
+
+<http://example.com/water-regulation/grid-level/outlet> a skos:Concept ;
+    skos:inScheme ns1:grid-level ;
+    skos:notation "outlet" .
 
 <http://example.com/water-regulation/substance/0664> a skos:Concept,
         sosa:ObservableProperty ;
