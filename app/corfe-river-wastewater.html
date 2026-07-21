@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Corfe River &mdash; a wastewater linkage the data doesn&rsquo;t name</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="points.css" />
   <style>
@@ -14,29 +15,17 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--panel-2); color: var(--text); padding: 1px 5px; border-radius: 4px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .svgcard { display: block; width: 100%; border-radius: 8px; border: 1px solid var(--line); }
-.mapfig .svgcard { max-width: 400px; margin: 0 auto; }
+.reach-map { height: 500px; border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.leaflet-container { background: var(--panel-2); }
 .cap { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 10px 0 0; }
 .panel.problem h3.warn { color: #ff9a9d; }
 .panel.problem { border-color: rgba(229,72,77,.45); }
-.stat b .frac { font-size: 15px; }
 .stat span { min-height: 0; }
-.tbl .mk { display: inline-block; width: 10px; height: 10px; margin-right: 7px; vertical-align: middle;
-  border: 2px solid; }
-.tbl .mk.cir { border-radius: 50%; border-color: #1c6fb8; background: #3aa0ff; }
-.tbl .mk.sq { border-color: #c07d10; background: #f5a623; }
-.tbl .mk.dia { border-color: #a52a2e; background: #e5484d; transform: rotate(45deg); }
-.tbl .mk.tri { width: 0; height: 0; border-width: 0 6px 10px 6px; border-style: solid;
-  border-color: transparent transparent #8ba0b2 transparent; }
-.maplegend .sw.tri { width: 0; height: 0; border-radius: 0; border-width: 0 6px 11px 6px; border-style: solid;
-  border-color: transparent transparent #8ba0b2 transparent; }
-.maplegend .sw.sq { border-radius: 2px; }
-.maplegend .sw.dia { border-radius: 1px; transform: rotate(45deg); }
+.tbl .mk { display: inline-block; width: 11px; height: 11px; margin-right: 7px; vertical-align: middle;
+  border-radius: 50%; border: 1.5px solid #0b1016; }
+.maplegend .ln.down { border-color: #3aa0ff; border-top-style: dashed; }
 .maplegend .mutedkey { flex-basis: 100%; color: var(--muted); }
 .maplegend .tv { color: var(--text); }
-.mpt { font: 600 11px ui-monospace, Menlo, monospace; fill: #e7eef5; }
-.mpt.halo { stroke: #1e2b38; stroke-width: 3.5; paint-order: stroke; }
-.mriver { font: italic 12px -apple-system, sans-serif; fill: #6db3e0; }
-.mlbl { font: 600 11px -apple-system, sans-serif; fill: #93a4b3; }
 .tick { font: 11px -apple-system, sans-serif; fill: #93a4b3; }
 .axlab { font: 600 12px -apple-system, sans-serif; fill: #b7c4d0; }
 pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
@@ -84,42 +73,29 @@ pre.budget { background: var(--panel); }
 
   <div class="split">
     <div class="panel mapfig">
-      <h3>The stretch of river, to scale</h3>
-      <svg viewBox="0 0 470 560" class="svgcard" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Locator map of the four Corfe River sampling points">
-  <rect x="0" y="0" width="470" height="560" rx="8" fill="#1e2b38"/>
-  <path d="M 93 467 C 93 447 91 456 111 426 S 196 226 286 105" fill="none" stroke="#2f5f80" stroke-width="9" stroke-linecap="round"/>
-  <path d="M 93 467 C 93 447 91 456 111 426 S 196 226 286 105" fill="none" stroke="#3aa0ff" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
-  <g transform="translate(99,447) rotate(0)"><path d="M 0 7 L 0 -7 M -4 -2 L 0 -8 L 4 -2" fill="none" stroke="#3aa0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="translate(206,248) rotate(-38)"><path d="M 0 7 L 0 -7 M -4 -2 L 0 -8 L 4 -2" fill="none" stroke="#3aa0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="278" y="65" text-anchor="end" class="mriver">Corfe River &#8594; Poole Harbour</text>
-  <path d="M 93 457 L 102 475 L 84 475 Z" fill="#5a6b78" stroke="#8ba0b2" stroke-width="2.5" stroke-linejoin="round"/>
-  <rect x="96" y="417" width="18" height="18" rx="1.5" fill="#f5a623" stroke="#c07d10" stroke-width="2.5"/>
-  <path d="M 118 417 L 128 427 L 118 437 L 108 427 Z" fill="#e5484d" stroke="#a52a2e" stroke-width="2.5" stroke-linejoin="round"/>
-  <circle cx="286" cy="105" r="9" fill="#3aa0ff" stroke="#1c6fb8" stroke-width="2.5"/>
-  <text x="108" y="485" text-anchor="start" class="mpt halo">SW-50908888</text><text x="108" y="485" text-anchor="start" class="mpt">SW-50908888</text>
-  <text x="91" y="428" text-anchor="end" class="mpt halo">SW-50900722</text><text x="91" y="428" text-anchor="end" class="mpt">SW-50900722</text>
-  <text x="133" y="431" text-anchor="start" class="mpt halo">SW-50900130</text><text x="133" y="431" text-anchor="start" class="mpt">SW-50900130</text>
-  <text x="271" y="108" text-anchor="end" class="mpt halo">SW-50900712</text><text x="271" y="108" text-anchor="end" class="mpt">SW-50900712</text>
-  <line x1="64" y1="534" x2="128" y2="534" stroke="#93a4b3" stroke-width="2.5"/><line x1="64" y1="530" x2="64" y2="538" stroke="#93a4b3" stroke-width="2.5"/><line x1="128" y1="530" x2="128" y2="538" stroke="#93a4b3" stroke-width="2.5"/><text x="96" y="526" text-anchor="middle" class="mlbl">200 m</text><line x1="430" y1="74" x2="430" y2="30" stroke="#93a4b3" stroke-width="2.5"/><path d="M 430 24 L 425 35 L 435 35 Z" fill="#93a4b3"/><text x="430" y="90" text-anchor="middle" class="mlbl">N</text>
-</svg>
+      <h3>The stretch of river, on the map</h3>
+      <div id="reach-map" class="reach-map"></div>
       <div class="maplegend">
-        <span class="key"><span class="sw tri"></span> <code>SW-50908888</code> upstream</span>
-        <span class="key"><span class="sw sq" style="background:#f5a623"></span> <code>SW-50900722</code> STW effluent</span>
-        <span class="key"><span class="sw dia" style="background:#e5484d"></span> <code>SW-50900130</code> storm overflow</span>
+        <span class="key"><span class="sw" style="background:#6b7c8c"></span> <code>SW-50908888</code> upstream</span>
+        <span class="key"><span class="sw" style="background:#f5a623"></span> <code>SW-50900722</code> STW effluent</span>
+        <span class="key"><span class="sw" style="background:#e5484d"></span> <code>SW-50900130</code> storm overflow</span>
         <span class="key"><span class="sw" style="background:#3aa0ff"></span> <code>SW-50900712</code> downstream</span>
+        <span class="key"><span class="ln down"></span> proposed <code>ns1:downstreamOf</code> link</span>
       </div>
-      <p class="cap">Positioned by their true Ordnance Survey eastings/northings (EPSG:27700). The river flows
-      south&rarr;north into Poole Harbour, so the works discharge <em>between</em> the upstream baseline and the
-      downstream monitoring point &mdash; exactly the arrangement a mass-balance needs.</p>
+      <p class="cap">The four points on the app&rsquo;s own basemap, from their registered grid references. The
+      Corfe River flows south&rarr;north into Poole Harbour, so the works discharge <em>between</em> the upstream
+      baseline and the downstream monitoring point. The dashed lines are the topology this page argues should be an
+      explicit triple &mdash; today they exist only in a label.</p>
     </div>
     <div class="panel">
       <h3>Four points, two of them sampled for phosphorus</h3>
       <table class="tbl">
         <thead><tr><th>Point</th><th>Role</th><th class="c">P recs</th></tr></thead>
         <tbody>
-          <tr><td><span class="mk tri"></span><span class="mono">SW-50908888</span><br><span class="sub">Miscellaneous River Corfe</span></td><td>Upstream river baseline</td><td class="c bad">0</td></tr>
-          <tr><td><span class="mk sq"></span><span class="mono">SW-50900722</span><br><span class="sub">Corfe Castle STW</span></td><td>Final treated effluent (point source)</td><td class="c">52</td></tr>
-          <tr><td><span class="mk dia"></span><span class="mono">SW-50900130</span><br><span class="sub">Corfe Castle STW settled storm sewage</span></td><td>Storm overflow (intermittent)</td><td class="c bad">0</td></tr>
-          <tr><td><span class="mk cir"></span><span class="mono">SW-50900712</span><br><span class="sub">Corfe River D/S Corfe STW</span></td><td>Downstream river (receiving water)</td><td class="c">61</td></tr>
+          <tr><td><span class="mk" style="background:#6b7c8c"></span><span class="mono">SW-50908888</span><br><span class="sub">Miscellaneous River Corfe</span></td><td>Upstream river baseline</td><td class="c bad">0</td></tr>
+          <tr><td><span class="mk" style="background:#f5a623"></span><span class="mono">SW-50900722</span><br><span class="sub">Corfe Castle STW</span></td><td>Final treated effluent (point source)</td><td class="c">52</td></tr>
+          <tr><td><span class="mk" style="background:#e5484d"></span><span class="mono">SW-50900130</span><br><span class="sub">Corfe Castle STW settled storm sewage</span></td><td>Storm overflow (intermittent)</td><td class="c bad">0</td></tr>
+          <tr><td><span class="mk" style="background:#3aa0ff"></span><span class="mono">SW-50900712</span><br><span class="sub">Corfe River D/S Corfe STW</span></td><td>Downstream river (receiving water)</td><td class="c">61</td></tr>
         </tbody>
       </table>
       <p class="note">Only two of the four points are routinely sampled for phosphorus. The upstream baseline carries
@@ -227,10 +203,47 @@ sp:SW-50900712  skos:related  sp:SW-50900722 , sp:SW-50900130 , sp:SW-50908888 .
   its upstream baseline&rdquo; &mdash; the exact question this page had to answer by hand.</p>
 
   <p class="src-foot">Source: EA Water Quality Archive, determinand 348 (Phosphorus, Total as P), Poole Harbour
-  rivers extract 2020&ndash;2026. Coordinates: Ordnance Survey National Grid (EPSG:27700), drawn to scale.
-  Storm-overflow and upstream markers are placed from their registered grid references; they carry no phosphorus
-  observations in the extract. Page is static and self-contained &mdash; no network required.</p>
+  rivers extract 2020&ndash;2026. Marker positions from the points&rsquo; registered Ordnance Survey grid references
+  (EPSG:27700), reprojected to WGS84; storm-overflow and upstream markers carry no phosphorus observations in the
+  extract. The map uses the app&rsquo;s own basemap tiles (same-origin proxy); the phosphorus chart is a static
+  inline SVG.</p>
 
 </section></main>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  const CONFIG = window.APP_CONFIG || {};
+  const TILES = CONFIG.tilesUrl || "tiles/{z}/{x}/{y}.png";
+  const PTS = [{"id": "SW-50908888", "ll": [50.64667, -2.05652], "role": "Upstream river (baseline)", "color": "#6b7c8c", "r": 6, "tip": "SW-50908888 &middot; upstream baseline<br>Miscellaneous River Corfe &middot; no phosphorus records"}, {"id": "SW-50900722", "ll": [50.64784, -2.05596], "role": "Final treated effluent (STW)", "color": "#f5a623", "r": 7, "tip": "SW-50900722 &middot; Corfe Castle STW<br>Final treated effluent &middot; P mean 0.60 mg/l"}, {"id": "SW-50900130", "ll": [50.64782, -2.05541], "role": "Storm overflow", "color": "#e5484d", "r": 6, "tip": "SW-50900130 &middot; storm overflow<br>Settled storm sewage &middot; no phosphorus records"}, {"id": "SW-50900712", "ll": [50.65693, -2.0479], "role": "Downstream river (receiving water)", "color": "#3aa0ff", "r": 7, "tip": "SW-50900712 &middot; Corfe River, downstream<br>Receiving water &middot; P mean 0.076 mg/l"}];
+  const LINKS = [{"a": "SW-50900722", "b": "SW-50900712", "kind": "down"}, {"a": "SW-50900130", "b": "SW-50900712", "kind": "down"}, {"a": "SW-50908888", "b": "SW-50900722", "kind": "base"}];
+  const byId = Object.fromEntries(PTS.map(p => [p.id, p]));
+
+  const map = L.map("reach-map", { zoomControl: true, scrollWheelZoom: false });
+  L.tileLayer(TILES, { attribution: "\u00a9 OpenStreetMap contributors", maxZoom: 18 }).addTo(map);
+
+  // proposed topology, drawn under the markers (accent dashed = downstreamOf, grey = baseline)
+  LINKS.forEach(k => {
+    const down = k.kind === "down";
+    L.polyline([byId[k.a].ll, byId[k.b].ll], {
+      color: down ? "#3aa0ff" : "#8ba0b2",
+      weight: down ? 2.5 : 1.5,
+      opacity: down ? 0.85 : 0.6,
+      dashArray: down ? "5 6" : "3 5",
+    }).addTo(map);
+  });
+
+  // the four sampling points, coloured as in the app
+  PTS.forEach(p => {
+    L.circleMarker(p.ll, {
+      radius: p.r, color: "#0b1016", weight: 1.5,
+      fillColor: p.color, fillOpacity: 0.95,
+    }).addTo(map).bindTooltip(p.tip, { className: "pts-tip", direction: "top", offset: [0, -6] });
+  });
+
+  map.fitBounds(L.latLngBounds(PTS.map(p => p.ll)).pad(0.35), { maxZoom: 15 });
+})();
+</script>
 </body>
 </html>
