@@ -2540,7 +2540,9 @@ function closeWaterbody() {
   selectedWb = null;
   for (const w of WB.values()) styleWb(w, false);
   syncWaterbodySelect();               // no focus now: "All" if outlines remain, else "None"
-  renderTabs();                        // drops the Challenges + SFI Summary tabs (or hides the panel)
+  // Un-scoping: every view's map and tables return to the whole catchment, so re-render (which also
+  // drops the Challenges + SFI Summary tabs via renderTabs).
+  render();
 }
 
 // Open the detail panel for one water body. `fromMap` distinguishes a polygon click (leave the view
@@ -2556,7 +2558,9 @@ function openWaterbody(notation, fromMap) {
   // A catchment selection produces two tabs — Challenges and SFI Summary; default to Challenges. The
   // panel itself is drawn by the tab system (renderTabs), which leaves the legend up for these tabs.
   activeTab = "challenges";
-  renderTabs();
+  // Every view now scopes its map AND tables to the focused catchment (renderX reads selectedWb via
+  // scopeRing / inScope), so re-render the whole view. render() reconciles the tab bar at the end.
+  render();
   setTimeout(() => {
     map.invalidateSize();
     if (!fromMap) map.fitBounds(w.layer.getBounds(), { padding: [30, 30] });
@@ -2774,7 +2778,7 @@ function wbCrosstab(tables) {
   tables.append(c);
 }
 
-window.wbClearScope = () => { closeWaterbody(); render(); };
+window.wbClearScope = () => closeWaterbody();   // closeWaterbody() re-renders the current view
 
 // Click a cross-table cell → highlight the water bodies that put a count in it. This is the
 // "select a value and highlight the water bodies" interaction; it turns the polygons on, because
@@ -2959,6 +2963,9 @@ function currentLimitFor(permit, subNotation) {
 }
 
 const drawnBounds = [];
+// Set while re-rendering a view whose frame must be preserved (a view-switch with a catchment focused).
+// Every fitBounds in the render paths honours it, so switching view keeps the current zoom and centre.
+let suppressFit = false;
 
 function render() {
   clearLayers();
@@ -2972,24 +2979,39 @@ function render() {
   tables.innerHTML = "";
   if (currentView === "farming") { renderFarming(tables); return; }
 
+  // Catchment scope. A focused water body restricts every regulated slice to the outlets (and WINEP
+  // action sites) inside its ring — by point-in-polygon, exactly as the map markers are. With nothing
+  // focused (ring null) these are the whole-catchment collections unchanged.
+  const ring = scopeRing();
+  const dischargePoints = ring ? DB.dischargePoints.filter(inScope) : DB.dischargePoints;
+  const scopedDp = ring ? new Set(dischargePoints.map((d) => d.iri)) : null;   // outlet iris in scope
+  const atScopedDp = (x) => !ring || scopedDp.has(x.dp);                       // conditions/breaches carry .dp
+  const actionsInScope = ring ? DB.actions.filter(inScope) : DB.actions;
+  const scopedAct = ring ? new Set(actionsInScope.map((a) => a.iri)) : null;
+  const atScopedAct = (l) => !ring || scopedAct.has(l.action);
+  const conditionsCurrent = ring ? DB.conditionsCurrent.filter(atScopedDp) : DB.conditionsCurrent;
+  const conditionsAll = ring ? DB.conditions.filter(atScopedDp) : DB.conditions;
+  const breachesAll = ring ? DB.breaches.filter(atScopedDp) : DB.breaches;
+  const proposedAll = ring ? DB.proposed.filter(atScopedAct) : DB.proposed;
+
   // Data slices with substance filter applied where relevant. "Current limits" are the latest
   // permit version's conditions only; the full history stays available for the expandable views.
-  const breaches = DB.breaches.filter((b) => matchSub(b.subNotation));
-  const conditions = DB.conditionsCurrent.filter((c) => matchSub(c.subNotation));
-  const proposedForSub = DB.proposed.filter((l) => matchSub(l.subNotation));
-  const condByPermit = groupBy(DB.conditionsCurrent, "permit"); // current limits per permit
-  const condHistByPermit = groupBy(DB.conditions, "permit");    // all versions per permit
-  const breachesByPermit = groupBy(DB.breaches, "permit");
+  const breaches = breachesAll.filter((b) => matchSub(b.subNotation));
+  const conditions = conditionsCurrent.filter((c) => matchSub(c.subNotation));
+  const proposedForSub = proposedAll.filter((l) => matchSub(l.subNotation));
+  const condByPermit = groupBy(conditionsCurrent, "permit"); // current limits per permit
+  const condHistByPermit = groupBy(conditionsAll, "permit"); // all versions per permit
+  const breachesByPermit = groupBy(breachesAll, "permit");
   // Breaches grouped by the discharge point they occurred at. This is now a DIRECT key — the breach
   // names its outlet, because its condition does. It used to be keyed on (permit, sampling point),
   // which put every breach of a permit onto every outlet sharing that point.
-  const breachAtDp = groupBy(DB.breaches, "dp");
-  const dpByPermit = groupBy(DB.dischargePoints, "permit");
-  const limByAction = groupBy(DB.proposed, "action");
+  const breachAtDp = groupBy(breachesAll, "dp");
+  const dpByPermit = groupBy(dischargePoints, "permit");
+  const limByAction = groupBy(proposedAll, "action");
   // (permit|version|outlet|substance) tuples that were actually breached, to flag them in the history.
   // The OUTLET belongs in the key: without it, a breach at one of a permit's outlets flagged the same
   // substance at all of them.
-  const breachedKey = new Set(DB.breaches.map((b) => `${b.permit}|${b.version}|${b.dp}|${b.subNotation}`));
+  const breachedKey = new Set(breachesAll.map((b) => `${b.permit}|${b.version}|${b.dp}|${b.subNotation}`));
 
   // Which actions are relevant to the substance
   const actionIdsWithSub = new Set(proposedForSub.map((l) => l.action));
@@ -3022,15 +3044,16 @@ function render() {
     ]);
     // The outlet/coordinate counts are the points.html argument, stated where the map is drawn: the
     // markers below are FEWER than the outlets they stand for, because outlets share a coordinate.
-    const drawnDps = DB.dischargePoints.filter((d) => d.lat != null);
+    // With a catchment focused these become that sub-catchment's counts (dischargePoints is scoped).
+    const drawnDps = dischargePoints.filter((d) => d.lat != null);
     const coords = new Set(drawnDps.map((d) => `${d.lat},${d.lon}`)).size;
-    document.getElementById("lede").innerHTML = LEDE.regulated({
-      // whole-catchment facts
-      permits: new Set(DB.dischargePoints.map((d) => d.permit)).size,
-      permitsWithLimits: new Set(DB.conditionsCurrent.map((c) => c.permit)).size,
-      outlets: DB.dischargePoints.length,            // what EXISTS — 122, not what we can draw
+    document.getElementById("lede").innerHTML = scopeNote() + LEDE.regulated({
+      // catchment facts (whole catchment, or the focused sub-catchment when one is selected)
+      permits: new Set(dischargePoints.map((d) => d.permit)).size,
+      permitsWithLimits: new Set(conditionsCurrent.map((c) => c.permit)).size,
+      outlets: dischargePoints.length,               // what EXISTS — 122, not what we can draw
       mapped: drawnDps.length,                       // what we can DRAW — 115
-      unmapped: DB.dischargePoints.length - drawnDps.length,
+      unmapped: dischargePoints.length - drawnDps.length,
       coords,
       // substance-scoped facts (`conditions` and `breaches` are already filtered by matchSub)
       permitsForSub: new Set(conditions.map((c) => c.permit)).size,
@@ -3039,7 +3062,7 @@ function render() {
       notAssessed: conditions.filter((c) => !c.assessed).length,
       breaches: breaches.length,
       current: breaches.filter((b) => b.current).length,
-      works: currentSubstance ? actionIdsWithSub.size : DB.actions.length,
+      works: currentSubstance ? actionIdsWithSub.size : actionsInScope.length,
       substance: !!currentSubstance,
     }, subLbl);
     // Substance chosen -> the limit/proposal story for it; otherwise the permit register at large.
@@ -3048,7 +3071,7 @@ function render() {
         ? substanceStoryTable(conditions, proposedForSub, dpByPermit)
         : permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, breachedKey, breachesByPermit),
       breachTable(breaches),
-      actionTable(currentSubstance ? DB.actions.filter((a) => actionIdsWithSub.has(a.iri)) : DB.actions, limByAction),
+      actionTable(currentSubstance ? actionsInScope.filter((a) => actionIdsWithSub.has(a.iri)) : actionsInScope, limByAction),
     );
   }
 
@@ -3066,7 +3089,7 @@ function render() {
   const STATUS_R = { current: 8, past: 7, none: 6, unknown: 6 };
   if (show.discharge) {
     const order = { unknown: 0, none: 1, past: 2, current: 3 }; // draw current breaches on top
-    const items = DB.dischargePoints
+    const items = dischargePoints
       .filter((dp) => dp.lat != null)
       .map((dp) => {
         const allConds = DB.condByDp[dp.iri] || [];               // THIS outlet's limits, not the permit's
@@ -3097,7 +3120,7 @@ function render() {
   }
   if (show.action) {
     for (const k in actionMarkers) delete actionMarkers[k];
-    for (const a of DB.actions) {
+    for (const a of actionsInScope) {
       if (a.lat == null) continue;
       if (currentSubstance && !actionIdsWithSub.has(a.iri)) continue;
       const on = a.iri === selectedAction;
@@ -3145,11 +3168,13 @@ function render() {
   }
 
   // Frame whatever we drew (WINEP actions spread across the whole Wessex region,
-  // well beyond the Poole Harbour catchment outline).
-  if (drawnBounds.length) {
-    map.fitBounds(L.latLngBounds(drawnBounds).pad(0.15), { maxZoom: 12 });
-  } else if (catchmentLayer) {
-    map.fitBounds(catchmentLayer.getBounds());
+  // well beyond the Poole Harbour catchment outline). Skipped on a frame-preserving view-switch.
+  if (!suppressFit) {
+    if (drawnBounds.length) {
+      map.fitBounds(L.latLngBounds(drawnBounds).pad(0.15), { maxZoom: 12 });
+    } else if (catchmentLayer) {
+      map.fitBounds(catchmentLayer.getBounds());
+    }
   }
   renderTabs();                        // reconcile the side-panel tab bar with the current selections
 }
@@ -3529,6 +3554,10 @@ function substanceStoryTable(conditions, proposed, dpByPermit) {
 }
 
 function actionTable(actions, limByAction) {
+  // No WINEP action survives the current substance / catchment filter — say so, as the breach table
+  // does, rather than drawing an empty grid that reads as "nothing was looked for".
+  if (!actions.length)
+    return card("WINEP Actions", "0", emptyBody("No actions for this selection."), PQ.actions(currentSubstance));
   // Sort ONCE and use this order for both the rows (data-row=i) and the wireExpand keys, so each
   // expansion resolves to the action on its own row (previously rows were sorted but the keys were
   // not, cross-wiring one action's row to another action's limits).
@@ -3612,14 +3641,17 @@ function actionTable(actions, limByAction) {
 // monitoring network, and someone looking for the gaps must be able to see them.
 let showUnsampled = false;
 
+// A focused catchment scopes the sampling network to the points inside it (map AND table), the same
+// point-in-polygon test the farming map and SFI Summary use. `inScope` returns true when nothing is focused.
+const inScope = (o) => { const r = scopeRing(); return !r || (o.lat != null && pointInRing(o.lat, o.lon, r)); };
 const measuredPoints = () =>
-  currentSubstance && !showUnsampled
+  (currentSubstance && !showUnsampled
     ? DB.samplingPoints.filter((s) => s.dets.has(currentSubstance))
-    : DB.samplingPoints;
+    : DB.samplingPoints).filter(inScope);
 
 // The points the filter is currently removing — what renderMeasured has to account for.
 const unsampledPoints = () =>
-  currentSubstance ? DB.samplingPoints.filter((s) => !s.dets.has(currentSubstance)) : [];
+  currentSubstance ? DB.samplingPoints.filter((s) => !s.dets.has(currentSubstance) && inScope(s)) : [];
 
 // The determinands a point is sampled for, as the dropdown would name them — its own menu, in the
 // dropdown's order so the two never disagree about what a substance is called.
@@ -3683,9 +3715,12 @@ function samplingPointPopup(s) {
 
 function renderMeasured(tables) {
   const pts = measuredPoints();
-  // Counted over the WHOLE catchment, not the drawn set: this clause is the standing fact that 91 of
-  // the EA's points belong to no permit, and it does not change because you picked a determinand.
-  const unpermitted = DB.samplingPoints.filter((s) => !s.permit);
+  // The sampling network, scoped to the focused sub-catchment when one is selected (else the whole
+  // catchment). Counts below read against this base so the lede matches the map and table.
+  const base = DB.samplingPoints.filter(inScope);
+  // Counted over the (scoped) catchment, not the drawn set: this clause is the standing fact that many
+  // of the EA's points belong to no permit, and it does not change because you picked a determinand.
+  const unpermitted = base.filter((s) => !s.permit);
   const hidden = unsampledPoints();
   // No substance chosen means no series to name. The lede used to name ammoniacal nitrogen here, which
   // was the app quietly answering a question the user had explicitly declined to ask.
@@ -3698,9 +3733,9 @@ function renderMeasured(tables) {
   const present = [...SP_FAMILIES, OTHER_FAMILY].filter((f) => pts.some((s) => s.family.key === f.key));
   setLegend(present.map((f) => ({ c: f.color, t: `${f.label} (${pts.filter((s) => s.family.key === f.key).length})` })));
 
-  document.getElementById("lede").innerHTML = LEDE.measured({
-    catchment: DB.samplingPoints.length,
-    shown: DB.samplingPoints.length - hidden.length,   // what the filter WOULD leave, toggle aside
+  document.getElementById("lede").innerHTML = scopeNote() + LEDE.measured({
+    catchment: base.length,
+    shown: base.length - hidden.length,   // what the filter WOULD leave, toggle aside
     unpermitted: unpermitted.length,
     hidden: hidden.length,
   }, subLbl);
@@ -3748,8 +3783,28 @@ function measuredTable(pts) {
 // Farming filter: does an application include an option of the given broader type; and the current
 // application set after the Land "Option type" filter.
 const appHasType = (iri, code) => (DB.optionsByApp[iri] || []).some((o) => o.broader === code);
-const farmingApps = () =>
-  currentOptionType ? DB.applications.filter((a) => appHasType(a.iri, currentOptionType)) : DB.applications;
+// An application belongs to a focused catchment if any of its option parcels sits inside the ring.
+const appInRing = (iri, ring) => (DB.optionsByApp[iri] || []).some((o) => o.parcels.some((p) => pointInRing(p.lat, p.lon, ring)));
+const farmingApps = () => {
+  const ring = scopeRing();
+  const apps = currentOptionType ? DB.applications.filter((a) => appHasType(a.iri, currentOptionType)) : DB.applications;
+  return ring ? apps.filter((a) => appInRing(a.iri, ring)) : apps;
+};
+
+// When a water-body catchment is focused, the farming map scopes to it: only parcels inside that body's
+// ring are drawn, the same point-in-polygon test the SFI Summary tab aggregates with (sfiByCatchment).
+// null (no focus) => the whole catchment, every parcel counts.
+const scopeRing = () => (selectedWb ? (WB.get(selectedWb) || {}).ring || null : null);
+
+// A banner for the lede telling the reader the map and tables are scoped to one water body, with a way
+// out. Empty when nothing is focused. Counts in the lede below it are catchment-scoped to match.
+const scopeNote = () => {
+  const w = selectedWb && WB.get(selectedWb);
+  return w
+    ? `<div class="scope-note">Scoped to <b>${esc(w.label)}</b> — map and tables show this sub-catchment only.` +
+      ` <button type="button" class="scope-clear" onclick="wbClearScope()">Show whole catchment</button></div>`
+    : "";
+};
 
 // --- Overlap handling: which applications sit under a point, and how we highlight them ----------
 function pointInRing(lat, lng, ring) {
@@ -3862,7 +3917,7 @@ function farmingLede() {
 }
 
 function renderFarming(tables) {
-  document.getElementById("lede").innerHTML = farmingLede();
+  document.getElementById("lede").innerHTML = scopeNote() + farmingLede();
   if (farmDisplay === "options") renderOptionPoints();
   else renderApplicationHulls();
 
@@ -3885,9 +3940,11 @@ function renderApplicationHulls() {
   for (const k in appShapes) delete appShapes[k];
   for (const k in appRings) delete appRings[k];
   hideOverlapTip();
+  const wbRing = scopeRing();          // focused catchment: hull only its in-scope option points
   const bounds = [];
   for (const app of farmingApps()) {
-    const pts = (DB.optionsByApp[app.iri] || []).flatMap((o) => o.points);
+    let pts = (DB.optionsByApp[app.iri] || []).flatMap((o) => o.points);
+    if (wbRing) pts = pts.filter((p) => pointInRing(p[0], p[1], wbRing));
     if (!pts.length) continue;
     const sel = app.iri === selectedApp;
     const prog = progOf(app);
@@ -3926,10 +3983,12 @@ function renderApplicationHulls() {
   // The side panel (app tab and any others) is drawn by renderTabs() at the end of renderFarming —
   // this function only draws the map layers.
 
-  if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 14 });
-  else {
-    const all = DB.sfiOptions.flatMap((o) => o.points);
-    if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.1));
+  if (!suppressFit) {
+    if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 14 });
+    else {
+      const all = DB.sfiOptions.flatMap((o) => o.points);
+      if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.1));
+    }
   }
 }
 
@@ -3945,20 +4004,23 @@ function renderOptionPoints() {
   const bounds = [];
   // Only agreements in view (option-group / substance filters), then only options of the filtered
   // group when one is picked — so "Options" honours the same filters "Applications" does.
+  const wbRing = scopeRing();          // focused catchment: plot only its in-scope parcels
   const appSet = new Set(farmingApps().map((a) => a.iri));
   for (const o of DB.sfiOptions) {
     if (!appSet.has(o.app)) continue;
     if (currentOptionType && o.broader !== currentOptionType) continue;
+    const parcels = wbRing ? o.parcels.filter((p) => pointInRing(p.lat, p.lon, wbRing)) : o.parcels;
+    if (!parcels.length) continue;
     const col = groupColor(o.broader);
     const g = shownGroups.get(o.broader) || { code: o.broader, label: o.broaderLabel, count: 0 };
-    for (const p of o.parcels) {
+    for (const p of parcels) {
       // stroke off (weight 0): at this count a 1px ring per dot is visual noise and costs paint time.
       L.circleMarker([p.lat, p.lon], { renderer: optionRenderer, radius: 3, weight: 0, fillColor: col, fillOpacity: 0.85 })
         .addTo(layers.optionPoints);
       plottedOptionDots.push({ lat: p.lat, lon: p.lon, opt: o });
       bounds.push([p.lat, p.lon]);
     }
-    g.count += o.parcels.length;
+    g.count += parcels.length;
     shownGroups.set(o.broader, g);
   }
   layers.optionPoints.addTo(map);
@@ -3972,7 +4034,7 @@ function renderOptionPoints() {
     items.push({ c: "#5b6472", t: `+${groups.length - shown.length} more group${groups.length - shown.length === 1 ? "" : "s"}` });
   setLegend(items);
 
-  if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.1));
+  if (!suppressFit && bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.1));
 }
 
 // Click on the option layer: gather EVERY plotted parcel within a few pixels of the click — the dots
@@ -4350,12 +4412,18 @@ function subHead(text) {
 // Wiring
 // ---------------------------------------------------------------------------
 function setView(v) {
+  // With a catchment focused the map is framed on it; switching view should not re-fit and zoom back
+  // out. Capture the frame and restore it after render() (which re-fits to the new view's data).
+  const keep = selectedWb ? { c: map.getCenter(), z: map.getZoom() } : null;
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   // Tabs persist across views (the whole point of the tab bar), so leaving farming no longer clears the
   // application selection or closes the panel — the SFI Application tab stays open and switchable.
   if (v !== "regulated") { selectedAction = null; breachPermit = null; } // regulated map/table focuses only
+  suppressFit = !!keep;                // a focused catchment: don't re-fit, keep the current frame
   render();
+  suppressFit = false;
+  if (keep) map.setView(keep.c, keep.z, { animate: false });
 }
 
 async function main() {

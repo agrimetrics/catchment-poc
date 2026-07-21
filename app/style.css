@@ -148,6 +148,19 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 }
 #lede .note a { color: var(--text); }
 
+/* Catchment scope banner: says the map and tables below are restricted to one water body, and offers
+   the way back to the whole catchment. Accent-tinted so it reads as an active filter, not prose. */
+.scope-note {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 0 0 10px; padding: 7px 11px; font-size: 12.5px; color: var(--text);
+  background: #223449; border: 1px solid var(--accent); border-radius: 6px;
+}
+.scope-note .scope-clear {
+  margin-left: auto; padding: 3px 10px; font: inherit; font-size: 11.5px; cursor: pointer;
+  color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+}
+.scope-note .scope-clear:hover { color: var(--accent); border-color: var(--accent); }
+
 #stage { display: flex; align-items: stretch; height: 56vh; min-height: 360px; }
 #map { flex: 1 1 auto; height: 100%; background: #0a1017; }
 
