@@ -23,6 +23,7 @@ import os
 import re
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -71,69 +72,105 @@ CACHE_DIR = Path(_cache_env) if (_cache_env and CACHE_ENABLED) else Path(tempfil
 TILE_BASE = os.environ.get("TILE_BASE", "https://tile.openstreetmap.org")
 TILE_CACHE = CACHE_DIR / "tiles"
 _TILE_RE = re.compile(r"^/tiles/(\d{1,2})/(\d{1,7})/(\d{1,7})\.png$")
-_NEXT_RE = re.compile(r"<([^>]+)>;\s*rel=\"next\"")
 
-# Behind a restrictive/flaky firewall the upstream archive can be slow or unreachable. Two guards
-# keep the /observations endpoint responsive so the browser never sits without a reply (which the
-# frontend surfaces as an opaque "Failed to fetch"):
-#   * a per-page timeout AND an overall deadline bound how long a single request can take, and
-#   * successful fetches are cached (in CACHE_DIR, outside the repo) so a chart still draws from the
-#     last good copy when the archive is unreachable. The cache is best-effort and regenerable.
+# The upstream Water Quality Archive is paged: /observation takes skip & limit (limit max 250, per
+# the API's swagger), and every response carries `x-total-items` — the count of matching observations
+# in scope. The browser drives the walk one page at a time so it can show a progress bar and pace
+# itself to one request per second; this server just serves the requested page (with backoff on
+# transient upstream errors) and assembles the pages into a full-set disk cache as they arrive, so a
+# repeat view of the same series is a single request that short-circuits the whole walk.
 OBS_PAGE_TIMEOUT = 20   # seconds allowed per upstream page request
-OBS_DEADLINE = 45       # seconds total budget across the whole pagination walk
+OBS_PAGE_LIMIT = 250    # the archive's hard maximum page size
+OBS_RETRIES = 4         # transient-error attempts per page, each backing off
 OBS_CACHE = CACHE_DIR / "observations"
 
+# In-progress full-set assembly, keyed (sampling_point, determinand). A skip=0 request (re)starts it;
+# the page that completes the walk flushes it to the disk cache and clears it. Single-process only,
+# which the ThreadingHTTPServer is for one user — a demonstrator, not a shared service.
+_obs_accum: dict[tuple[str, str], list] = {}
 
-def fetch_observations(sampling_point: str, determinand: str, cap: int = 3000,
-                       page_timeout: int = OBS_PAGE_TIMEOUT,
-                       deadline: int = OBS_DEADLINE) -> tuple[list[dict], bool]:
-    """All observations for a sampling point + determinand, following rel=next pagination.
 
-    Bounded so it always returns promptly: each upstream page has its own timeout and the whole
-    walk is capped by an overall deadline. Returns (observations, partial) where `partial` is True
-    if the deadline or the cap cut the walk short before the archive ran out of pages.
-    """
+def _fetch_wqe_page(sampling_point: str, determinand: str, skip: int, limit: int) -> tuple[list[dict], int]:
+    """One upstream page. Returns (observations, total_items). Retries transient upstream errors
+    (429 / 5xx / timeout) with exponential backoff, honouring Retry-After when the archive sends it."""
     url = (f"{EA_BASE}/{sampling_point}/observation"
-           f"?skip=0&limit=200&determinand={determinand}&complianceOnly=false")
-    seen_urls: set[str] = set()
-    out: list[dict] = []
-    start = time.monotonic()
-    partial = False
-    while url and url not in seen_urls and len(out) < cap:
-        if time.monotonic() - start > deadline:  # give up walking; return what we have
-            partial = True
-            break
-        seen_urls.add(url)
-        req = urllib.request.Request(url, headers={
-            "accept": "application/x-jsonlines",
-            "CSV-Header": "present",
-            "API-Version": "1",
-        })
-        with urllib.request.urlopen(req, timeout=page_timeout) as resp:
-            body = resp.read().decode("utf-8")
-            link = resp.headers.get("link", "")
-        n_before = len(out)
-        for line in body.splitlines():
-            line = line.strip()
-            if not line:
+           f"?skip={skip}&limit={limit}&determinand={determinand}&complianceOnly=false")
+    delay, last_exc = 1.0, None
+    for _ in range(OBS_RETRIES):
+        try:
+            req = urllib.request.Request(url, headers={
+                "accept": "application/x-jsonlines", "CSV-Header": "present", "API-Version": "1"})
+            with urllib.request.urlopen(req, timeout=OBS_PAGE_TIMEOUT) as resp:
+                total = int(resp.headers.get("x-total-items") or 0)
+                body = resp.read().decode("utf-8")
+            out = []
+            for line in body.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                out.append({
+                    "time": o.get("phenomenonTime"),
+                    "result": o.get("result"),
+                    "unit": o.get("unit"),
+                    "determinand": (o.get("determinand") or {}).get("notation"),
+                })
+            return out, total
+        except urllib.error.HTTPError as exc:
+            last_exc = exc
+            if exc.code in (429, 500, 502, 503, 504):
+                ra = exc.headers.get("Retry-After") if exc.headers else None
+                time.sleep(float(ra) if (ra and str(ra).isdigit()) else delay)
+                delay *= 2
                 continue
-            try:
-                o = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            out.append({
-                "time": o.get("phenomenonTime"),
-                "result": o.get("result"),
-                "unit": o.get("unit"),
-                "determinand": (o.get("determinand") or {}).get("notation"),
-            })
-        if len(out) == n_before:  # empty page → stop
-            break
-        m = _NEXT_RE.search(link)
-        url = m.group(1) if m else None
-    if url and len(out) >= cap:  # stopped on the cap, not on the last page
-        partial = True
-    return out, partial
+            raise
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_exc = exc
+            time.sleep(delay)
+            delay *= 2
+    raise last_exc or RuntimeError("WQE page fetch failed")
+
+
+def get_observations_page(sampling_point: str, determinand: str,
+                          skip: int, limit: int) -> tuple[dict, bool]:
+    """Serve one page and the total. Returns (payload, ok).
+
+    On skip=0 a *complete* cached set short-circuits the walk — the whole series comes back in one
+    response (complete=True), so a repeat view is a single request. Otherwise the live page is fetched,
+    appended to the in-progress assembly, and the page that finishes the walk flushes the full set to
+    disk. On upstream failure we fall back to any cached full set (marked stale) so a chart still draws.
+    """
+    key = (sampling_point, determinand)
+    if skip == 0:
+        cached = _read_cache(sampling_point, determinand)
+        if cached and cached.get("complete"):
+            return {**cached, "skip": 0, "limit": limit,
+                    "source": "cache", "stale": False, "complete": True}, True
+        _obs_accum[key] = []                      # (re)start assembly
+    try:
+        page, total = _fetch_wqe_page(sampling_point, determinand, skip, limit)
+    except Exception as exc:                      # noqa: BLE001 — any upstream failure degrades to cache
+        cached = _read_cache(sampling_point, determinand)
+        if cached is not None:
+            return {**cached, "skip": 0, "limit": limit, "source": "cache",
+                    "stale": True, "error": str(exc), "complete": True}, True
+        return {"error": str(exc)}, False
+    acc = _obs_accum.setdefault(key, [])
+    acc.extend(page)
+    complete = (not page) or (skip + len(page) >= total)
+    if complete:                                  # last page — flush the assembled set to disk
+        _write_cache(sampling_point, determinand, {
+            "samplingPoint": sampling_point, "determinand": determinand,
+            "total": total, "count": len(acc), "observations": list(acc), "complete": True})
+        _obs_accum.pop(key, None)
+    return {
+        "samplingPoint": sampling_point, "determinand": determinand,
+        "skip": skip, "limit": limit, "total": total, "count": len(page),
+        "observations": page, "source": "live", "stale": False, "complete": complete,
+    }, True
 
 
 def _cache_path(sampling_point: str, determinand: str) -> Path:
@@ -162,29 +199,6 @@ def _write_cache(sampling_point: str, determinand: str, payload: dict) -> None:
         tmp.replace(path)  # atomic, so concurrent requests never read a half-written file
     except OSError:
         pass
-
-
-def get_observations(sampling_point: str, determinand: str) -> tuple[dict, bool]:
-    """Fetch live with graceful degradation. Returns (payload, ok).
-
-    Live success caches the result and returns it fresh. On an upstream failure we fall back to a
-    cached copy (marked stale) so the chart still draws; only when nothing is cached does the caller
-    surface the error.
-    """
-    try:
-        obs, partial = fetch_observations(sampling_point, determinand)
-    except Exception as exc:
-        cached = _read_cache(sampling_point, determinand)
-        if cached is not None:
-            return {**cached, "source": "cache", "stale": True, "error": str(exc)}, True
-        return {"error": str(exc)}, False
-    payload = {
-        "samplingPoint": sampling_point, "determinand": determinand,
-        "count": len(obs), "observations": obs,
-        "source": "live", "stale": False, "partial": partial,
-    }
-    _write_cache(sampling_point, determinand, payload)
-    return payload, True
 
 
 def build_store() -> ox.Store:
@@ -307,7 +321,15 @@ class Handler(BaseHTTPRequestHandler):
             if not sp or not det:
                 self.send_error(400, "need ?samplingPoint and ?determinand")
                 return
-            payload, ok = get_observations(sp, det)
+            try:
+                skip = max(0, int((params.get("skip") or ["0"])[0]))
+            except ValueError:
+                skip = 0
+            try:
+                limit = min(OBS_PAGE_LIMIT, max(1, int((params.get("limit") or [str(OBS_PAGE_LIMIT)])[0])))
+            except ValueError:
+                limit = OBS_PAGE_LIMIT
+            payload, ok = get_observations_page(sp, det, skip, limit)
             if not ok:  # upstream failed and nothing cached — surface the real error, promptly
                 self.send_response(502)
                 self.send_header("Content-Type", "text/plain")

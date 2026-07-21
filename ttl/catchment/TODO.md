@@ -48,18 +48,22 @@ Independent of this project, and worth doing regardless:
 
 ## 3. The UI — cross-table with click-to-highlight — **BUILT**
 
-Shipped in `app/app.js` (`loadWaterbodies`, `buildWaterbodySelect`, `waterbodyPanel`,
-`sfiPanelSection`, `wbCrosstab`, `wbHighlight`) and `app/style.css`. **Waterbody Catchments** is a
-**dropdown** in the **Water** super-box at the top (beside the regulated/measured worlds, styled like
-Substance / Option type), *moved out of* the Designations legend — a sub-catchment is what you choose a
-world to view, not a conservation overlay. "All sub-catchments" draws every outline, a named one draws
-and focuses it, "None" clears them. Clicking a sub-catchment on the map opens a side panel: its
-designation and how that designation moved across versions; its classification history, pivoted to one
-row per year × one column per headline item with coloured status pills; and its challenges listed
-individually, each naming what actually failed and flagging the ones with no national heading. In the
-**farming** view the panel additionally carries that sub-catchment's SFI count-and-cost breakdown; in
-**regulated** / **measured** it is classification-and-challenges only until a sampling point /
-determinand is clicked. The measured view carries the whole-catchment challenges cross-table, scoped to
+Shipped in `app/app.js` (`loadWaterbodies`, `buildWaterbodySelect`, the tab core `renderTabs` /
+`tabList` / `renderActiveTabBody`, `waterbodyPanel`, `renderSfiCatchmentChart`, `wbCrosstab`,
+`wbHighlight`) and `app/style.css`. **Waterbody Catchments** is a **dropdown** in the **Water**
+super-box at the top (beside the regulated/measured worlds, styled like Substance / Option type),
+*moved out of* the Designations legend — a sub-catchment is what you choose a world to view, not a
+conservation overlay. "All sub-catchments" draws every outline, a named one draws and focuses it,
+"None" clears them.
+
+The side panel is a **browser-style tabbed** component — up to four tabs (one per category) that
+persist across all three views and stay switchable: **Chart: SFI Application** (cost pie / count /
+removals), **Chart: Substance @ Point** (the time-series), **Catchment: Challenges** (designation +
+classification history, pivoted to one row per year × headline item with coloured pills, + the
+challenges listed individually), and **Catchment: SFI Summary** (the sub-catchment's SFI as cost pie /
+count table / modelled removals). Selecting a catchment opens the last two together; the SFI breakdown
+is a tab in every view now, not a section folded into the challenges panel. The measured view carries
+the whole-catchment challenges cross-table, scoped to
 the selected water body when there is one, and clicking a cell highlights the water bodies behind it.
 
 Each constraint below was a way the UI could have been silently wrong. All are handled — the note

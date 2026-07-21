@@ -869,6 +869,9 @@ function chartContext(subNotation, permit, sp) {
   const maxUpper = perSampleUpper(cond && cond.uppers);
   return {
     label: sub ? sub.label : subNotation,
+    subNotation,                                           // determinand id, for the tab label
+    sp,                                                    // sampling point id, for the tab label
+    spName: (DB.samplingPoints.find((s) => s.id === sp) || {}).label || sp,  // its name, for the chart header
     unit: (cond && cond.unit) || (proposed[0] && proposed[0].unit) || "",
     upper: binding ? binding.value : null,            // THE limit (binding), drawn as the limit line
     upperStat: binding ? binding.stat : null,
@@ -916,17 +919,134 @@ function limitAt(steps, t, fb) {
 // drawn AT the panel's dimensions, not scaled to them — see chartBox).
 let shownChart = null; // { ctx, obs, meta } | null
 
+// ---------------------------------------------------------------------------
+// Side-panel TABS. The panel (#chart) holds up to four tabs, one per category, that behave like a
+// browser's: they persist across the regulated / measured / farming views and stay switchable. The
+// tab set is DERIVED from selection state, so there is one source of truth and nothing to keep in
+// sync by hand:
+//   selectedApp   -> "app"        (Chart: SFI Application — cost pie / count / removals)
+//   activePoint   -> "point"      (Chart: Substance at a sampling point — the time series)
+//   selectedWb    -> "challenges" (Catchment: Challenges) AND "sfi" (Catchment: SFI Summary)
+// A catchment selection yields two tabs; closing either clears the catchment (both go).
+let activeTab = null;      // "app" | "point" | "challenges" | "sfi" | null
+let activePoint = null;    // { sub, sp, permit, at, label } for the substance time-series tab
+
+// Fixed order + labels, matching the four the brief names. `kind` is the small grey badge.
+const TAB_DEFS = [
+  { id: "app",        kind: "Chart",     label: "SFI Application" },
+  { id: "point",      kind: "Chart",     label: "Substance @ Point" },
+  { id: "challenges", kind: "Catchment", label: "Challenges" },
+  { id: "sfi",        kind: "Catchment", label: "SFI Summary" },
+];
+
+// The tabs that currently exist, in fixed order, with their live per-instance titles.
+function tabList() {
+  const out = [];
+  const wb = selectedWb ? WB.get(selectedWb) : null;
+  for (const t of TAB_DEFS) {
+    if (t.id === "app") { if (selectedApp) out.push({ ...t, title: `SFI Application ${appLabel(selectedApp)}` }); }
+    else if (t.id === "point") { if (activePoint) out.push({ ...t, label: `${activePoint.sub} at ${activePoint.sp}`, title: `${activePoint.label} at ${activePoint.spName || activePoint.sp}` }); }
+    else if (t.id === "challenges") { if (wb) out.push({ ...t, title: `${wb.label} — challenges` }); }
+    else if (t.id === "sfi") { if (wb) out.push({ ...t, title: `${wb.label} — SFI summary` }); }
+  }
+  return out;
+}
+function appLabel(iri) { const a = DB.appById[iri]; return a ? a.id : last(iri); }
+
+// Rebuild the tab bar + active body from state. Called at the end of render() and whenever a
+// selection changes. Hides the whole panel when nothing is open.
+function renderTabs() {
+  const tabs = tabList();
+  const chart = document.getElementById("chart");
+  if (!tabs.length) { closeChartPanel(); return; }
+  if (!tabs.some((t) => t.id === activeTab)) activeTab = tabs[tabs.length - 1].id; // fall back to the last
+  chart.classList.remove("hidden");
+  renderTabBar(tabs);
+  renderActiveTabBody();
+  setTimeout(() => map.invalidateSize(), 60);
+}
+
+function renderTabBar(tabs) {
+  document.getElementById("chart-tabs").innerHTML = tabs.map((t) =>
+    `<button class="chart-tab${t.id === activeTab ? " active" : ""}" data-tab="${t.id}" title="${esc(t.title || t.label)}">
+       <span class="tab-kind">${esc(t.kind)}</span>
+       <span class="tab-label">${esc(t.label)}</span>
+       <span class="tab-close" data-close="${t.id}" title="Close this tab">✕</span>
+     </button>`).join("");
+}
+
+// Render the active tab's content into #chart-body. Only the time-series is height-fitted and
+// collapses the legend; the others scroll and leave the legend up for context.
+function renderActiveTabBody() {
+  const body = document.getElementById("chart-body");
+  if (activeTab === "point") { collapseLegend(); renderPointTab(); return; }  // renderPointTab owns .fit
+  body.classList.remove("fit"); expandLegend();
+  if (activeTab === "app") renderAppChart(selectedApp);
+  else if (activeTab === "challenges") body.innerHTML = waterbodyPanel(WB.get(selectedWb));
+  else if (activeTab === "sfi") renderSfiCatchmentChart(selectedWb);
+}
+
+// Progress of an in-flight observation walk, so a render() mid-load repaints the bar rather than a
+// bare "Loading…". Cleared when the series resolves (or errors).
+let pointLoad = null;   // { loaded, total, ctx } | null
+
+function pointProgressHtml(pl) {
+  const head = `<p class="chart-scope">${esc(pl.ctx.label)} <span class="muted">at</span> <b>${esc(pl.ctx.spName || pl.ctx.sp)}</b></p>`;
+  if (pl.total) {
+    const pct = Math.min(100, Math.round((pl.loaded / pl.total) * 100));
+    return head +
+      `<div class="obs-bar"><div class="obs-bar-fill" style="width:${pct}%"></div></div>` +
+      `<p class="chart-note">Loading observations from the EA Water Quality Archive — ` +
+      `<b>${pl.loaded.toLocaleString()}</b> of <b>${pl.total.toLocaleString()}</b> (${pct}%)</p>`;
+  }
+  return head +
+    `<div class="obs-bar indet"><div class="obs-bar-fill"></div></div>` +
+    `<p class="chart-note">Loading observations from the EA Water Quality Archive…</p>`;
+}
+
+function renderPointTab() {
+  const body = document.getElementById("chart-body");
+  if (shownChart) { body.classList.add("fit"); body.innerHTML = renderChart(shownChart.ctx, shownChart.obs, shownChart.meta); return; }
+  body.classList.remove("fit");   // the loading view is prose + a bar, not a fitted plot
+  body.innerHTML = pointLoad ? pointProgressHtml(pointLoad) : `<p class="chart-note">Loading observations…</p>`;
+}
+
+// Update the loading bar as pages arrive; also stashes progress so a mid-load render() repaints it.
+function renderPointProgress(ctx, loaded, total) {
+  pointLoad = { loaded, total, ctx };
+  if (activeTab === "point") renderPointTab();
+}
+
+// Close one tab by clearing the state that produces it. Closing a catchment tab clears the whole
+// catchment selection, so both catchment tabs go together (they are two views of one thing).
+function closeTab(id) {
+  if (id === "app") { clearAppFocus(); return; }          // render() rebuilds the tab bar
+  if (id === "point") { activePoint = null; shownChart = null; pointLoad = null; renderTabs(); return; }
+  if (id === "challenges" || id === "sfi") { closeWaterbody(); return; }  // clears selectedWb -> renderTabs
+}
+const closeActiveTab = () => { if (activeTab) closeTab(activeTab); };
+
+// Hide the whole panel (no tabs open). Restores the full-screen map and the legend.
+function closeChartPanel() {
+  document.getElementById("chart").classList.add("hidden");
+  document.getElementById("chart-body").classList.remove("fit");
+  document.getElementById("chart-tabs").innerHTML = "";
+  expandLegend();
+  setTimeout(() => map.invalidateSize(), 60);
+}
+
 // `permit` may be null — an ambient sampling point has no permit, so no limit line, no proposed
 // limit and no version history: chartContext returns an empty frame and the chart is just the
 // observations. `at` pins the map on the point itself when there is no discharge point to fly to.
 async function openChart(subNotation, sp, permit, at) {
-  const chart = document.getElementById("chart");
   const ctx = chartContext(subNotation, permit, sp);
-  document.getElementById("chart-title").textContent = `${ctx.label} at ${sp}`;
-  const body = document.getElementById("chart-body");
-  chart.classList.remove("hidden");
-  body.classList.add("fit"); // the time-series chart sizes itself to the panel; it never scrolls
-  collapseLegend();
+  // Open (or refocus) the point tab. shownChart is cleared until the walk resolves so a stale series
+  // is never shown under the new title.
+  activePoint = { sub: subNotation, sp, permit, at, label: ctx.label, spName: ctx.spName };
+  shownChart = null;
+  pointLoad = null;
+  activeTab = "point";
+  renderTabs();                                    // shows the point tab (loading state)
   // resize the (now narrower) map and zoom it to the charted sampling point's discharge point
   const dp = permit && (DB.dischargePoints.find((d) => d.permit === permit && d.sp === sp && d.lat != null)
     || DB.dischargePoints.find((d) => d.permit === permit && d.lat != null));
@@ -936,29 +1056,78 @@ async function openChart(subNotation, sp, permit, at) {
     map.invalidateSize();
     if (target) map.setView(target, 13);
   }, 80);
-  body.innerHTML = `<p class="chart-note">Loading observations…</p>`;
-  try {
-    const res = await fetch(`${OBSERVATIONS_ENDPOINT}?samplingPoint=${encodeURIComponent(sp)}&determinand=${encodeURIComponent(subNotation)}`);
+  loadObservations(subNotation, sp, ctx);          // paginated walk; fills the tab as pages arrive
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// One /observations page, with client-side backoff for the hop to our server (the server itself backs
+// off on the upstream archive). Retries a 429 / 5xx / network error a few times, doubling the wait and
+// honouring Retry-After when present.
+async function fetchObsPage(sp, sub, skip, limit) {
+  let delay = 1000;
+  for (let attempt = 0; ; attempt++) {
+    let res;
+    try {
+      res = await fetch(`${OBSERVATIONS_ENDPOINT}?samplingPoint=${encodeURIComponent(sp)}` +
+        `&determinand=${encodeURIComponent(sub)}&skip=${skip}&limit=${limit}`);
+    } catch (e) {
+      if (attempt >= 3) throw e;
+      await sleep(delay); delay *= 2; continue;
+    }
+    if (res.status === 429 || res.status >= 500) {
+      if (attempt >= 3) throw new Error(`observations HTTP ${res.status}`);
+      const ra = parseFloat(res.headers.get("retry-after"));
+      await sleep(Number.isFinite(ra) ? ra * 1000 : delay); delay *= 2; continue;
+    }
     if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    const obs = (data.observations || [])
-      .map((o) => ({ t: Date.parse(o.time), v: parseResult(o.result) }))
-      .filter((o) => Number.isFinite(o.t) && o.v != null)
-      .sort((a, b) => a.t - b.t);
-    shownChart = { ctx, obs, meta: data };
-    body.innerHTML = renderChart(ctx, obs, data);
-  } catch (err) {
-    shownChart = null;
-    body.innerHTML = `<p class="chart-note">Could not load observations: ${esc(err.message)}</p>`;
+    return res.json();
   }
 }
 
-function closeChart() {
-  document.getElementById("chart").classList.add("hidden");
-  document.getElementById("chart-body").classList.remove("fit");
-  shownChart = null;
-  expandLegend();
-  setTimeout(() => map.invalidateSize(), 60);
+// Walk every page of a series, ONE REQUEST PER SECOND, updating the loading bar from the archive's
+// x-total-items (surfaced by the server as `total`). A complete cached set comes back on the first
+// page, so a repeat view is a single request and the bar barely flashes. Aborts silently if the user
+// has moved to another point mid-walk (its token no longer matches activePoint).
+async function loadObservations(sub, sp, ctx) {
+  const LIMIT = 250;
+  const token = `${sub}|${sp}`;
+  const mine = () => activePoint && `${activePoint.sub}|${activePoint.sp}` === token;
+  let skip = 0, total = null, stale = false;
+  const all = [];
+  renderPointProgress(ctx, 0, null);               // "Loading…" until the first page returns
+  try {
+    while (true) {
+      const data = await fetchObsPage(sp, sub, skip, LIMIT);
+      if (!mine()) return;                          // user switched points — drop this walk
+      if (data.total != null) total = data.total;
+      stale = stale || !!data.stale;
+      const page = data.observations || [];
+      all.push(...page);
+      renderPointProgress(ctx, all.length, total);
+      if (data.complete || !page.length || (total != null && all.length >= total)) break;
+      skip += page.length;
+      await sleep(1000);                            // one request per second
+    }
+  } catch (err) {
+    if (!mine()) return;
+    shownChart = null; pointLoad = null;
+    if (activeTab === "point")
+      document.getElementById("chart-body").innerHTML =
+        `<p class="chart-scope">${esc(ctx.label)} <span class="muted">at</span> <b>${esc(ctx.spName || ctx.sp)}</b></p>` +
+        `<p class="chart-note">Could not load observations: ${esc(err.message)}</p>`;
+    return;
+  }
+  if (!mine()) return;
+  const obs = all.map((o) => ({ t: Date.parse(o.time), v: parseResult(o.result) }))
+    .filter((o) => Number.isFinite(o.t) && o.v != null)
+    .sort((a, b) => a.t - b.t);
+  // The determinand's unit, taken from the observations themselves (the archive reports e.g.
+  // "MILLIGRAM PER LITRE"); it is what labels the y-axis when the point carries no permit unit.
+  const obsUnit = (all.find((o) => o.unit) || {}).unit || "";
+  shownChart = { ctx: { ...ctx, obsUnit }, obs, meta: { stale } };
+  pointLoad = null;
+  if (activeTab === "point") renderPointTab();
 }
 
 // The panel next to the map is the plot's canvas: draw at ITS size rather than at a fixed aspect
@@ -969,7 +1138,7 @@ function chartBox() {
   const r = body.getBoundingClientRect();
   return {
     W: Math.max(360, Math.round(r.width - 14)),   // minus #chart-body's horizontal padding
-    H: Math.max(220, Math.round(r.height - 78)),  // minus its padding + the legend and note lines
+    H: Math.max(220, Math.round(r.height - 104)), // minus padding + the header, legend and note lines
   };
 }
 
@@ -978,18 +1147,25 @@ let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if (!shownChart || document.getElementById("chart").classList.contains("hidden")) return;
+    // Only the time-series is drawn at panel size, so only redraw when it is the active tab.
+    if (activeTab !== "point" || !shownChart || document.getElementById("chart").classList.contains("hidden")) return;
     const { ctx, obs, meta } = shownChart;
     document.getElementById("chart-body").innerHTML = renderChart(ctx, obs, meta);
   }, 150);
 });
 
 function renderChart(ctx, obs, meta = {}) {
-  if (!obs.length) return `<p class="chart-note">No observations for this substance at this sampling point.</p>`;
+  // The chart's own header: the determinand's full label at the sampling point's NAME — the human
+  // reading of the tab, which carries only the ids (determinand at sampling-point id).
+  const head = `<p class="chart-scope">${esc(ctx.label)} <span class="muted">at</span> <b>${esc(ctx.spName || ctx.sp || "")}</b></p>`;
+  if (!obs.length) return `${head}<p class="chart-note">No observations for this substance at this sampling point.</p>`;
   const { W, H } = chartBox();
   const m = { l: 52, r: 16, t: 14, b: 38 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
-  const tMin = obs[0].t, tMax = obs[obs.length - 1].t;
+  // Fixed timeline — 1 Jan 2000 (the archive's reach) to today — rather than the series' own span.
+  // Every chart then shares one x-axis, and a run of samples reads against the whole period: a series
+  // that stops in 2017 shows the years of silence since, instead of being stretched to fill the panel.
+  const tMin = Date.parse("2000-01-01T00:00:00"), tMax = Date.now();
   const propVals = ctx.proposed.map((b) => Number(b.val)).filter(Number.isFinite);
   const stepUppers = ctx.steps.flatMap((s) => [s.upper, s.maxUpper]).filter(Number.isFinite);
   const yMax = (Math.max(ctx.upper || 0, ctx.maxUpper || 0, ...stepUppers,
@@ -1158,9 +1334,12 @@ function renderChart(ctx, obs, meta = {}) {
         <span class="item muted">measured, not regulated — no permit limit here</span>
         ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
       </div>`;
-  return `${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+  // Y-axis label: the permit unit if there is one, else the determinand's own unit from the
+  // observations (e.g. "mg/l"). Only truly unitless series fall back to the word "value".
+  const yLabel = prettyUnit(ctx.unit) || prettyUnit(ctx.obsUnit) || "value";
+  return `${head}${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
     ${grid}
-    <text transform="translate(13 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="11" text-anchor="middle">${esc(prettyUnit(ctx.unit) || "value")}</text>
+    <text transform="translate(13 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="11" text-anchor="middle">${esc(yLabel)}</text>
     ${lines}${pts}
     <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
     <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
@@ -1219,22 +1398,10 @@ function removalSubstancesFor(appIri) {
   return currentSubstance ? have.filter((s) => s === currentSubstance) : have;
 }
 
-// Open (and keep open) the chart for a selected application. Priced applications default to the cost
-// pie with a Cost/Count/Removals toggle; unpriced ones show the count bar chart directly (no prices
-// to show).
-function openAppChart(appIri) {
-  const app = DB.appById[appIri];
-  document.getElementById("chart-title").textContent = `Application ${app ? app.id : last(appIri)}`;
-  // The farming pie/bars keep their own (scrollable) layout — only the time-series chart is
-  // height-fitted to the panel.
-  document.getElementById("chart-body").classList.remove("fit");
-  shownChart = null;
-  renderAppChart(appIri);
-  document.getElementById("chart").classList.remove("hidden");
-  collapseLegend();
-  setTimeout(() => map.invalidateSize(), 60);
-}
-
+// The "SFI Application" tab body: cost pie, count bars or modelled removals for the selected
+// application. Priced applications default to the cost pie with a Cost/Count/Removals toggle; unpriced
+// ones fall back to the count bar chart (no prices to show). Opening/closing is handled by the tab
+// system (renderTabs); this only fills #chart-body.
 function renderAppChart(appIri) {
   const app = DB.appById[appIri];
   const slices = groupCostsForApp(appIri);
@@ -1328,7 +1495,7 @@ function removalChart(bars) {
       const h = Math.max(1, yBot - yTop - 2);   // 2px surface gap between stacked segments
       const share = Math.round((g.value / b.total) * 100);
       cols += `<rect x="${bx.toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${groupColor(g.code)}" rx="2">` +
-        `<title>${esc(g.label)} (${esc(g.code)}) — ${fmtKg(g.value)} · ${share}% of this application's ${esc(b.label)} reduction</title></rect>`;
+        `<title>${esc(g.label)} (${esc(g.code)}) — ${fmtKg(g.value)} · ${share}% of the ${esc(b.label)} reduction</title></rect>`;
       // Direct-label only segments with room for the code; the tooltip and legend carry the rest.
       if (h >= 15) cols += `<text x="${(bx + bw / 2).toFixed(1)}" y="${(yTop + h / 2 + 3.5).toFixed(1)}" fill="#0b1016" font-size="10" font-weight="600" text-anchor="middle">${esc(g.code)}</text>`;
       cursor += g.value;
@@ -1364,9 +1531,12 @@ function niceFloor(v) {
 // charts never strip it — only the applications table flips it, under a column that says "Removed".
 const fmtKg = (v) => `${v < 0 ? "−" : ""}${fmtNum(Math.abs(Math.round(v)))} kg/yr`;
 
+// The Cost/Count/Removals mode is shared by the two SFI charts (application and catchment summary);
+// the toggle re-renders whichever of them is the active tab.
 function setFarmChartMode(m) {
   farmChartMode = m;
-  if (selectedApp) renderAppChart(selectedApp);
+  if (activeTab === "app" && selectedApp) renderAppChart(selectedApp);
+  else if (activeTab === "sfi" && selectedWb) renderSfiCatchmentChart(selectedWb);
 }
 window.setFarmChartMode = setFarmChartMode;
 
@@ -1442,13 +1612,14 @@ function renderPie(slices, total, unpriced, app) {
   <div class="pie-legend">${legend}</div>`;
 }
 
-// Select (toggle) an application: redraw the map emphasis + spider + tables, and open its pie.
+// Select (toggle) an application: redraw the map emphasis + spider + tables, and open its tab.
 function selectApp(iri) {
   selectedApp = selectedApp === iri ? null : iri;
   // Each new selection defaults to the cost view (falling back to count if unpriced) — unless a
   // substance the land side models is filtered on, in which case that IS the question being asked.
   farmChartMode = currentSubstance in DB.landSubstances ? "removal" : "value";
-  render();
+  if (selectedApp) activeTab = "app";              // bring the SFI Application tab to the front
+  render();                                        // render() -> renderTabs() rebuilds the bar
 }
 window.selectApp = selectApp;
 
@@ -2369,7 +2540,7 @@ function closeWaterbody() {
   selectedWb = null;
   for (const w of WB.values()) styleWb(w, false);
   syncWaterbodySelect();               // no focus now: "All" if outlines remain, else "None"
-  closeChart();
+  renderTabs();                        // drops the Challenges + SFI Summary tabs (or hides the panel)
 }
 
 // Open the detail panel for one water body. `fromMap` distinguishes a polygon click (leave the view
@@ -2382,18 +2553,10 @@ function openWaterbody(notation, fromMap) {
   selectedWb = notation;
   syncWaterbodySelect();                          // reflect the focused catchment in the picker
   for (const x of WB.values()) styleWb(x, x.notation === notation);
-
-  const chart = document.getElementById("chart");
-  const body = document.getElementById("chart-body");
-  document.getElementById("chart-title").textContent = w.label;
-  chart.classList.remove("hidden");
-  body.classList.remove("fit");   // this panel is prose and tables, and DOES scroll
-  // Deliberately NOT collapseLegend(), which the time-series chart does: this panel is read WHILE
-  // moving between sub-catchments, and the legend still carries the base map, designation and SFI-group
-  // keys that give it context. The Waterbody Catchments picker itself now lives up in the Water box.
-  // The panel carries its own SFI breakdown for this sub-catchment when the farming view is active
-  // (see sfiPanelSection in waterbodyPanel); the whole-catchment card below the map stays put.
-  body.innerHTML = waterbodyPanel(w);
+  // A catchment selection produces two tabs — Challenges and SFI Summary; default to Challenges. The
+  // panel itself is drawn by the tab system (renderTabs), which leaves the legend up for these tabs.
+  activeTab = "challenges";
+  renderTabs();
   setTimeout(() => {
     map.invalidateSize();
     if (!fromMap) map.fitBounds(w.layer.getBounds(), { padding: [30, 30] });
@@ -2491,21 +2654,18 @@ function waterbodyPanel(w) {
         (unattr ? ` <b>${unattr}</b> carr${unattr === 1 ? "ies" : "y"} no national challenge heading and
          ${unattr === 1 ? "is" : "are"} absent from the published cross-table.` : "")}</p>
       ${chalList}
-      ${currentView === "farming" ? sfiPanelSection(w) : ""}
     </div>`;
 }
 
-// The SFI count-and-cost breakdown for one sub-catchment, rendered INTO the water body side panel —
-// but only in the farming view, so the panel says "how it is classified + challenges" everywhere and
-// gains "+ what is farmed here" only where that is the question on screen. Same per-group figures the
-// whole-catchment card below the map uses (see sfiByCatchment): parcels is the count, payment the
-// cost, extent each action's own exact area/length. No total extent — a field carries several actions
-// at different areas, so one "area under improvement" figure would double-count and is not valid.
-function sfiPanelSection(w) {
-  const groups = sfiByCatchment(w.notation);
+// The SFI per-group table for one sub-catchment — the "Count" mode of the Catchment: SFI Summary tab.
+// Parcels is the count, payment the cost, extent each action's own exact area/length. No total extent —
+// a field carries several actions at different areas, so one "area under improvement" figure would
+// double-count and is not valid. (This is where the parcels/extent/payment numbers live now that the
+// tab has replaced the table that used to be folded into the challenges panel.)
+function sfiCatchmentTable(notation) {
+  const groups = sfiByCatchment(notation);
   if (!groups.length)
-    return `<h3>Sustainable Farming Incentive</h3>
-      <p class="wb-note">No SFI option parcels fall within this sub-catchment.</p>`;
+    return `<p class="wb-note">No SFI option parcels fall within this sub-catchment.</p>`;
   const totParcels = groups.reduce((s, g) => s + g.parcels, 0);
   const totPay = groups.reduce((s, g) => s + g.payment, 0);
   const anyPriced = groups.some((g) => g.payment > 0);
@@ -2526,7 +2686,6 @@ function sfiPanelSection(w) {
     `<td class="num"><b>${anyPriced ? fmtGBP(Math.round(totPay)) + "/yr" : "—"}</b></td></tr>`;
 
   return `
-    <h3>Sustainable Farming Incentive</h3>
     <p class="wb-note">Options whose parcels fall inside this sub-catchment.
       <b>Parcels</b> counts this action's mapped points; <b>payment</b> is apportioned by parcel share.
       Both sum cleanly. <b>Extent</b> is each action's own exact area or length and is
@@ -2992,6 +3151,7 @@ function render() {
   } else if (catchmentLayer) {
     map.fitBounds(catchmentLayer.getBounds());
   }
+  renderTabs();                        // reconcile the side-panel tab bar with the current selections
 }
 
 function groupBy(arr, key) {
@@ -3707,6 +3867,7 @@ function renderFarming(tables) {
   else renderApplicationHulls();
 
   tables.append(applicationsTable(), optionsTable(selectedApp), sfiCatchmentCard());
+  renderTabs();                        // reconcile the side-panel tab bar with the current selections
 }
 
 // APPLICATIONS view: one polygon per agreement (convex hull of its option points), plus a spider of
@@ -3761,10 +3922,9 @@ function renderApplicationHulls() {
         .addTo(layers.spider);
     }
     layers.spider.addTo(map);
-    openAppChart(selectedApp);
-  } else {
-    closeChart();
   }
+  // The side panel (app tab and any others) is drawn by renderTabs() at the end of renderFarming —
+  // this function only draws the map layers.
 
   if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 14 });
   else {
@@ -3778,7 +3938,8 @@ function renderApplicationHulls() {
 // of overlapping points) to see the option(s) behind it. Respects the option-group filter so ticking
 // "Soil management" shows only those parcels.
 function renderOptionPoints() {
-  closeChart();
+  // No "selected application" in this mode, but any catchment / point tabs stay open — the tab bar is
+  // reconciled by renderTabs() at the end of renderFarming.
   const shownGroups = new Map();     // broader code -> { code, label, count } for the legend
   plottedOptionDots = [];
   const bounds = [];
@@ -4017,10 +4178,92 @@ function sfiByCatchment(notation) {
   return Object.values(byGroup).sort((a, b) => b.parcels - a.parcels || b.payment - a.payment);
 }
 
+// Per-group MODELLED removal (kg/yr) for a sub-catchment, apportioned to it by the option's in-scope
+// parcel share — the same apportionment payment uses, so it sums cleanly across sub-catchments. The
+// per-option removal is a whole-option figure (FARMSCOPER rate × area), hence the apportionment.
+function groupRemovalsForCatchment(notation, sub) {
+  const w = notation ? WB.get(notation) : null;
+  const ring = w ? w.ring : null;
+  const byGroup = {};
+  for (const o of DB.sfiOptions) {
+    const kg = (DB.optionImpacts[o.iri] || {})[sub];
+    if (kg == null) continue;
+    const inParcels = ring ? o.parcels.filter((p) => pointInRing(p.lat, p.lon, ring)) : o.parcels;
+    if (!inParcels.length) continue;
+    (byGroup[o.broader] ||= { code: o.broader, label: o.broaderLabel, value: 0 })
+      .value += kg * (inParcels.length / o.parcels.length);
+  }
+  return Object.values(byGroup).sort((a, b) => a.value - b.value);  // most negative (biggest cut) first
+}
+
+// The "Catchment: SFI Summary" tab body — the selected sub-catchment's SFI as cost pie / count bars /
+// modelled removals, mirroring the application chart but scoped to the catchment. Shares farmChartMode
+// with the application chart (one Cost/Count/Removals toggle idiom across both).
+function renderSfiCatchmentChart(notation) {
+  const w = notation ? WB.get(notation) : null;
+  const scope = w ? esc(w.label) : "the whole catchment";
+  const groups = sfiByCatchment(notation);
+  const costSlices = groups.filter((g) => g.payment > 0)
+    .map((g) => ({ code: g.code, label: g.label, value: g.payment }))
+    .sort((a, b) => b.value - a.value);
+  const total = costSlices.reduce((s, g) => s + g.value, 0);
+  const hasPrices = total > 0;
+  // in-scope options with no published rate, for the pie/count note
+  const ring = w ? w.ring : null;
+  let unpriced = 0;
+  for (const o of DB.sfiOptions) {
+    if (o.cost != null) continue;
+    const inParcels = ring ? o.parcels.filter((p) => pointInRing(p.lat, p.lon, ring)) : o.parcels;
+    if (inParcels.length) unpriced++;
+  }
+
+  let mode = farmChartMode;
+  if (mode === "value" && !hasPrices) mode = "count";
+  const btn = (m, lbl) => `<button class="${mode === m ? "on" : ""}" onclick="setFarmChartMode('${m}')">${lbl}</button>`;
+  const toggle = `<div class="chart-toggle">${hasPrices ? btn("value", "Cost") : ""}${btn("count", "Count")}${btn("removal", "Removals")}</div>`;
+
+  // Count is the per-group table (parcels / extent / payment) — it carries the exact numbers the pie
+  // and removal bars abstract away, and is where the old folded table's content now lives.
+  const body = mode === "value" ? renderPie(costSlices, total, unpriced, null)
+    : mode === "removal" ? renderCatchmentRemovals(notation, scope)
+    : sfiCatchmentTable(notation);
+
+  const head = `<p class="chart-scope">SFI in <b>${scope}</b> · ${groups.length} option group${groups.length === 1 ? "" : "s"}</p>`;
+  document.getElementById("chart-body").innerHTML = head + toggle + body;
+}
+
+// Removals for a sub-catchment: one stacked bar per land substance (nitrogen, phosphorus), honouring
+// the substance filter, drawn by the same removalChart the application view uses.
+function renderCatchmentRemovals(notation, scope) {
+  const subs = currentSubstance
+    ? (currentSubstance in DB.landSubstances ? [currentSubstance] : [])
+    : Object.keys(DB.landSubstances);
+  const bars = subs.map((sub) => {
+    const groups = groupRemovalsForCatchment(notation, sub);
+    return { sub, label: DB.landSubstances[sub] || sub, groups, total: groups.reduce((s, g) => s + g.value, 0) };
+  }).filter((b) => b.total);
+  if (!bars.length) {
+    const filtered = currentSubstance && !(currentSubstance in DB.landSubstances);
+    return filtered
+      ? `<p class="chart-note">No modelled land impact for this substance in ${scope} — FARMSCOPER models nitrogen and phosphorus only.</p>`
+      : `<p class="chart-note">No modelled removal in ${scope} — none of the options here carries a FARMSCOPER-modelled impact.</p>`;
+  }
+  const seen = {};
+  for (const b of bars) for (const g of b.groups) seen[g.code] = g;
+  const legend = Object.values(seen).map((g) =>
+    `<div class="pie-leg"><span class="dot" style="background:${groupColor(g.code)}"></span>` +
+    `<span class="pie-name">${esc(g.label)} <span class="mono">${esc(g.code)}</span></span></div>`).join("");
+  return removalChart(bars) +
+    `<p class="chart-note modelled-note"><b>Modelled, not measured.</b> FARMSCOPER's per-hectare change in ` +
+    `loss × mapped area, apportioned to ${scope} by each option's in-scope parcel share. Negative = kept out ` +
+    `of the catchment. Both bars share one kg/yr axis, so phosphorus reads small <i>by mass</i>.</p>` +
+    `<div class="pie-legend">${legend}</div>`;
+}
+
 // The whole-catchment SFI overview, shown below the map in the farming view. Per-sub-catchment
-// figures no longer live here — clicking a waterbody catchment scopes them in the SIDE PANEL instead
-// (see sfiPanelSection). This card is always the whole catchment, so it stays a stable reference the
-// scoped panel reads against.
+// figures no longer live here — clicking a waterbody catchment scopes them into the "Catchment: SFI
+// Summary" tab in the side panel (see renderSfiCatchmentChart / sfiCatchmentTable). This card is
+// always the whole catchment, so it stays a stable reference the scoped tab reads against.
 function sfiCatchmentCard() {
   const groups = sfiByCatchment(null);
   const totParcels = groups.reduce((s, g) => s + g.parcels, 0);
@@ -4109,8 +4352,9 @@ function subHead(text) {
 function setView(v) {
   currentView = v;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
-  if (v !== "farming") { selectedApp = null; closeChart(); } // drop the pie when leaving farming
-  if (v !== "regulated") { selectedAction = null; breachPermit = null; } // and the regulated focuses
+  // Tabs persist across views (the whole point of the tab bar), so leaving farming no longer clears the
+  // application selection or closes the panel — the SFI Application tab stays open and switchable.
+  if (v !== "regulated") { selectedAction = null; breachPermit = null; } // regulated map/table focuses only
   render();
 }
 
@@ -4166,17 +4410,16 @@ async function main() {
     render();
   });
   document.getElementById("waterbody").addEventListener("change", onWaterbodySelect);
-  // The chart is the manifestation of a focused application, so in farming its ✕ clears the
-  // selection (which also closes the chart); elsewhere (the substance time-series) it just closes.
-  document.getElementById("chart-close").addEventListener("click", () => {
-    if (currentView === "farming" && selectedApp) clearAppFocus();
-    else closeChart();
+  // Tab bar: click a tab to switch, click its ✕ to close it. Delegated so it survives every rebuild.
+  document.getElementById("chart-tabs").addEventListener("click", (e) => {
+    const x = e.target.closest(".tab-close");
+    if (x) { closeTab(x.dataset.close); return; }
+    const t = e.target.closest(".chart-tab");
+    if (t && t.dataset.tab !== activeTab) { activeTab = t.dataset.tab; renderTabBar(tabList()); renderActiveTabBody(); }
   });
-  // Escape resets the farming focus, or closes an open chart on the other views.
+  // Escape closes the active tab (its selection), falling back through whatever tabs remain.
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
-    if (currentView === "farming" && selectedApp) clearAppFocus();
-    else if (!document.getElementById("chart").classList.contains("hidden")) closeChart();
+    if (e.key === "Escape" && !document.getElementById("chart").classList.contains("hidden")) closeActiveTab();
   });
 
   // Deep-link support: ?view=regulated|measured|farming & ?sub=<notation>. This is a proof of

@@ -53,18 +53,25 @@ against the local file. All pass.
 **Waterbody Catchments** is a **dropdown** in the **Water** super-box at the top of the page (beside
 "the regulated world" and "the measured world", styled exactly like the Substance and Option-type
 filters) — a sub-catchment is the unit you pick a world to look *at*, so it lives with the worlds, not
-down in the Designations legend with SSSI / SAC / SPA. Picking a named catchment draws and focuses it
-(and opens its panel); "All sub-catchments" draws every outline; "None" clears them. Clicking a
-sub-catchment on the map opens the same side panel, giving its designation and
-how that designation moved across versions, its classification history (one row per year, one column
-per headline item, coloured status pills), and the water body's challenges listed individually — each
-naming what actually failed, with the challenges that carry no national heading marked as such. In the
-**farming** view that same panel also carries the sub-catchment's SFI count-and-cost breakdown (parcels,
-exact per-action extent, apportioned payment); in the **regulated** and **measured** views the panel
-stays classification-and-challenges only, until the user clicks a sampling point / determinand. The
-measured view also carries a whole-catchment challenges cross-table, scoped to the selected water body
-when there is one; clicking a cell highlights the water bodies behind it. Code: `loadWaterbodies`,
-`buildWaterbodySelect`, `waterbodyPanel`, `sfiPanelSection`, `wbCrosstab`, `wbHighlight` in `app/app.js`.
+down in the Designations legend with SSSI / SAC / SPA. Picking a named catchment draws and focuses it;
+"All sub-catchments" draws every outline; "None" clears them.
+
+The side panel is a **tabbed** component that works like a browser's tabs — up to four, one per
+category, that **persist across all three views** and stay switchable:
+
+| Tab | Opened by | Contents |
+| --- | --- | --- |
+| **Chart: SFI Application** | selecting an agreement (farming) | cost pie / count bars / modelled removals |
+| **Chart: Substance @ Point** | clicking a determinand at a sampling point | the observation time-series |
+| **Catchment: Challenges** | selecting a waterbody catchment | designation history, classification history (one row per year × headline item, coloured pills), and the challenges listed individually |
+| **Catchment: SFI Summary** | selecting a waterbody catchment | that sub-catchment's SFI as cost pie / count table (parcels · exact per-action extent · apportioned payment) / modelled removals |
+
+A catchment selection opens the last two together (Challenges active by default); each tab closes with
+its own ✕, and closing either catchment tab clears the selection (both go). The measured view also
+carries a whole-catchment challenges cross-table below the map, scoped to the selected water body when
+there is one; clicking a cell highlights the water bodies behind it. Code: `loadWaterbodies`,
+`buildWaterbodySelect`, the tab core (`renderTabs` / `tabList` / `renderActiveTabBody`),
+`waterbodyPanel`, `renderSfiCatchmentChart`, `wbCrosstab`, `wbHighlight` in `app/app.js`.
 
 Two numbers there are worth knowing before reading the table. The published Catchment Data Explorer
 cross-table totals **29**; this one totals **63**, because 57 of the 95 challenges carry no national

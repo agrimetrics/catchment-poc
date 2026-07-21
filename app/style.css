@@ -181,22 +181,37 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 }
 #chart.hidden { display: none; }
 .chart-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 14px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: stretch;
+  padding: 0; border-bottom: 1px solid var(--line);
 }
-#chart-title { font-weight: 600; font-size: 13.5px; }
-#chart-close {
-  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
-  border-radius: 6px; cursor: pointer; padding: 3px 10px; font-size: 13px; line-height: 1;
+/* Browser-style tab strip across all three views. One tab per open thing (max four); the strip
+   scrolls sideways rather than wrapping, so the panel body keeps its full height. */
+.chart-tabs { display: flex; align-items: stretch; gap: 0; overflow-x: auto; width: 100%; }
+.chart-tab {
+  display: flex; align-items: center; gap: 7px; flex: 0 0 auto; max-width: 220px;
+  background: transparent; color: var(--muted); border: none; border-right: 1px solid var(--line);
+  border-bottom: 2px solid transparent; cursor: pointer;
+  padding: 8px 10px 7px; font-size: 12px; font-family: inherit; line-height: 1.2; white-space: nowrap;
 }
-#chart-close:hover { border-color: var(--accent); }
+.chart-tab:hover { background: var(--panel-2); color: var(--text); }
+.chart-tab.active { color: var(--text); background: var(--panel-2); border-bottom-color: var(--accent); }
+.chart-tab .tab-kind {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 3px; padding: 1px 4px;
+}
+.chart-tab.active .tab-kind { color: var(--accent); border-color: var(--accent); }
+.chart-tab .tab-label { overflow: hidden; text-overflow: ellipsis; }
+.chart-tab .tab-close {
+  color: var(--muted); border-radius: 3px; padding: 0 3px; font-size: 12px; line-height: 1;
+}
+.chart-tab .tab-close:hover { background: #3a2530; color: #ff8b8b; }
 #chart-body { flex: 1; overflow: auto; padding: 8px 6px 12px; }
 #chart-body svg { width: 100%; height: auto; display: block; }
 /* Time-series chart: it is drawn at the panel's own size (see chartBox), so the panel is exactly as
    tall as the map and never scrolls. The flex column is a belt-and-braces guard for the moment
    between a window resize and the redraw: the plot shrinks to fit rather than growing a scrollbar. */
 #chart-body.fit { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-#chart-body.fit > .chart-legend, #chart-body.fit > .chart-note { flex: none; }
+#chart-body.fit > .chart-legend, #chart-body.fit > .chart-note, #chart-body.fit > .chart-scope { flex: none; }
 #chart-body.fit > svg { flex: 1 1 auto; min-height: 0; }
 .chart-note { color: var(--muted); font-size: 11.5px; padding: 4px 12px 0; }
 .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 12px 2px; font-size: 12px; color: var(--muted); }
@@ -217,6 +232,13 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 /* Farming pie + application selection */
 svg.pie { max-width: 320px; margin: 4px auto 0; }
 svg.bars { max-width: 340px; margin: 2px auto 0; }
+.chart-scope { color: var(--text); font-size: 12.5px; padding: 8px 12px 0; margin: 0; }
+.chart-scope b { color: var(--text); }
+/* Observation-load progress bar (the tab paginates the EA archive one request/second). */
+.obs-bar { height: 8px; margin: 12px 12px 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.obs-bar-fill { height: 100%; background: var(--accent); border-radius: 5px; transition: width .25s ease; }
+.obs-bar.indet .obs-bar-fill { width: 34%; animation: obs-indet 1.1s ease-in-out infinite; }
+@keyframes obs-indet { 0% { margin-left: -34%; } 100% { margin-left: 100%; } }
 .chart-toggle { display: flex; justify-content: flex-end; padding: 2px 12px 0; }
 .chart-toggle button {
   background: var(--panel-2); color: var(--muted); border: 1px solid #2b3a49;
@@ -419,8 +441,8 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
 }
 .wb-cell:hover { background: #2c5561; border-color: var(--wb-sel, #ffd479); }
 
-/* SFI count-and-cost breakdown, shown inside the water body panel in the farming view only
-   (sfiPanelSection). Mirrors the .wb-hist table styling so it reads as part of the same panel. */
+/* SFI per-group table — the "Count" mode of the Catchment: SFI Summary tab (sfiCatchmentTable), and
+   the whole-catchment card below the map. Mirrors the .wb-hist table styling. */
 .wb-sfi { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
 .wb-sfi th {
   text-align: left; color: var(--muted); font-weight: 600; font-size: 10px;
