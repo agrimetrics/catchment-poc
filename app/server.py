@@ -49,9 +49,10 @@ GRAPHS = ["regulation.ttl", "breaches.ttl", "winep.ttl", "sfi.ttl", "designation
 # catchment.ttl is unlike the others: its subjects keep their real Environment Agency URIs
 # (http://environment.data.gov.uk/catchment-planning/so/...) rather than the example.com URIs
 # the rest of this repository mints, because they are the identifiers the source triplestore
-# uses and re-minting would orphan the 29 SKOS schemes it reuses. They therefore look
-# authoritative and DO NOT dereference — environment.data.gov.uk serves no RDF and 404s on
-# every one. Anywhere the UI shows one to a user, that has to be said. See ttl/catchment/.
+# uses and re-minting would orphan the 29 SKOS schemes it reuses. Pasted verbatim these `/so/`
+# URIs 404 — but each water body DOES have a human-readable Catchment Data Explorer page at the
+# `/so/`-stripped https URL (a web page, not RDF; the site publishes none). The water body panel
+# derives and links to it (cdePageUrl in app.js). See ttl/catchment/.
 
 # Environment Agency Water Quality Archive — live observation time series. We proxy it
 # server-side so the browser stays same-origin and we can follow the Link-header pagination.

@@ -292,6 +292,22 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
 .app-picker .pick-app { color: #0b57b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .app-picker .pick-meta { color: #556; font-size: 11.5px; white-space: nowrap; }
 
+/* Options-view floater: one card per option under the click (see openOptionPicker). Wider than the
+   application picker and stacked as cards, because each option carries several fields. */
+.opt-picker { min-width: 250px; max-width: 320px; }
+.opt-picker .opt-card { padding: 6px 0; }
+.opt-picker .opt-card + .opt-card { border-top: 1px solid #e3e8ee; }
+.opt-picker .opt-head { display: flex; align-items: center; gap: 6px; color: #0b1016; }
+.opt-picker .opt-head .mono { color: #556; }
+.opt-picker .opt-def { color: #445; font-size: 11.5px; margin: 2px 0; line-height: 1.4; }
+.opt-picker .opt-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: #334; margin-top: 2px; }
+.opt-picker .opt-app { color: #556; }
+.opt-picker .pick-opt-app { color: #0b57b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+
+/* The Applications/Options toggle reuses .basemap-control; nothing extra needed beyond a top margin so
+   it clears the base-map control it stacks under in the same corner. */
+.farm-display { margin-top: 6px; }
+
 .legend {
   display: flex;
   align-items: center;
@@ -329,11 +345,8 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
 .desig-site { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 3px 4px; border-radius: 5px; cursor: pointer; }
 .desig-site:hover { background: #1b2836; }
 
-/* The water body control reuses the .desig-* classes above verbatim; it only needs to stop
-   margin-left:auto applying twice, which would push the two controls apart. */
-/* Waterbodies is the right-most category in the Designations row, so its dropdown opens leftwards —
-   anchored left:0 like the others, 250px of water body names would run off the edge of the window. */
-.desig-cat[data-cat="waterbody"] .desig-list { left: auto; right: 0; }
+/* Waterbody Catchments is a native <select> in the WATER super-box (see #waterbody in index.html),
+   styled like the Substance and Option-type dropdowns via .group-filter — no bespoke CSS needed. */
 /* Water body polygons are clickable, so they get the cursor that says so — the same affordance the
    circle markers have. Without it the only hint is the hover tooltip, which arrives too late. */
 .leaflet-waterbodies-pane path { cursor: pointer; }
@@ -346,12 +359,14 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
 }
 .wb-panel h3:first-of-type { margin-top: 10px; }
 .wb-id { color: var(--muted); font-size: 11px; margin: 0 0 4px; font-family: ui-monospace, monospace; }
-/* The EA URIs look authoritative and 404. Wherever one is shown, that has to be visible. */
+/* Link to the water body's Catchment Data Explorer page (derived from the graph URI — see cdePageUrl).
+   A web page, not RDF; styled as a quiet link, not a warning. */
 .wb-uri {
-  margin-left: 8px; padding: 1px 6px; border-radius: 4px; cursor: help;
-  background: #3a2a1a; color: #e0a020; border: 1px solid #5a4020;
+  margin-left: 8px; padding: 1px 7px; border-radius: 4px; text-decoration: none;
+  background: #14303a; color: #7fe3d6; border: 1px solid #2c5561;
   font-family: system-ui, sans-serif; letter-spacing: .3px;
 }
+.wb-uri:hover { border-color: var(--accent); color: #fff; }
 .wb-desig { margin: 0 0 6px; }
 .wb-note { color: var(--muted); font-size: 12px; margin: 6px 0; line-height: 1.5; }
 .wb-change { color: #ffd479; }
@@ -403,6 +418,20 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
   padding: 1px 9px; font: inherit; cursor: pointer; min-width: 30px;
 }
 .wb-cell:hover { background: #2c5561; border-color: var(--wb-sel, #ffd479); }
+
+/* SFI count-and-cost breakdown, shown inside the water body panel in the farming view only
+   (sfiPanelSection). Mirrors the .wb-hist table styling so it reads as part of the same panel. */
+.wb-sfi { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
+.wb-sfi th {
+  text-align: left; color: var(--muted); font-weight: 600; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .4px; padding: 5px 7px;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.wb-sfi td { padding: 5px 7px; border-bottom: 1px solid #1a232e; }
+.wb-sfi th.num, .wb-sfi td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wb-sfi tbody tr:hover { background: #16202b; }
+.wb-sfi .unit { color: var(--muted); font-size: 11px; }
+.wb-sfi .mono { color: var(--muted); font-size: 10.5px; }
 
 
 /* Total row of the farming-by-catchment table: set off from the group rows by a heavier rule. */

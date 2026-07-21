@@ -48,15 +48,19 @@ Independent of this project, and worth doing regardless:
 
 ## 3. The UI — cross-table with click-to-highlight — **BUILT**
 
-Shipped in `app/app.js` (`loadWaterbodies`, `waterbodyPanel`, `wbCrosstab`, `wbHighlight`) and
-`app/style.css`. **Waterbodies** is a fourth category in the map's **Designations** control (with
-SSSI / SAC / SPA — one heading, not a control-within-a-control), toggling the 19 catchment polygons.
-Clicking a polygon opens a side panel: its designation and how that designation moved across versions;
-its classification history, pivoted to one row per year × one column per headline item with coloured
-status pills; and its challenges listed individually, each naming what actually failed and flagging the
-ones with no national heading. The measured view carries the whole-catchment challenges cross-table,
-scoped to the selected water body when there is one, and clicking a cell highlights the water bodies
-behind it.
+Shipped in `app/app.js` (`loadWaterbodies`, `buildWaterbodySelect`, `waterbodyPanel`,
+`sfiPanelSection`, `wbCrosstab`, `wbHighlight`) and `app/style.css`. **Waterbody Catchments** is a
+**dropdown** in the **Water** super-box at the top (beside the regulated/measured worlds, styled like
+Substance / Option type), *moved out of* the Designations legend — a sub-catchment is what you choose a
+world to view, not a conservation overlay. "All sub-catchments" draws every outline, a named one draws
+and focuses it, "None" clears them. Clicking a sub-catchment on the map opens a side panel: its
+designation and how that designation moved across versions; its classification history, pivoted to one
+row per year × one column per headline item with coloured status pills; and its challenges listed
+individually, each naming what actually failed and flagging the ones with no national heading. In the
+**farming** view the panel additionally carries that sub-catchment's SFI count-and-cost breakdown; in
+**regulated** / **measured** it is classification-and-challenges only until a sampling point /
+determinand is clicked. The measured view carries the whole-catchment challenges cross-table, scoped to
+the selected water body when there is one, and clicking a cell highlights the water bodies behind it.
 
 Each constraint below was a way the UI could have been silently wrong. All are handled — the note
 says where, so a later change can tell it is breaking something deliberate.
@@ -88,9 +92,10 @@ Four traps found while building it, all recorded where they bite:
 - **Hover `bringToFront()` re-stacked polygons mid-gesture**, so a click opened a neighbour of the shape
   under the cursor. Only the selected polygon is raised now; the rest are stacked once, largest-behind,
   by `restackWb` so nested catchments stay clickable.
-- **The panel hid the legend** (copied from the time-series chart, which collapses it). That hid the
-  Waterbodies control itself, so you had to close a panel to pick the next body. The water body panel
-  leaves the legend up.
+- **The panel hid the legend** (copied from the time-series chart, which collapses it). When the
+  Waterbodies control still lived in the legend, that hid the control itself, so you had to close a
+  panel to pick the next body. The panel still leaves the legend up (for the base-map, designation and
+  SFI-group keys), and the picker has since become a dropdown in the Water box that is always visible.
 
 - **Query shape, not data volume, was the performance problem.** `Q.wbRnags` with its three OPTIONALs
   written *above* the required `classificationValue` join took **30 seconds** over 51k triples and
@@ -101,13 +106,20 @@ Four traps found while building it, all recorded where they bite:
 
 Still worth doing here: the panel shows four headline classification items of 74, chosen by hand.
 
-## 4. The URIs do not dereference — say so in the UI
+## 4. The graph URI 404s, but the page exists — link to the page (**DONE in the UI**)
 
 `catchment.ttl` keeps real EA URIs
 (`http://environment.data.gov.uk/catchment-planning/so/WaterBody/GB108044010130`) because re-minting
-would orphan the 29 SKOS schemes it reuses. They look authoritative and resolvable. **They 404** — the
-public site serves no RDF.
+would orphan the 29 SKOS schemes it reuses. Pasted verbatim that `/so/` URI **404s**.
 
-Wherever the app shows one to a user, or lets them click it, that has to be visible. A URI that looks
-like a link and silently fails is the same class of defect as everything in ISSUES.md: something absent,
-presented as something present.
+But the water body is not un-findable, and an earlier version of this note wrongly said so. The
+Catchment Data Explorer serves a **human-readable page** for it — the same URI with the `/so/` dropped
+and forced to https:
+`https://environment.data.gov.uk/catchment-planning/WaterBody/GB108044010130` → **200**, "Devils Brook".
+It is a web page, not RDF (the site still publishes none).
+
+The water body panel now derives that URL (`cdePageUrl` in `app/app.js`) and links to it, with a
+tooltip noting it is a page rather than linked data and that the graph's own `/so/` URI 404s.
+
+**Upstream:** the mismatch — the identifier the graph uses (`/so/…`) is not the one the page lives at —
+is for Defra to reconcile. Recorded here so the derived-URL workaround is understood as a workaround.

@@ -1526,6 +1526,12 @@ let currentOptionType = ""; // farming: broader option-group code filter, or ""
 let selectedApp = null;    // farming: selected application IRI (or null)
 let selectedAction = null; // WINEP: focused action IRI (or null) — links the table row and map marker
 let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar)
+let farmDisplay = "applications"; // farming map: "applications" (hull polygons) | "options" (parcel points)
+let optionRenderer = null;   // shared L.canvas() for the ~12,900 option-point dots
+let farmDisplayControl = null;
+// The parcels currently plotted in options view, as {lat, lon, opt}. Rebuilt each time the option
+// points are drawn; read by openOptionPicker to gather everything under a click.
+let plottedOptionDots = [];
 let actionTableEl = null;  // the WINEP table wrapper, so a map click can page to the action's row
 
 // Focus a WINEP action, keeping the table row and its map marker in sync (the dashed-underlined
@@ -1788,6 +1794,12 @@ async function loadAll() {
   if (parcelMismatch)
     console.error(`SFI parcels: ${parcelMismatch} options where parcel count != multipoint count — ` +
       `the SFIParcels nodes are out of step with the option MULTIPOINTs.`);
+  // An option's total extent, summed from its parcels: hectares for area-based actions, metres for
+  // linear ones (hedgerows). One of the two is 0. Shown in the option-point detail floater.
+  for (const o of DB.sfiOptions) {
+    o.ha = o.parcels.reduce((s, p) => s + (p.area || 0), 0);
+    o.m = o.parcels.reduce((s, p) => s + (p.mtl || 0), 0);
+  }
 
   DB.optionsByApp = groupBy(DB.sfiOptions, "app");
   // How many of each application's options have no published rate (superseded SFI 2023 codes).
@@ -1898,17 +1910,77 @@ function initMap() {
   layers.appHulls = L.layerGroup();
   layers.spider = L.layerGroup();
 
+  // The individual-options view (farmDisplay === "options") plots every drawn parcel as a dot — up to
+  // ~12,900 of them. A canvas renderer draws them all onto one <canvas> instead of one SVG node each,
+  // which is the difference between smooth and unusable at that count.
+  //
+  // The canvas is VISUAL ONLY — its own pane, pointer-events:none. A full-viewport interactive canvas
+  // sits above the water-bodies pane and swallows every click meant for a sub-catchment (the bug this
+  // replaced). Instead, clicks are resolved in the map handler below: dots first (openOptionPicker
+  // gathers by proximity to plottedOptionDots), then the sub-catchment under the click. z 270 keeps the
+  // dots above the water-body fills so they stay visible.
+  map.createPane("optionpts");
+  map.getPane("optionpts").style.zIndex = 270;
+  map.getPane("optionpts").style.pointerEvents = "none";
+  optionRenderer = L.canvas({ pane: "optionpts", padding: 0.5 });
+  layers.optionPoints = L.layerGroup();
+
   // While the application picker popup is open, suppress the hover tooltip; restore polygon fills
   // when it closes.
   map.on("popupopen", (e) => { if (e.popup.options.className === "picker-popup") { pickerOpen = true; hideOverlapTip(); } });
   map.on("popupclose", (e) => { if (e.popup.options.className === "picker-popup") { pickerOpen = false; restoreAllShapes(); } });
 
-  // Click on empty map (no application polygon under the cursor) resets the farming focus — the
-  // intuitive "click away to deselect". Clicks on a hull hit containingApps() and open the picker
-  // instead, so this only fires on genuine background clicks.
+  // Farming map clicks.
+  //   OPTIONS view: the dots and the water bodies are both non-interactive (their panes are
+  //   pointer-events:none in this mode — see syncFarmPanes), so this one handler arbitrates. A dot
+  //   (or cluster) under the click wins; failing that, a sub-catchment under the click opens. That
+  //   ordering is why a filtered, sparse point cloud no longer blocks clicking the sub-catchment.
+  //   APPLICATIONS view: unchanged — a genuine background click (no hull under it) deselects.
   map.on("click", (e) => {
-    if (currentView === "farming" && selectedApp && !containingApps(e.latlng).length) clearAppFocus();
+    if (currentView !== "farming") return;
+    if (farmDisplay === "options") {
+      if (openOptionPicker(e.latlng)) return;
+      const n = waterbodyAt(e.latlng);
+      if (n) openWaterbody(n, true);
+      return;
+    }
+    if (selectedApp && !containingApps(e.latlng).length) clearAppFocus();
   });
+
+  // Applications (polygons) ↔ Options (points) toggle for the farming map. Same segmented style as the
+  // base-map control; shown only in the farming view (see syncFarmDisplayControl, called from render).
+  const FarmDisplayControl = L.Control.extend({
+    options: { position: "topright" },
+    onAdd() {
+      const div = L.DomUtil.create("div", "basemap-control farm-display");
+      div.innerHTML =
+        `<button type="button" data-fd="applications" title="Show each agreement as a polygon (its option footprint)">Applications</button>` +
+        `<button type="button" data-fd="options" title="Plot every option's parcels as points you can click">Options</button>`;
+      div.querySelectorAll("button").forEach((b) => {
+        b.classList.toggle("on", b.dataset.fd === farmDisplay);
+        b.addEventListener("click", () => {
+          if (b.dataset.fd === farmDisplay) return;
+          div.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+          farmDisplay = b.dataset.fd;
+          selectedApp = null;             // the two modes have different notions of "selected"; start clean
+          render();
+        });
+      });
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    },
+  });
+  farmDisplayControl = new FarmDisplayControl();
+  map.addControl(farmDisplayControl);
+}
+
+// Show the Applications/Options toggle only in the farming view, and keep its buttons in step with
+// farmDisplay (which an agreement link in the option floater can flip back to "applications").
+function syncFarmDisplayControl() {
+  const el = farmDisplayControl && farmDisplayControl.getContainer();
+  if (!el) return;
+  el.style.display = currentView === "farming" ? "" : "none";
+  el.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.fd === farmDisplay));
 }
 
 // Toggle the base-map tiles between full colour and desaturated (greyscale). The filter is applied
@@ -2038,6 +2110,7 @@ function clearLayers() {
   layers.sfi.clearLayers();
   layers.appHulls.clearLayers();
   layers.spider.clearLayers();
+  layers.optionPoints.clearLayers();
 }
 
 function setLegend(items) {
@@ -2127,31 +2200,21 @@ function buildDesignationLegend() {
     const cat = e.target.closest(".desig-cat");
     if (!cat) return;
     const key = cat.dataset.cat;
-    // The water body category lives in this same host so it reads as a fourth item under one
-    // "Designations" heading, but it is fed from SPARQL, keyed on skos:notation, and toggled by its
-    // own functions — so it is routed here rather than through the DES map, which does not contain it.
-    if (key === "waterbody") return onWaterbodyToggle(e);
     if (e.target.classList.contains("cat-all")) setCategory(key, e.target.checked);
     else if (e.target.matches(".desig-site input")) { setSite(key, e.target.dataset.name, e.target.checked); syncCategory(key); }
   });
 }
 
-// The change handler for the water body category. Split out because it is invoked from the shared
-// designation host handler above (same control, different data source).
-function onWaterbodyToggle(e) {
-  if (e.target.classList.contains("cat-all")) { setAllWb(e.target.checked); return; }
-  if (!e.target.matches(".desig-site input")) return;
-  const notation = e.target.dataset.notation;
-  setWb(notation, e.target.checked);
-  syncWbLegend();
-  // Ticking ONE body zooms to it. At the catchment-wide default zoom a single water body is a few
-  // pixels of translucent fill, so without this the control reads as broken — you tick a name and
-  // nothing appears to happen. Ticking "all" does NOT move the map: the fitted bounds would be the
-  // catchment you are already looking at, so it would be motion without information.
-  if (e.target.checked) {
-    const w = WB.get(notation);
-    if (w) map.fitBounds(w.layer.getBounds(), { padding: [40, 40], maxZoom: 13 });
-  }
+// The Waterbody Catchments picker is a native <select> in the Water super-box, styled like the
+// Substance and Option-type dropdowns. Single-choice: "None" hides every catchment, "All
+// sub-catchments" draws all 19 outlines as context, and a named catchment shows + focuses that one
+// (openWaterbody flies to it and opens its side panel). Populated by buildWaterbodySelect.
+const WB_ALL = "__all";
+function onWaterbodySelect(e) {
+  const v = e.target.value;
+  if (v === "") setAllWb(false);              // hide all (closes the panel if one was focused)
+  else if (v === WB_ALL) { closeWaterbody(); setAllWb(true); }   // all outlines, none focused
+  else openWaterbody(v, false);               // show + focus + fly to this one, open its panel
 }
 
 // ---------------------------------------------------------------------------
@@ -2244,7 +2307,7 @@ async function loadWaterbodies() {
   for (const c of classifications) { const w = WB.get(c.notation); if (w) w.classifications.push(c); }
   for (const g of rnags) { const w = WB.get(g.notation); if (w) w.rnags.push(g); }
 
-  buildWaterbodyLegend();
+  buildWaterbodySelect();
 }
 
 // Largest catchment at the back, smallest at the front. Several of these nest — Frome Dorset (Lower)
@@ -2269,51 +2332,31 @@ function setWb(notation, on) {
 }
 function setAllWb(on) {
   for (const n of WB.keys()) setWb(n, on);
-  syncWbLegend();
+  syncWaterbodySelect();
 }
-function syncWbLegend() {
-  const el = document.querySelector('.desig-cat[data-cat="waterbody"]');
-  if (!el) return;
-  const on = [...WB.values()].filter((w) => w.on).length;
-  const head = el.querySelector(".cat-all");
-  head.checked = WB.size > 0 && on === WB.size;
-  head.indeterminate = on > 0 && on < WB.size;
-  el.querySelectorAll(".desig-site input").forEach((cb) => {
-    cb.checked = !!(WB.get(cb.dataset.notation) || {}).on;
-  });
+// Reflect the current state into the <select>: a focused catchment shows its own name; otherwise
+// "All sub-catchments" while any outline is drawn, or "None" when the layer is empty. Keeps the
+// picker honest when polygons are turned on by other paths — a map click, or a cross-table highlight.
+function syncWaterbodySelect() {
+  const sel = document.getElementById("waterbody");
+  if (!sel) return;
+  const onCount = [...WB.values()].filter((w) => w.on).length;
+  sel.value = selectedWb ? selectedWb : (onCount ? WB_ALL : "");
 }
 
-// Water bodies appear as a fourth category in the SAME control as SSSI/SAC/SPA — one "Designations"
-// heading, four items — rather than a "Water bodies > Waterbodies" control of its own. The category
-// is appended into the designation host so it shares that host's click/change handlers (the change
-// handler routes data-cat="waterbody" to onWaterbodyToggle). It is a separate <div> in the markup
-// only so the two async loaders never race on one innerHTML: designations set theirs from GeoJSON,
-// this appends after the SPARQL resolves.
-function buildWaterbodyLegend() {
+// Populate the Waterbody Catchments <select> (Water super-box), styled like Substance / Option type.
+// "None" is the default off-state so the map stays clean until asked; "All sub-catchments" draws every
+// outline; the named options each focus one catchment.
+function buildWaterbodySelect() {
   if (!WB.size) return;
-  const host = document.getElementById("legend-desig");
-  const list = [...WB.values()]
-    .sort((a, b) => a.label.localeCompare(b.label))
-    .map((w) =>
-      `<label class="desig-site"><input type="checkbox" data-notation="${esc(w.notation)}">` +
-      `<span>${esc(w.label)}</span></label>`).join("");
-  const cat = document.createElement("div");
-  cat.className = "desig-cat";
-  cat.dataset.cat = "waterbody";
-  cat.innerHTML = `
-      <div class="desig-head">
-        <span class="caret">▸</span>
-        <input type="checkbox" class="cat-all" title="Show all water bodies">
-        <span class="swatch" style="background:${WB_COLOR}"></span>
-        <span class="desig-lbl" title="WFD water bodies in the Poole Harbour Rivers operational catchment">Waterbodies</span>
-        <span class="desig-count">${WB.size}</span>
-      </div>
-      <div class="desig-list hidden">${list}</div>`;
-  // If the designation control failed to build (no DES), the host has no "Designations" title; give
-  // this one a heading so it is not a bare unlabelled control.
-  if (!host.querySelector(".desig-title"))
-    host.insertAdjacentHTML("afterbegin", `<span class="desig-title">Designations</span>`);
-  host.appendChild(cat);
+  const sel = document.getElementById("waterbody");
+  if (!sel) return;
+  const opts = [...WB.values()].sort((a, b) => a.label.localeCompare(b.label))
+    .map((w) => `<option value="${esc(w.notation)}">${esc(w.label)}</option>`).join("");
+  sel.innerHTML =
+    `<option value="">None</option>` +
+    `<option value="${WB_ALL}">All sub-catchments (${WB.size})</option>` +
+    `<optgroup label="Focus a sub-catchment">${opts}</optgroup>`;
 }
 
 // Highlight is a style change on the drawn polygon, matching how a focused WINEP action is shown.
@@ -2325,8 +2368,8 @@ function styleWb(w, on) {
 function closeWaterbody() {
   selectedWb = null;
   for (const w of WB.values()) styleWb(w, false);
+  syncWaterbodySelect();               // no focus now: "All" if outlines remain, else "None"
   closeChart();
-  refreshSfiCatchment();               // back to whole-catchment scope
 }
 
 // Open the detail panel for one water body. `fromMap` distinguishes a polygon click (leave the view
@@ -2335,8 +2378,9 @@ function openWaterbody(notation, fromMap) {
   const w = WB.get(notation);
   if (!w) return;
   // Opening a body that is switched off would describe an invisible polygon. Switch it on instead.
-  if (!w.on) { setWb(notation, true); syncWbLegend(); }
+  if (!w.on) setWb(notation, true);
   selectedWb = notation;
+  syncWaterbodySelect();                          // reflect the focused catchment in the picker
   for (const x of WB.values()) styleWb(x, x.notation === notation);
 
   const chart = document.getElementById("chart");
@@ -2344,17 +2388,27 @@ function openWaterbody(notation, fromMap) {
   document.getElementById("chart-title").textContent = w.label;
   chart.classList.remove("hidden");
   body.classList.remove("fit");   // this panel is prose and tables, and DOES scroll
-  // Deliberately NOT collapseLegend(), which the time-series chart does. The legend hosts the
-  // Waterbodies control, and this panel is a thing you read WHILE switching between water bodies —
-  // hiding the control the moment you open one means you have to close the panel to pick the next.
+  // Deliberately NOT collapseLegend(), which the time-series chart does: this panel is read WHILE
+  // moving between sub-catchments, and the legend still carries the base map, designation and SFI-group
+  // keys that give it context. The Waterbody Catchments picker itself now lives up in the Water box.
+  // The panel carries its own SFI breakdown for this sub-catchment when the farming view is active
+  // (see sfiPanelSection in waterbodyPanel); the whole-catchment card below the map stays put.
   body.innerHTML = waterbodyPanel(w);
-  // Re-scope the farming "by option group" table to this sub-catchment. In-place, not via render(),
-  // so the side panel just written above survives. No-ops outside the farming view.
-  refreshSfiCatchment();
   setTimeout(() => {
     map.invalidateSize();
     if (!fromMap) map.fitBounds(w.layer.getBounds(), { padding: [30, 30] });
   }, 80);
+}
+
+// The Catchment Data Explorer serves a human-readable PAGE for each water body, but at a URL that is
+// NOT the graph's own URI: the graph keeps the source's `/so/` URI, which 404s pasted verbatim, while
+// the page drops the `/so/` and uses https. e.g.
+//   graph URI : http://environment.data.gov.uk/catchment-planning/so/WaterBody/GB108044010130   (404)
+//   the page  : https://environment.data.gov.uk/catchment-planning/WaterBody/GB108044010130     (200)
+// It is an HTML page, not linked data (the site publishes no RDF). The mismatch is upstream's to
+// reconcile; here we derive the page URL so the panel can link to it rather than dead-ending.
+function cdePageUrl(iri) {
+  return iri.replace(/^http:/, "https:").replace("/catchment-planning/so/", "/catchment-planning/");
 }
 
 function waterbodyPanel(w) {
@@ -2419,7 +2473,7 @@ function waterbodyPanel(w) {
 
   return `
     <div class="wb-panel">
-      <p class="wb-id">${esc(w.notation)} <span class="wb-uri" title="This is the Environment Agency's own URI. It is not resolvable — environment.data.gov.uk serves no RDF and returns 404 for it.">EA URI · does not resolve</span></p>
+      <p class="wb-id">${esc(w.notation)} <a class="wb-uri" href="${esc(cdePageUrl(w.iri))}" target="_blank" rel="noopener" title="Open this water body on the Catchment Data Explorer — a human-readable page (not linked data). The graph's own URI carries a /so/ segment and 404s; this is the resolvable page.">Catchment Data Explorer&nbsp;↗</a></p>
 
       <h3>How it is designated</h3>
       <p class="wb-desig"><b>${esc(w.desigLabel)}</b></p>
@@ -2437,7 +2491,50 @@ function waterbodyPanel(w) {
         (unattr ? ` <b>${unattr}</b> carr${unattr === 1 ? "ies" : "y"} no national challenge heading and
          ${unattr === 1 ? "is" : "are"} absent from the published cross-table.` : "")}</p>
       ${chalList}
+      ${currentView === "farming" ? sfiPanelSection(w) : ""}
     </div>`;
+}
+
+// The SFI count-and-cost breakdown for one sub-catchment, rendered INTO the water body side panel —
+// but only in the farming view, so the panel says "how it is classified + challenges" everywhere and
+// gains "+ what is farmed here" only where that is the question on screen. Same per-group figures the
+// whole-catchment card below the map uses (see sfiByCatchment): parcels is the count, payment the
+// cost, extent each action's own exact area/length. No total extent — a field carries several actions
+// at different areas, so one "area under improvement" figure would double-count and is not valid.
+function sfiPanelSection(w) {
+  const groups = sfiByCatchment(w.notation);
+  if (!groups.length)
+    return `<h3>Sustainable Farming Incentive</h3>
+      <p class="wb-note">No SFI option parcels fall within this sub-catchment.</p>`;
+  const totParcels = groups.reduce((s, g) => s + g.parcels, 0);
+  const totPay = groups.reduce((s, g) => s + g.payment, 0);
+  const anyPriced = groups.some((g) => g.payment > 0);
+  const extentCell = (g) => {
+    if (g.ha > 0) return `${fmtNum(Math.round(g.ha))}<span class="unit"> ha</span>`;
+    if (g.m > 0) return `${fmtNum(Math.round(g.m))}<span class="unit"> m</span>`;
+    return `<span class="muted">—</span>`;
+  };
+  const rows = groups.map((g) => `
+      <tr>
+        <td>${swatch(groupColor(g.code))}${esc(g.label)} <span class="mono">${esc(g.code)}</span></td>
+        <td class="num">${fmtNum(g.parcels)}</td>
+        <td class="num">${extentCell(g)}</td>
+        <td class="num">${g.payment > 0 ? fmtGBP(Math.round(g.payment)) + "/yr" : '<span class="muted">unpriced</span>'}</td>
+      </tr>`).join("") +
+    `<tr class="tot-row"><td><b>Total</b></td><td class="num"><b>${fmtNum(totParcels)}</b></td>` +
+    `<td class="num"><span class="muted" title="Extent is per action type and cannot be summed — a field carries several actions">—</span></td>` +
+    `<td class="num"><b>${anyPriced ? fmtGBP(Math.round(totPay)) + "/yr" : "—"}</b></td></tr>`;
+
+  return `
+    <h3>Sustainable Farming Incentive</h3>
+    <p class="wb-note">Options whose parcels fall inside this sub-catchment.
+      <b>Parcels</b> counts this action's mapped points; <b>payment</b> is apportioned by parcel share.
+      Both sum cleanly. <b>Extent</b> is each action's own exact area or length and is
+      <b>not totalled</b> — a field carries several actions, so a single footprint would double-count.</p>
+    <table class="wb-sfi">
+      <thead><tr><th>Option group</th><th class="num">Parcels</th><th class="num">Extent</th><th class="num">Annual payment</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 window.wbFocus = (notation) => openWaterbody(notation, false);
@@ -2534,7 +2631,7 @@ window.wbHighlight = (sector, swmi) => {
     setWb(w.notation, hit.has(w.notation));
     styleWb(w, hit.has(w.notation));
   }
-  syncWbLegend();
+  syncWaterbodySelect();
   const bounds = [...hit].map((n) => WB.get(n).layer.getBounds());
   if (bounds.length) {
     const b = bounds.reduce((acc, x) => acc.extend(x), L.latLngBounds(bounds[0].getSouthWest(), bounds[0].getNorthEast()));
@@ -2706,6 +2803,8 @@ const drawnBounds = [];
 
 function render() {
   clearLayers();
+  syncFarmDisplayControl();
+  syncFarmPanes();
   drawnBounds.length = 0;
   for (const k in permitMarkers) delete permitMarkers[k];
   const sub = DB.substances.find((s) => s.notation === currentSubstance);
@@ -3603,12 +3702,21 @@ function farmingLede() {
 }
 
 function renderFarming(tables) {
+  document.getElementById("lede").innerHTML = farmingLede();
+  if (farmDisplay === "options") renderOptionPoints();
+  else renderApplicationHulls();
+
+  tables.append(applicationsTable(), optionsTable(selectedApp), sfiCatchmentCard());
+}
+
+// APPLICATIONS view: one polygon per agreement (convex hull of its option points), plus a spider of
+// the selected agreement's options. This is the original farming map.
+function renderApplicationHulls() {
   setLegend([
     { c: PROGRAMMES["SFI EO"].color, t: "SFI Expanded Offer — priced" },
     { c: PROGRAMMES["SFI 23"].color, t: "SFI 2023 — rates unavailable" },
     { c: "#f5a623", t: "selected application" },
   ]);
-  document.getElementById("lede").innerHTML = farmingLede();
 
   // Every application as a polygon (convex hull of all its option multipoints, or a small square when
   // degenerate), coloured by its programme. Applications overlap heavily, so hovering lists ALL of
@@ -3658,13 +3766,117 @@ function renderFarming(tables) {
     closeChart();
   }
 
-  tables.append(applicationsTable(), optionsTable(selectedApp), sfiCatchmentCard());
-
   if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 14 });
   else {
     const all = DB.sfiOptions.flatMap((o) => o.points);
     if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.1));
   }
+}
+
+// OPTIONS view: every option's individual parcels plotted as points, coloured by option group. There
+// is no "selected application" here — you interrogate the map directly, clicking a point (or a cluster
+// of overlapping points) to see the option(s) behind it. Respects the option-group filter so ticking
+// "Soil management" shows only those parcels.
+function renderOptionPoints() {
+  closeChart();
+  const shownGroups = new Map();     // broader code -> { code, label, count } for the legend
+  plottedOptionDots = [];
+  const bounds = [];
+  // Only agreements in view (option-group / substance filters), then only options of the filtered
+  // group when one is picked — so "Options" honours the same filters "Applications" does.
+  const appSet = new Set(farmingApps().map((a) => a.iri));
+  for (const o of DB.sfiOptions) {
+    if (!appSet.has(o.app)) continue;
+    if (currentOptionType && o.broader !== currentOptionType) continue;
+    const col = groupColor(o.broader);
+    const g = shownGroups.get(o.broader) || { code: o.broader, label: o.broaderLabel, count: 0 };
+    for (const p of o.parcels) {
+      // stroke off (weight 0): at this count a 1px ring per dot is visual noise and costs paint time.
+      L.circleMarker([p.lat, p.lon], { renderer: optionRenderer, radius: 3, weight: 0, fillColor: col, fillOpacity: 0.85 })
+        .addTo(layers.optionPoints);
+      plottedOptionDots.push({ lat: p.lat, lon: p.lon, opt: o });
+      bounds.push([p.lat, p.lon]);
+    }
+    g.count += o.parcels.length;
+    shownGroups.set(o.broader, g);
+  }
+  layers.optionPoints.addTo(map);
+
+  // Legend: the groups actually on the map, biggest first, capped so a 20-group legend doesn't wrap
+  // into a wall. A dimmed tail entry names the remainder rather than dropping it silently.
+  const groups = [...shownGroups.values()].sort((a, b) => b.count - a.count);
+  const shown = groups.slice(0, 10);
+  const items = shown.map((g) => ({ c: groupColor(g.code), t: `${g.label} (${fmtNum(g.count)})` }));
+  if (groups.length > shown.length)
+    items.push({ c: "#5b6472", t: `+${groups.length - shown.length} more group${groups.length - shown.length === 1 ? "" : "s"}` });
+  setLegend(items);
+
+  if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.1));
+}
+
+// Click on the option layer: gather EVERY plotted parcel within a few pixels of the click — the dots
+// stack (73% of parcels share a location with another option), so the one you clicked is rarely alone
+// — dedupe to distinct options, and show them all in a single floater. This is the point-cloud analogue
+// of the application picker (openPicker); it means no option is unreachable under another.
+// Returns true if it found and showed at least one option, so the map handler knows a dot took the
+// click (and should not then open the sub-catchment underneath).
+function openOptionPicker(latlng) {
+  const R = 8;                        // pixels: how close counts as "under the click"
+  const c = map.latLngToLayerPoint(latlng);
+  const seen = new Map();             // option IRI -> option (dedupes an option's own nearby parcels)
+  for (const d of plottedOptionDots) {
+    if (map.latLngToLayerPoint([d.lat, d.lon]).distanceTo(c) <= R) seen.set(d.opt.iri, d.opt);
+  }
+  const opts = [...seen.values()].sort((a, b) => (b.cost || 0) - (a.cost || 0));
+  if (!opts.length) return false;
+
+  const extent = (o) => o.ha > 0 ? `${fmtNum(Math.round(o.ha))} ha`
+    : o.m > 0 ? `${fmtNum(Math.round(o.m))} m` : "—";
+  const MAX = 12;                     // a pathological cluster shouldn't produce an endless popup
+  const cards = opts.slice(0, MAX).map((o) => {
+    const app = DB.appById[o.app];
+    const costHtml = o.cost != null ? `<b>${fmtGBP(o.cost)}</b>/yr` : `<span class="muted">unpriced</span>`;
+    return `<div class="opt-card">
+      <div class="opt-head">${swatch(groupColor(o.broader))}<b>${esc(o.broaderLabel)}</b>` +
+      ` <span class="mono">${esc(o.code)}</span></div>` +
+      (o.def ? `<div class="opt-def">${esc(o.def)}</div>` : "") +
+      `<div class="opt-meta">` +
+      `<span>${costHtml}</span>` +
+      `<span>${esc(extent(o))}</span>` +
+      `<span class="opt-app">agreement <span class="sub-link pick-opt-app" data-app="${esc(o.app)}">${esc(app ? app.id : "")}</span></span>` +
+      `</div></div>`;
+  }).join("");
+  const more = opts.length > MAX ? `<div class="pick-head">+${opts.length - MAX} more here</div>` : "";
+
+  const div = document.createElement("div");
+  div.className = "app-picker opt-picker";
+  div.innerHTML = `<div class="pick-head">${opts.length} option${opts.length === 1 ? "" : "s"} here</div>${cards}${more}`;
+  // Click the agreement id to jump to it in the Applications view (where the cost pie and spider live).
+  div.querySelectorAll(".pick-opt-app").forEach((el) => el.addEventListener("click", () => {
+    map.closePopup();
+    farmDisplay = "applications";
+    selectApp(el.dataset.app);
+  }));
+  L.popup({ className: "picker-popup", maxHeight: 300 }).setLatLng(latlng).setContent(div).openOn(map);
+  return true;
+}
+
+// The visible (toggled-on) water body whose catchment polygon contains the click. Prefers the
+// smallest, since a few sub-catchments nest (Piddle Upper/Lower, Frome u/s & d/s) and the smaller is
+// the more specific — and the one drawn on top.
+function waterbodyAt(latlng) {
+  let best = null;
+  for (const w of WB.values())
+    if (w.on && pointInRing(latlng.lat, latlng.lng, w.ring) && (!best || w.area < best.area)) best = w;
+  return best ? best.notation : null;
+}
+
+// Options view makes both the dots and the water bodies non-interactive at the DOM level, so the map
+// click handler alone decides what a click means (dot, then sub-catchment). Everywhere else the water
+// bodies keep their own click behaviour.
+function syncFarmPanes() {
+  const wbPane = map.getPane("waterbodies");
+  if (wbPane) wbPane.style.pointerEvents = (currentView === "farming" && farmDisplay === "options") ? "none" : "auto";
 }
 
 // The modelled-removal cell. The graph stores a NEGATIVE kg/yr (a reduction in loss); under a column
@@ -3805,9 +4017,12 @@ function sfiByCatchment(notation) {
   return Object.values(byGroup).sort((a, b) => b.parcels - a.parcels || b.payment - a.payment);
 }
 
+// The whole-catchment SFI overview, shown below the map in the farming view. Per-sub-catchment
+// figures no longer live here — clicking a waterbody catchment scopes them in the SIDE PANEL instead
+// (see sfiPanelSection). This card is always the whole catchment, so it stays a stable reference the
+// scoped panel reads against.
 function sfiCatchmentCard() {
-  const w = selectedWb ? WB.get(selectedWb) : null;
-  const groups = sfiByCatchment(selectedWb);
+  const groups = sfiByCatchment(null);
   const totParcels = groups.reduce((s, g) => s + g.parcels, 0);
   const totPay = groups.reduce((s, g) => s + g.payment, 0);
   const anyPriced = groups.some((g) => g.payment > 0);
@@ -3832,9 +4047,7 @@ function sfiCatchmentCard() {
     `<td class="num"><span class="muted" title="Extent is per action type and cannot be summed — a field carries several actions">—</span></td>` +
     `<td class="num"><b>${anyPriced ? fmtGBP(Math.round(totPay)) + "/yr" : "—"}</b></td></tr>`;
 
-  const hint = w
-    ? ` <span class="count">— ${esc(w.label)} · <span class="sub-link sfi-all" title="Show the whole catchment">✕ whole catchment</span></span>`
-    : ` <span class="count">— whole catchment · turn on Waterbodies and click a sub-catchment to scope</span>`;
+  const hint = ` <span class="count">— whole catchment · turn on Waterbody Catchments and click a sub-catchment for its own breakdown in the side panel</span>`;
 
   const c = document.createElement("div");
   c.className = "card";
@@ -3846,7 +4059,7 @@ function sfiCatchmentCard() {
   note.className = "table-caveat";
   note.innerHTML =
     `<b>Extent</b> is each action's own area (ha) or length (m), taken from the per-parcel figures in ` +
-    `the source, so it is <b>exact</b> for this sub-catchment — a parcel's hectares belong to one water ` +
+    `the source, so it is <b>exact</b> — a parcel's hectares belong to one water ` +
     `body, not split by apportionment. It is shown <b>per action type and is not totalled</b>: a field ` +
     `usually carries several actions (73% here do), and the source even records different areas for ` +
     `different actions on the same point, so a single "area under improvement" figure would double-count ` +
@@ -3855,17 +4068,7 @@ function sfiCatchmentCard() {
     `parcel share. Both of those do sum. This is not a count of whole agreements — a straddling option ` +
     `is split between sub-catchments.`;
   c.append(note);
-
-  c.addEventListener("click", (e) => { if (e.target.closest(".sfi-all")) closeWaterbody(); });
   return c;
-}
-
-// Rebuild ONLY this card in place, so a water-body click updates it without a full render() (which
-// would rebuild every farming table and, worse, close the water-body side panel). No-ops when the
-// card is absent -- i.e. in every view but farming.
-function refreshSfiCatchment() {
-  const existing = document.getElementById("sfi-catchment");
-  if (existing) existing.replaceWith(sfiCatchmentCard());
 }
 
 // Expandable rows: clicking a summary row toggles the detail row and lazily fills it.
@@ -3916,11 +4119,9 @@ async function main() {
   const status = document.getElementById("status");
   try {
     await loadAll();
-    // Designations FIRST, then water bodies: the water body category is appended into the designation
-    // host, so that host's "Designations" title and SSSI/SAC/SPA chips must exist before it lands.
-    // Awaiting designations (three local GeoJSON fetches) orders the two builders deterministically
-    // and removes any innerHTML race between them. buildWaterbodyLegend still falls back to writing
-    // its own title if designations happened to fail, so the control is never left unlabelled.
+    // Designations (SSSI/SAC/SPA) build into the legend; the Waterbody Catchments <select> populates
+    // its own element up in the Water super-box, so the two are independent. The ordering below is now
+    // incidental, not a dependency.
     await loadDesignations();
     // Fire-and-forget from here: if catchment.ttl is missing from the store the control simply never
     // appears and every other view still works. The .catch is not decoration — an unhandled rejection
@@ -3964,6 +4165,7 @@ async function main() {
     if (currentOptionType && selectedApp && !appHasType(selectedApp, currentOptionType)) selectedApp = null;
     render();
   });
+  document.getElementById("waterbody").addEventListener("change", onWaterbodySelect);
   // The chart is the manifestation of a focused application, so in farming its ✕ clears the
   // selection (which also closes the chart); elsewhere (the substance time-series) it just closes.
   document.getElementById("chart-close").addEventListener("click", () => {

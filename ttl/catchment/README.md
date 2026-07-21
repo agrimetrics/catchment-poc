@@ -50,14 +50,21 @@ against the local file. All pass.
 
 ## What the app does with it
 
-**Waterbodies** is a fourth category in the map's **Designations** control, alongside SSSI / SAC / SPA,
-toggling the 19 catchment polygons. Clicking a polygon opens a side panel giving its designation and
+**Waterbody Catchments** is a **dropdown** in the **Water** super-box at the top of the page (beside
+"the regulated world" and "the measured world", styled exactly like the Substance and Option-type
+filters) — a sub-catchment is the unit you pick a world to look *at*, so it lives with the worlds, not
+down in the Designations legend with SSSI / SAC / SPA. Picking a named catchment draws and focuses it
+(and opens its panel); "All sub-catchments" draws every outline; "None" clears them. Clicking a
+sub-catchment on the map opens the same side panel, giving its designation and
 how that designation moved across versions, its classification history (one row per year, one column
 per headline item, coloured status pills), and the water body's challenges listed individually — each
-naming what actually failed, with the challenges that carry no national heading marked as such. The
+naming what actually failed, with the challenges that carry no national heading marked as such. In the
+**farming** view that same panel also carries the sub-catchment's SFI count-and-cost breakdown (parcels,
+exact per-action extent, apportioned payment); in the **regulated** and **measured** views the panel
+stays classification-and-challenges only, until the user clicks a sampling point / determinand. The
 measured view also carries a whole-catchment challenges cross-table, scoped to the selected water body
 when there is one; clicking a cell highlights the water bodies behind it. Code: `loadWaterbodies`,
-`waterbodyPanel`, `wbCrosstab`, `wbHighlight` in `app/app.js`.
+`buildWaterbodySelect`, `waterbodyPanel`, `sfiPanelSection`, `wbCrosstab`, `wbHighlight` in `app/app.js`.
 
 Two numbers there are worth knowing before reading the table. The published Catchment Data Explorer
 cross-table totals **29**; this one totals **63**, because 57 of the 95 challenges carry no national
@@ -71,9 +78,13 @@ classification history can, and does.
 **Not from the public website.** The Catchment Data Explorer looks like a linked-data application and
 serves no RDF: `.ttl`, `.rdf`, `.json` and every RDF `Accept` header all return `text/html` with HTTP
 **200** — not 406, not 404 — so a content-negotiation probe that trusts the status code reports success
-and hands back a web page. `/sparql` 404s, and the `so/` URIs the site's own GeoJSON advertises 404 too.
-The published surface is CSV, GeoJSON and shapefile. This was probed exhaustively; see PLAN.md §1 rather
-than repeating it.
+and hands back a web page. `/sparql` 404s, and the `so/` URIs the graph stores 404 too when pasted
+verbatim. The published surface is CSV, GeoJSON and shapefile.
+
+It is a working web app, though — each water body **does** have a human-readable page, at its `/so/`-less
+https URL (`https://environment.data.gov.uk/catchment-planning/WaterBody/{id}`); the app links to it (see
+`cdePageUrl`, and TODO.md §4). "No RDF" is the accurate claim; "the URIs don't resolve to anything" was
+not, and is corrected there. This was probed via content negotiation; see PLAN.md §1.
 
 The real source is an internal SPARQL endpoint, not publicly reachable. `sparql_client.py` reads its
 location and credentials from the environment (`CDE_SPARQL_ENDPOINT`, `CDE_SPARQL_USER`,

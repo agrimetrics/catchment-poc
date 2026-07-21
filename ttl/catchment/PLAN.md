@@ -31,6 +31,13 @@ not. Probed and recorded so nobody repeats it:
 The extension-bearing URLs return HTML with HTTP **200**, not 404 or 406 — a content-negotiation probe
 that trusts the status code will report success and hand back a web page. Check `content-type`.
 
+**Correction (the `so/` 404 is not the whole story).** The `/so/WaterBody/{id}` URI 404s *as written*,
+but the water body is not un-findable: drop the `/so/` and use https and you get its human-readable
+Catchment Data Explorer page — `https://environment.data.gov.uk/catchment-planning/WaterBody/{id}` →
+**200**, "Devils Brook | Catchment Data Explorer". So "no public **RDF**" is right; "the URIs resolve to
+nothing" was wrong. The app derives and links that page (TODO.md §4). The upstream mismatch — the graph's
+identifier is not the URL the page lives at — is Defra's to reconcile.
+
 **The published machine-readable surface is CSV, GeoJSON and shapefile.** Hence: get source access.
 The CSVs are richer than the rendered HTML tables and are a viable shim, but they are a shim.
 
