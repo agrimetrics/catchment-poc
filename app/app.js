@@ -100,10 +100,106 @@ PREFIX dcterms: <http://purl.org/dc/terms/>
 PREFIX wr:    <http://example.com/water-regulation/>
 `;
 
+// Catchment Data Explorer namespaces. Separate from PREFIXES because these are the ONLY vocabularies
+// in this app whose subjects keep real Environment Agency URIs rather than example.com ones — see
+// ttl/catchment/README.md. Nothing here is minted by this repository.
+const CP_PREFIXES = `
+PREFIX wfd:  <http://environment.data.gov.uk/catchment-planning/def/water-framework-directive/>
+PREFIX wbc:  <http://environment.data.gov.uk/catchment-planning/def/waterbody-classification/>
+PREFIX rff:  <http://environment.data.gov.uk/catchment-planning/def/reason-for-failure/>
+PREFIX cpg:  <http://environment.data.gov.uk/catchment-planning/def/geometry/>
+PREFIX ver:  <http://purl.org/linked-data/version#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX geo:  <http://www.opengis.net/ont/geosparql#>
+`;
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 const Q = {
+  // -------------------------------------------------------------------------
+  // Water bodies (Catchment Data Explorer). See ttl/catchment/ISSUES.md before editing any of these.
+  // -------------------------------------------------------------------------
+  // One row per water body, and the joins are what keep it that way:
+  //
+  //   ver:currentVersion  not dcterms:hasVersion — there are 39 versions over 19 bodies, so joining
+  //                       hasVersion doubles every row. The name and the designation BOTH live on the
+  //                       version, never on the base water body.
+  //   a cpg:Catchment     each body carries two geometries, a catchment POLYGON and a river-line
+  //                       MULTILINESTRING. Without this the layer draws each body twice, once as an
+  //                       area and once as a line that looks like a sliver of a polygon.
+  //   ?d rdfs:label       NOT skos:prefLabel. The designation concepts are typed
+  //                       wfd:HydromorphologicalDesignation and carry rdfs:label only; asking for
+  //                       prefLabel returns 19 rows with a blank designation, which reads exactly
+  //                       like "this catchment has no designations" and is how that wrong conclusion
+  //                       got made once already.
+  waterbodies: `${CP_PREFIXES}
+    SELECT ?wb ?notation ?label ?desig ?desigLabel ?wkt WHERE {
+      ?wb wfd:inOperationalCatchment ?oc ; skos:notation ?notation ; ver:currentVersion ?cv .
+      ?cv rdfs:label ?label ; wfd:hydromorphologicalDesignation ?desig .
+      ?desig rdfs:label ?desigLabel .
+      ?wb geo:hasGeometry ?g . ?g a cpg:Catchment ; geo:asWKT ?wkt .
+    } ORDER BY ?label`,
+
+  // Every version, so the panel can show that the designation MOVED. Read only the current version
+  // and this vocabulary looks dead: all 19 bodies are "not designated" today. Three of them
+  // (Sydling Water, Frome Dorset (Upper), Piddle (Lower)) were heavily modified at version 1.
+  // That change is the only movement this vocabulary has, and it is invisible in the published CSV.
+  wbVersions: `${CP_PREFIXES}
+    SELECT ?notation ?v ?label ?desigLabel WHERE {
+      ?wb wfd:inOperationalCatchment ?oc ; skos:notation ?notation ; dcterms:hasVersion ?v .
+      ?v rdfs:label ?label ; wfd:hydromorphologicalDesignation ?d . ?d rdfs:label ?desigLabel .
+    } ORDER BY ?notation ?v`,
+
+  // Classification history, restricted to the four headline items — the full set is 74 items over
+  // 5,852 records and no panel can show that.
+  //
+  // The FILTER is also a fan-out guard. 372 classifications carry TWO classificationValues
+  // ("Supports Good" AND "Not High", from one scheme), and every one of them is a Hydromorphological
+  // Supporting Elements or Morphology record. None of the four items below is affected, so this
+  // returns exactly one row per (body, item, year, cycle). Add an item here and check that again.
+  wbClassifications: `${CP_PREFIXES}
+    SELECT ?notation ?item ?year ?cycle ?status WHERE {
+      ?wb skos:notation ?notation .
+      ?c a wbc:Classification ; wfd:waterBody ?wb ; wbc:classificationItem ?i ;
+         wbc:classificationYear ?year ; wfd:cycle ?cyU ; wbc:classificationValue ?sv .
+      ?i skos:prefLabel ?il . ?sv skos:prefLabel ?sl .
+      FILTER(STR(?il) IN ("Overall Water Body", "Ecological", "Chemical", "Phosphate"))
+      BIND(STR(?il) AS ?item) BIND(STR(?sl) AS ?status)
+      BIND(REPLACE(STR(?cyU), "^.*/", "") AS ?cycle)
+    } ORDER BY ?notation ?item ?year`,
+
+  // The challenges (RNAGs). Both OPTIONALs matter: 57 of the 95 have no nationalSWMIheader and would
+  // vanish from an inner join, taking with them every "measures delivered, awaiting recovery" record.
+  // A challenges table that silently drops 60% of the challenges is worse than no table.
+  //
+  // STR() on every label: these are language-tagged ("Bad"@en), and comparing a tagged literal to a
+  // plain string matches nothing — which returns an empty table that looks like a finding.
+  wbRnags: `${CP_PREFIXES}
+    SELECT ?notation ?swmi ?sector ?p3 ?item ?status ?activity ?cycle WHERE {
+      ?wb skos:notation ?notation .
+      ?x a rff:ReasonForFailure ; wfd:waterBody ?wb ; rff:pressureTier3 ?p3L ;
+         wbc:classification ?cl ; wbc:classificationItem ?i ; wfd:cycle ?cyU .
+      # classificationItem is what actually failed, and without it challenges are indistinguishable:
+      # Bere Stream's two both render as "Fail / Chemicals / no sector responsible" and look like one
+      # record duplicated. They are a mercury failure and a PBDE failure.
+      ?i skos:prefLabel ?itemL .
+      ?cl wbc:classificationValue ?sv . ?sv rdfs:label ?statusL .
+      # EVERY REQUIRED PATTERN FIRST, OPTIONALs LAST. This is not style. With these three OPTIONALs
+      # placed above the classificationValue join, and the BINDs below present, this query took
+      # 30 SECONDS against a 51k-triple store and stalled the whole layer behind it; moving them here
+      # takes it to ~0.01s. The planner will not reorder joins across an OPTIONAL, so an OPTIONAL
+      # written early forces the required joins to be evaluated against its partial results.
+      OPTIONAL { ?x rff:nationalSWMIheader ?swmiL }
+      OPTIONAL { ?x rff:category ?cat . ?cat rdfs:label ?sectorL }
+      OPTIONAL { ?x rff:activity ?act . ?act rdfs:label ?actL }
+      BIND(STR(?p3L) AS ?p3) BIND(STR(?statusL) AS ?status) BIND(STR(?itemL) AS ?item)
+      BIND(STR(?swmiL) AS ?swmi) BIND(STR(?sectorL) AS ?sector) BIND(STR(?actL) AS ?activity)
+      BIND(REPLACE(STR(?cyU), "^.*/", "") AS ?cycle)
+    }`,
+
   // The substance FILTER offers only what the app can chart: the determinands the archive holds a
   // time series for here (12 of the 38 the register regulates). The other 26 — flow, dry-weather
   // flow, weir settings, storm-overflow telemetry, metals, pesticides — are real permit conditions,
@@ -1406,6 +1502,12 @@ const DB = {};       // raw + derived caches
 let map, base, catchmentLayer;
 const layers = {};   // name -> L.LayerGroup / MarkerClusterGroup
 const DES = {};      // designation key -> { label, full, color, sites: Map(name -> {layer, on}) }
+// Water bodies: notation -> { label, notation, desigLabel, layer, on, versions, classifications, rnags }
+const WB = new Map();
+// The water body whose panel is open, as a NOTATION (skos:notation), never a label. Labels live on
+// versions and vary in case between them — "PIDDLE (Lower)" at v1/v2, "Piddle (Lower)" at v3 — so a
+// label is not an identifier here. This is the fan-out failure app/TODO.md already documents.
+let selectedWb = null;
 let currentView = "regulated";
 let currentSubstance = ""; // notation or ""
 let currentOptionType = ""; // farming: broader option-group code filter, or ""
@@ -1737,8 +1839,19 @@ function initMap() {
   map.getPane("designations").style.zIndex = 250;
   map.getPane("designations").style.pointerEvents = "none";
 
+  // Water bodies sit just above the conservation underlays and, unlike them, ARE clickable — the
+  // whole point is selecting one. They stay below the marker pane (600), so a discharge point or
+  // sampling point on top of a water body still takes the click.
+  map.createPane("waterbodies");
+  map.getPane("waterbodies").style.zIndex = 260;
+
   fetch("catchment.geojson").then((r) => r.json()).then((gj) => {
     catchmentLayer = L.geoJSON(gj, {
+      // interactive:false because this outline has no click behaviour and is filled. It sits in the
+      // default overlayPane (z-index 400), ABOVE the water bodies pane (260), so while it was
+      // interactive it silently ate clicks aimed at a water body wherever the two overlap — which is
+      // everywhere, since every water body is inside the catchment.
+      interactive: false,
       style: { color: "#5aa9ff", weight: 1.5, fillColor: "#3aa0ff", fillOpacity: 0.06 },
     }).addTo(map);
   }).catch(() => {});
@@ -1981,10 +2094,414 @@ function buildDesignationLegend() {
     const cat = e.target.closest(".desig-cat");
     if (!cat) return;
     const key = cat.dataset.cat;
+    // The water body category lives in this same host so it reads as a fourth item under one
+    // "Designations" heading, but it is fed from SPARQL, keyed on skos:notation, and toggled by its
+    // own functions — so it is routed here rather than through the DES map, which does not contain it.
+    if (key === "waterbody") return onWaterbodyToggle(e);
     if (e.target.classList.contains("cat-all")) setCategory(key, e.target.checked);
     else if (e.target.matches(".desig-site input")) { setSite(key, e.target.dataset.name, e.target.checked); syncCategory(key); }
   });
 }
+
+// The change handler for the water body category. Split out because it is invoked from the shared
+// designation host handler above (same control, different data source).
+function onWaterbodyToggle(e) {
+  if (e.target.classList.contains("cat-all")) { setAllWb(e.target.checked); return; }
+  if (!e.target.matches(".desig-site input")) return;
+  const notation = e.target.dataset.notation;
+  setWb(notation, e.target.checked);
+  syncWbLegend();
+  // Ticking ONE body zooms to it. At the catchment-wide default zoom a single water body is a few
+  // pixels of translucent fill, so without this the control reads as broken — you tick a name and
+  // nothing appears to happen. Ticking "all" does NOT move the map: the fitted bounds would be the
+  // catchment you are already looking at, so it would be motion without information.
+  if (e.target.checked) {
+    const w = WB.get(notation);
+    if (w) map.fitBounds(w.layer.getBounds(), { padding: [40, 40], maxZoom: 13 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Water bodies (Catchment Data Explorer) — layer, legend control, detail panel
+// ---------------------------------------------------------------------------
+// The water bodies have to read as a distinct layer against a catchment outline that is ALREADY blue
+// (#3aa0ff at 0.06) and a basemap full of blue watercourses. The first attempt — #4fd1c5 at 0.14 —
+// was technically drawn and technically clickable, and invisible: ticking the control produced no
+// change a user could see, so there was nothing to click. Opacity and stroke weight here are the
+// affordance, not decoration.
+const WB_COLOR = "#00e0c6";
+const WB_SEL = "#ffb340";
+const WB_STYLE = { color: WB_COLOR, weight: 2, fillColor: WB_COLOR, fillOpacity: 0.3 };
+const WB_HOVER = { color: "#7dffe9", weight: 3, fillColor: "#7dffe9", fillOpacity: 0.42 };
+const WB_STYLE_SEL = { color: WB_SEL, weight: 3.5, fillColor: WB_SEL, fillOpacity: 0.5 };
+
+// Status colours. "Does not require assessment" and "Not assessed" are deliberately NOT the same
+// grey as a missing value would be — they are recorded facts about what was tested, and the app's
+// standing rule is that an absence of measurement never gets painted as a result.
+const STATUS_COLOR = {
+  "High": "#2f9e5a", "Good": "#57b85c", "Supports Good": "#57b85c",
+  "Moderate": "#e0a020", "Poor": "#e5762d", "Bad": "#e5484d",
+  "Fail": "#e5484d", "Does Not Support Good": "#e5762d", "Not High": "#8a94a6",
+};
+// Shortened for the pills only — "Does not require assessment" is wider than the column it sits in.
+// The full wording stays in the title attribute; nothing is shortened into something that reads as a
+// different verdict ("not required" is not "passed").
+const SHORT_STATUS = {
+  "Does not require assessment": "not required",
+  "Does Not Support Good": "not supporting",
+  "Supports Good": "supports good",
+};
+
+// A status pill. `absent` is deliberately a different THING rather than a paler shade of the same
+// thing: "not assessed" is the absence of a verdict, and the one mistake this panel must not make is
+// letting it read as a quiet pass.
+function pill(status) {
+  if (!status) return `<span class="wb-pill wb-pill-absent" title="not assessed in this year">not assessed</span>`;
+  const bg = STATUS_COLOR[status] || "#5b6472";
+  return `<span class="wb-pill" style="background:${bg}" title="${esc(status)}">` +
+         `${esc(SHORT_STATUS[status] || status)}</span>`;
+}
+
+// Statuses that count as "below good" — the filter behind the published challenges cross-table.
+const BELOW_GOOD = new Set(["Bad", "Poor", "Moderate", "Fail", "Does Not Support Good"]);
+
+async function loadWaterbodies() {
+  let rows, versions, classifications, rnags;
+  try {
+    [rows, versions, classifications, rnags] = await Promise.all([
+      sparql(Q.waterbodies), sparql(Q.wbVersions), sparql(Q.wbClassifications), sparql(Q.wbRnags),
+    ]);
+  } catch (err) {
+    console.error("Water bodies unavailable:", err);
+    window.__wbErr = `${err.name}: ${err.message}`;  // readable from a test harness
+    return;                            // no control is built; the rest of the app is unaffected
+  }
+  if (rows.length !== 19)
+    console.error(`FAN-OUT: ${rows.length} water body rows, expected 19 — a join is duplicating.`);
+
+  for (const r of rows) {
+    // A catchment POLYGON, drawn as its outer ring. parseWkt flattens the coordinate list, which is
+    // right for a simple polygon and would be wrong for one with holes; none of these 19 has one.
+    const pts = parseWkt(r.wkt).points;
+    if (!pts.length) continue;
+    const layer = L.polygon(pts, { pane: "waterbodies", ...WB_STYLE });
+    // Behave like the sampling-point and permit markers: hover feedback, a pointer cursor and a name
+    // under the cursor, so it is visibly a thing you can click before you click it.
+    layer.on("click", () => openWaterbody(r.notation, true));
+    // No bringToFront() on hover. These catchments nest and abut, so raising the hovered polygon
+    // re-stacks the pane mid-gesture: the shape under the cursor when the click lands is not the one
+    // that was under it when the pointer arrived, and you open a neighbour. Stacking is fixed once,
+    // by area, below. Only the SELECTED polygon is ever raised.
+    layer.on("mouseover", () => { if (selectedWb !== r.notation) layer.setStyle(WB_HOVER); });
+    layer.on("mouseout", () => { if (selectedWb !== r.notation) layer.setStyle(WB_STYLE); });
+    layer.bindTooltip(r.label, { sticky: true });
+    const b = layer.getBounds();
+    WB.set(r.notation, {
+      notation: r.notation, iri: r.wb, label: r.label,
+      desig: r.desig, desigLabel: r.desigLabel,
+      // Bounding-box area, used only to decide stacking order (see restackWb).
+      area: (b.getNorth() - b.getSouth()) * (b.getEast() - b.getWest()),
+      layer, on: false, versions: [], classifications: [], rnags: [],
+    });
+  }
+  for (const v of versions) { const w = WB.get(v.notation); if (w) w.versions.push(v); }
+  for (const c of classifications) { const w = WB.get(c.notation); if (w) w.classifications.push(c); }
+  for (const g of rnags) { const w = WB.get(g.notation); if (w) w.rnags.push(g); }
+
+  buildWaterbodyLegend();
+}
+
+// Largest catchment at the back, smallest at the front. Several of these nest — Frome Dorset (Lower)
+// u/s and d/s Louds Mill, Piddle Upper and Lower — and in tick order alone a small water body can end
+// up entirely beneath a large one, where no click can ever reach it. Re-run whenever the drawn set
+// changes, because bringToFront() only affects layers currently on the map.
+function restackWb() {
+  [...WB.values()].filter((w) => w.on).sort((a, b) => b.area - a.area)
+    .forEach((w) => w.layer.bringToFront());
+  const sel = selectedWb && WB.get(selectedWb);
+  if (sel && sel.on) sel.layer.bringToFront();
+}
+
+function setWb(notation, on) {
+  const w = WB.get(notation);
+  if (!w || w.on === on) return;
+  w.on = on;
+  if (on) { w.layer.addTo(map); restackWb(); } else map.removeLayer(w.layer);
+  // Turning a water body off closes its panel: the panel describes a polygon that is no longer drawn,
+  // and leaving it open invites reading it against whatever is still on screen.
+  if (!on && selectedWb === notation) closeWaterbody();
+}
+function setAllWb(on) {
+  for (const n of WB.keys()) setWb(n, on);
+  syncWbLegend();
+}
+function syncWbLegend() {
+  const el = document.querySelector('.desig-cat[data-cat="waterbody"]');
+  if (!el) return;
+  const on = [...WB.values()].filter((w) => w.on).length;
+  const head = el.querySelector(".cat-all");
+  head.checked = WB.size > 0 && on === WB.size;
+  head.indeterminate = on > 0 && on < WB.size;
+  el.querySelectorAll(".desig-site input").forEach((cb) => {
+    cb.checked = !!(WB.get(cb.dataset.notation) || {}).on;
+  });
+}
+
+// Water bodies appear as a fourth category in the SAME control as SSSI/SAC/SPA — one "Designations"
+// heading, four items — rather than a "Water bodies > Waterbodies" control of its own. The category
+// is appended into the designation host so it shares that host's click/change handlers (the change
+// handler routes data-cat="waterbody" to onWaterbodyToggle). It is a separate <div> in the markup
+// only so the two async loaders never race on one innerHTML: designations set theirs from GeoJSON,
+// this appends after the SPARQL resolves.
+function buildWaterbodyLegend() {
+  if (!WB.size) return;
+  const host = document.getElementById("legend-desig");
+  const list = [...WB.values()]
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map((w) =>
+      `<label class="desig-site"><input type="checkbox" data-notation="${esc(w.notation)}">` +
+      `<span>${esc(w.label)}</span></label>`).join("");
+  const cat = document.createElement("div");
+  cat.className = "desig-cat";
+  cat.dataset.cat = "waterbody";
+  cat.innerHTML = `
+      <div class="desig-head">
+        <span class="caret">▸</span>
+        <input type="checkbox" class="cat-all" title="Show all water bodies">
+        <span class="swatch" style="background:${WB_COLOR}"></span>
+        <span class="desig-lbl" title="WFD water bodies in the Poole Harbour Rivers operational catchment">Waterbodies</span>
+        <span class="desig-count">${WB.size}</span>
+      </div>
+      <div class="desig-list hidden">${list}</div>`;
+  // If the designation control failed to build (no DES), the host has no "Designations" title; give
+  // this one a heading so it is not a bare unlabelled control.
+  if (!host.querySelector(".desig-title"))
+    host.insertAdjacentHTML("afterbegin", `<span class="desig-title">Designations</span>`);
+  host.appendChild(cat);
+}
+
+// Highlight is a style change on the drawn polygon, matching how a focused WINEP action is shown.
+function styleWb(w, on) {
+  w.layer.setStyle(on ? WB_STYLE_SEL : WB_STYLE);
+  if (on) w.layer.bringToFront();
+}
+
+function closeWaterbody() {
+  selectedWb = null;
+  for (const w of WB.values()) styleWb(w, false);
+  closeChart();
+}
+
+// Open the detail panel for one water body. `fromMap` distinguishes a polygon click (leave the view
+// alone — the user is already looking at it) from a programmatic open (fly to it).
+function openWaterbody(notation, fromMap) {
+  const w = WB.get(notation);
+  if (!w) return;
+  // Opening a body that is switched off would describe an invisible polygon. Switch it on instead.
+  if (!w.on) { setWb(notation, true); syncWbLegend(); }
+  selectedWb = notation;
+  for (const x of WB.values()) styleWb(x, x.notation === notation);
+
+  const chart = document.getElementById("chart");
+  const body = document.getElementById("chart-body");
+  document.getElementById("chart-title").textContent = w.label;
+  chart.classList.remove("hidden");
+  body.classList.remove("fit");   // this panel is prose and tables, and DOES scroll
+  // Deliberately NOT collapseLegend(), which the time-series chart does. The legend hosts the
+  // Waterbodies control, and this panel is a thing you read WHILE switching between water bodies —
+  // hiding the control the moment you open one means you have to close the panel to pick the next.
+  body.innerHTML = waterbodyPanel(w);
+  setTimeout(() => {
+    map.invalidateSize();
+    if (!fromMap) map.fitBounds(w.layer.getBounds(), { padding: [30, 30] });
+  }, 80);
+}
+
+function waterbodyPanel(w) {
+  // --- designation, and whether it moved ------------------------------------
+  const vs = [...w.versions].sort((a, b) => a.v.localeCompare(b.v));
+  const distinct = new Set(vs.map((v) => v.desigLabel));
+  const verNo = (v) => v.v.replace(/^.*\//, "");
+  const desigHist = distinct.size > 1
+    ? `<p class="wb-note wb-change"><b>This designation changed.</b> ` +
+      vs.map((v) => `v${esc(verNo(v))} <i>${esc(v.desigLabel)}</i>`).join(" → ") + `.</p>`
+    : `<p class="wb-note">Unchanged across ${vs.length} version${vs.length === 1 ? "" : "s"}.</p>`;
+
+  // --- classification history, pivoted: one ROW per year, one column per item ------------------
+  // Years down the side rather than across the top. With ten years as columns the table was wider
+  // than the panel and had to scroll sideways; the number of headline items is fixed and small, so
+  // pivoting makes it fit, and reading a water body's history top-to-bottom is the natural direction.
+  const cls = w.classifications;
+  const years = [...new Set(cls.map((c) => c.year))].sort();
+  const ITEMS = ["Overall Water Body", "Ecological", "Chemical", "Phosphate"];
+  const items = ITEMS.filter((i) => cls.some((c) => c.item === i));
+  // Key on (item, year, cycle): cycles 2 and 3 BOTH published a 2019 assessment, so (item, year)
+  // alone collides and one silently overwrites the other.
+  const byKey = new Map(cls.map((c) => [`${c.item}|${c.year}|${c.cycle}`, c]));
+  const cycleOf = (y) => [...new Set(cls.filter((c) => c.year === y).map((c) => c.cycle))].sort();
+
+  const histHead = `<tr><th>Year</th>${items.map((i) => `<th class="ctr">${esc(i)}</th>`).join("")}</tr>`;
+  const histRows = years.map((y) => {
+    const cy = cycleOf(y);
+    return `<tr><td class="wb-yr">${esc(y)}<span class="wb-cy">cycle ${cy.join(" & ")}</span></td>` +
+      items.map((it) => {
+        // Where two cycles both assessed this year, show the later cycle's verdict and name both.
+        const hits = cy.map((c) => byKey.get(`${it}|${y}|${c}`)).filter(Boolean);
+        if (!hits.length) return `<td class="ctr">${pill(null)}</td>`;
+        const last = hits[hits.length - 1];
+        const t = hits.map((h) => `cycle ${h.cycle}: ${h.status}`).join("; ");
+        return `<td class="ctr" title="${esc(t)}">${pill(last.status)}</td>`;
+      }).join("") + `</tr>`;
+  }).join("");
+
+  // --- the challenges themselves, listed ---------------------------------------------------------
+  const UNATTR = "(not attributed)";
+  const rnags = [...w.rnags].sort((a, b) =>
+    (BELOW_GOOD.has(b.status) - BELOW_GOOD.has(a.status)) ||
+    (a.swmi || "￿").localeCompare(b.swmi || "￿") ||
+    a.p3.localeCompare(b.p3) || (a.item || "").localeCompare(b.item || ""));
+  const below = rnags.filter((g) => BELOW_GOOD.has(g.status)).length;
+  const unattr = rnags.filter((g) => !g.swmi).length;
+
+  const chalList = rnags.length === 0
+    ? `<p class="wb-note">No reasons for not achieving good are recorded for this water body.</p>`
+    : rnags.map((g) => `
+        <div class="wb-chal${g.swmi ? "" : " wb-chal-unattr"}">
+          <div class="wb-chal-top">
+            ${pill(g.status)}
+            <span class="wb-chal-p3">${esc(g.item || g.p3)}</span>
+          </div>
+          <div class="wb-chal-swmi">${g.swmi ? esc(g.swmi) : UNATTR}</div>
+          <div class="wb-chal-meta">
+            ${esc(g.p3)} · ${g.sector ? esc(g.sector) : "no sector recorded"}${g.activity ? ` · ${esc(g.activity)}` : ""}
+          </div>
+        </div>`).join("");
+
+  return `
+    <div class="wb-panel">
+      <p class="wb-id">${esc(w.notation)} <span class="wb-uri" title="This is the Environment Agency's own URI. It is not resolvable — environment.data.gov.uk serves no RDF and returns 404 for it.">EA URI · does not resolve</span></p>
+
+      <h3>How it is designated</h3>
+      <p class="wb-desig"><b>${esc(w.desigLabel)}</b></p>
+      ${desigHist}
+
+      <h3>How it is classified</h3>
+      <p class="wb-note">Four headline items of the 74 assessed. "Not assessed" means exactly that —
+        it is not a pass.</p>
+      <table class="wb-hist"><thead>${histHead}</thead><tbody>${histRows}</tbody></table>
+
+      <h3>Challenges</h3>
+      <p class="wb-note">${rnags.length === 0 ? "" :
+        `<b>${rnags.length}</b> reason${rnags.length === 1 ? "" : "s"} for not achieving good status,
+         of which <b>${below}</b> ${below === 1 ? "is" : "are"} against an element below good.` +
+        (unattr ? ` <b>${unattr}</b> carr${unattr === 1 ? "ies" : "y"} no national challenge heading and
+         ${unattr === 1 ? "is" : "are"} absent from the published cross-table.` : "")}</p>
+      ${chalList}
+    </div>`;
+}
+
+window.wbFocus = (notation) => openWaterbody(notation, false);
+
+// The challenges cross-table: business sector × challenge (nationalSWMIheader), counting DISTINCT
+// (water body, status, pressure) triples below good — the rule the published CDE table uses, verified
+// cell for cell against it (8 cells, total 29) by ttl/catchment/verify_catchment.py.
+//
+// Scoped to one water body when one is selected, otherwise the whole catchment.
+function wbCrosstab(tables) {
+  if (!WB.size) return;
+  const scope = selectedWb ? WB.get(selectedWb) : null;
+  const rnags = scope ? scope.rnags : [...WB.values()].flatMap((w) => w.rnags);
+  if (!rnags.length) return;
+
+  const UNATTR = "(not attributed)";
+  const sectors = [...new Set(rnags.map((g) => g.sector || UNATTR))].sort((a, b) =>
+    a === UNATTR ? 1 : b === UNATTR ? -1 : a.localeCompare(b));
+  const swmis = [...new Set(rnags.map((g) => g.swmi || UNATTR))].sort((a, b) =>
+    a === UNATTR ? 1 : b === UNATTR ? -1 : a.localeCompare(b));
+
+  // Count distinct (water body, status, pressure) per cell, matching the published rule.
+  const cell = new Map();
+  for (const g of rnags) {
+    if (!BELOW_GOOD.has(g.status)) continue;
+    const k = `${g.sector || UNATTR}|${g.swmi || UNATTR}`;
+    if (!cell.has(k)) cell.set(k, new Set());
+    cell.get(k).add(`${g.notation}|${g.status}|${g.p3}`);
+  }
+  const n = (sec, sw) => (cell.get(`${sec}|${sw}`) || new Set()).size;
+  const total = [...cell.values()].reduce((t, s) => t + s.size, 0);
+
+  const head = `<tr><th>Challenge</th>${sectors.map((s) =>
+    `<th class="ctr${s === UNATTR ? " wb-unattr" : ""}">${esc(s)}</th>`).join("")}<th class="num">Total</th></tr>`;
+  const rows = swmis.map((sw) => {
+    const rowTotal = sectors.reduce((t, s) => t + n(s, sw), 0);
+    return `<tr class="${sw === UNATTR ? "wb-unattr-row" : ""}"><td>${esc(sw)}</td>` +
+      sectors.map((s) => {
+        const v = n(s, sw);
+        return `<td class="ctr">${v
+          ? `<button class="wb-cell" onclick="window.wbHighlight('${esc(s)}','${esc(sw)}')" ` +
+            `title="Highlight the water bodies behind this cell">${v}</button>`
+          : `<span class="wb-zero">·</span>`}</td>`;
+      }).join("") + `<td class="num">${rowTotal || ""}</td></tr>`;
+  }).join("");
+
+  const body = document.createElement("div");
+  body.innerHTML = `<table class="wb-cross"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+
+  // Two caveats that the table cannot state for itself, and both of which change what it means.
+  const unattributed = rnags.filter((g) => !g.swmi).length;
+  const cycles = [...new Set(rnags.map((g) => g.cycle))].sort();
+  body.insertAdjacentHTML("beforeend", `
+    <p class="wb-note">
+      Counts are distinct (water body, status, pressure) below good, which is the rule the published
+      Catchment Data Explorer table uses — not a count of records.
+      ${unattributed
+        ? `<b>${unattributed} of ${rnags.length}</b> challenges carry no national challenge heading and
+           appear only in the <i>${UNATTR}</i> row; every "measures delivered, awaiting recovery"
+           record is among them. Dropping that row would assert those challenges do not exist.`
+        : ""}
+    </p>
+    <p class="wb-note">
+      <b>One cycle, not three.</b> Every reason for not achieving good in this catchment belongs to
+      cycle ${cycles.join(", ")}; cycles 1 and 2 published no RNAGs here, so there is nothing to
+      compare across. The classification history in the water body panel does span all three cycles —
+      that is where change over time is visible.
+    </p>`);
+
+  const title = scope
+    ? `Challenges — ${esc(scope.label)}`
+    : `Challenges — whole catchment`;
+  const clear = scope
+    ? ` <a class="sparql-link" href="#" onclick="window.wbClearScope();return false;">show all 19</a>`
+    : "";
+  const c = card(title + clear, total, body, CP_PREFIXES + Q.wbRnags.replace(CP_PREFIXES, ""));
+  c.id = "wb-crosstab";
+  tables.append(c);
+}
+
+window.wbClearScope = () => { closeWaterbody(); render(); };
+
+// Click a cross-table cell → highlight the water bodies that put a count in it. This is the
+// "select a value and highlight the water bodies" interaction; it turns the polygons on, because
+// highlighting something invisible is not highlighting.
+window.wbHighlight = (sector, swmi) => {
+  const UNATTR = "(not attributed)";
+  const hit = new Set();
+  for (const w of WB.values())
+    for (const g of w.rnags)
+      if (BELOW_GOOD.has(g.status) && (g.sector || UNATTR) === sector && (g.swmi || UNATTR) === swmi)
+        hit.add(w.notation);
+  for (const w of WB.values()) {
+    setWb(w.notation, hit.has(w.notation));
+    styleWb(w, hit.has(w.notation));
+  }
+  syncWbLegend();
+  const bounds = [...hit].map((n) => WB.get(n).layer.getBounds());
+  if (bounds.length) {
+    const b = bounds.reduce((acc, x) => acc.extend(x), L.latLngBounds(bounds[0].getSouthWest(), bounds[0].getNorthEast()));
+    document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => { map.invalidateSize(); map.fitBounds(b, { padding: [30, 30] }); }, 80);
+  }
+};
 
 const collapseLegend = () => document.getElementById("legend").classList.add("collapsed");
 const expandLegend = () => document.getElementById("legend").classList.remove("collapsed");
@@ -2184,6 +2701,10 @@ function render() {
   if (currentView === "measured") {
     show.sampling = true;
     renderMeasured(tables);
+    // The challenges cross-table, scoped to the selected water body if there is one. Appended after
+    // the sampling tables because it answers a different question: not "what was measured" but
+    // "what was blamed".
+    wbCrosstab(tables);
   } else if (currentView === "regulated") {
     // ONE view over the regulated world: the limits, the breaches of them, and the works that will
     // change them. They used to be three tabs, which made them read as three subjects; they are one
@@ -3255,7 +3776,19 @@ async function main() {
   const status = document.getElementById("status");
   try {
     await loadAll();
-    loadDesignations();  // fire-and-forget: fetches the 3 clipped GeoJSONs and builds the legend control
+    // Designations FIRST, then water bodies: the water body category is appended into the designation
+    // host, so that host's "Designations" title and SSSI/SAC/SPA chips must exist before it lands.
+    // Awaiting designations (three local GeoJSON fetches) orders the two builders deterministically
+    // and removes any innerHTML race between them. buildWaterbodyLegend still falls back to writing
+    // its own title if designations happened to fail, so the control is never left unlabelled.
+    await loadDesignations();
+    // Fire-and-forget from here: if catchment.ttl is missing from the store the control simply never
+    // appears and every other view still works. The .catch is not decoration — an unhandled rejection
+    // in a detached promise is invisible, so a failed build would leave no error and no clue.
+    loadWaterbodies().catch((err) => {
+      window.__wbErr = `${err.name}: ${err.message}`;
+      console.error("Water body layer failed to build:", err);
+    });
     // A count is only a fact if it is a count of DISTINCT things. Every one of these rows comes back
     // from a query that OPTIONALly joins several things to one subject, and any subject carrying two of
     // an OPTIONAL's object silently doubles. That has now happened twice — once when discharge points

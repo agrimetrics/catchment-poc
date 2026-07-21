@@ -30,6 +30,18 @@ ttl/winep/winep_raw.ttl
 # Outing the MacOS users
 .DS_Store
 
+# Credentials for the catchment source endpoint (and anything else). NOTHING matching these
+# patterns is ever committed. Listed BEFORE any such file exists, deliberately: a secret that
+# reaches a commit is compromised even if the next commit removes it, because it stays in the
+# object history and in every clone. The guard has to predate the file.
+.env
+.env.*
+!.env.example
+*.netrc
+.netrc
+secrets.json
+*.credentials
+
 # Firefox/Marionette screenshot driver artifact
 gecko.log
 
@@ -50,3 +62,9 @@ __pycache__/
 # so the breach build runs offline.
 ttl/breaches/breaches.duckdb
 ttl/breaches/breaches_raw.ttl
+
+# NOTHING is ignored for ttl/catchment, deliberately. catchment_raw.ttl is the CONSTRUCT output
+# from the source SPARQL endpoint, canonicalised into ttl/catchment.ttl by rdfpipe. Every other
+# dataset ignores its *_raw.ttl because it can be rebuilt from a committed local input — this one
+# cannot: the source is not publicly reachable. So the raw extract IS committed, exactly as
+# compliance_observations.csv is for breaches, and for the same reason: the build must run offline.

@@ -43,7 +43,15 @@ PORT = int(os.environ.get("PORT", "8000"))
 # uses relative URLs, so it adapts to whatever prefix the page is loaded under.
 BASE_PATH = "/" + os.environ.get("BASE_PATH", "").strip("/") if os.environ.get("BASE_PATH", "").strip("/") else ""
 
-GRAPHS = ["regulation.ttl", "breaches.ttl", "winep.ttl", "sfi.ttl", "designations.ttl"]
+GRAPHS = ["regulation.ttl", "breaches.ttl", "winep.ttl", "sfi.ttl", "designations.ttl",
+          "catchment.ttl"]
+
+# catchment.ttl is unlike the others: its subjects keep their real Environment Agency URIs
+# (http://environment.data.gov.uk/catchment-planning/so/...) rather than the example.com URIs
+# the rest of this repository mints, because they are the identifiers the source triplestore
+# uses and re-minting would orphan the 29 SKOS schemes it reuses. They therefore look
+# authoritative and DO NOT dereference — environment.data.gov.uk serves no RDF and 404s on
+# every one. Anywhere the UI shows one to a user, that has to be said. See ttl/catchment/.
 
 # Environment Agency Water Quality Archive — live observation time series. We proxy it
 # server-side so the browser stays same-origin and we can follow the Link-header pagination.

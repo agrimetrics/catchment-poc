@@ -169,6 +169,10 @@ nav#views button.active { border-color: var(--accent); background: #223449; box-
 
 #chart {
   flex: 0 0 44%;
+  /* A flex item's default min-width:auto is min-CONTENT, which silently beats flex-basis: the water
+     body panel's classification table is ~10 nowrap columns wide, and without this the panel grew
+     past 44% and squeezed the map down to a sliver. Content scrolls inside the panel instead. */
+  min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -324,6 +328,82 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
 .desig-list.hidden { display: none; }
 .desig-site { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 3px 4px; border-radius: 5px; cursor: pointer; }
 .desig-site:hover { background: #1b2836; }
+
+/* The water body control reuses the .desig-* classes above verbatim; it only needs to stop
+   margin-left:auto applying twice, which would push the two controls apart. */
+/* Waterbodies is the right-most category in the Designations row, so its dropdown opens leftwards —
+   anchored left:0 like the others, 250px of water body names would run off the edge of the window. */
+.desig-cat[data-cat="waterbody"] .desig-list { left: auto; right: 0; }
+/* Water body polygons are clickable, so they get the cursor that says so — the same affordance the
+   circle markers have. Without it the only hint is the hover tooltip, which arrives too late. */
+.leaflet-waterbodies-pane path { cursor: pointer; }
+
+/* Water body detail panel (inside #chart-body, which scrolls for this content). */
+.wb-panel { font-size: 13px; color: var(--text); }
+.wb-panel h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+  margin: 18px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px;
+}
+.wb-panel h3:first-of-type { margin-top: 10px; }
+.wb-id { color: var(--muted); font-size: 11px; margin: 0 0 4px; font-family: ui-monospace, monospace; }
+/* The EA URIs look authoritative and 404. Wherever one is shown, that has to be visible. */
+.wb-uri {
+  margin-left: 8px; padding: 1px 6px; border-radius: 4px; cursor: help;
+  background: #3a2a1a; color: #e0a020; border: 1px solid #5a4020;
+  font-family: system-ui, sans-serif; letter-spacing: .3px;
+}
+.wb-desig { margin: 0 0 6px; }
+.wb-note { color: var(--muted); font-size: 12px; margin: 6px 0; line-height: 1.5; }
+.wb-change { color: #ffd479; }
+.wb-yr { font-variant-numeric: tabular-nums; }
+.wb-cy { display: block; font-size: 9px; color: var(--muted); font-weight: 400; }
+
+/* Status pills. Dark text because every status colour is a mid-to-bright fill. */
+.wb-pill {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+  color: #0b1016;
+}
+/* "Not assessed" is an outline, not a fill — a different kind of thing, not a paler verdict. */
+.wb-pill-absent {
+  background: none; color: #5b6472; border: 1px dashed #333e4a; font-weight: 400;
+}
+
+/* One challenge (RNAG). */
+.wb-chal {
+  border-left: 3px solid #2c5561; background: #141d27;
+  border-radius: 0 6px 6px 0; padding: 7px 10px; margin: 6px 0;
+}
+.wb-chal-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.wb-chal-p3 { font-size: 12px; font-weight: 600; color: var(--text); }
+.wb-chal-swmi { font-size: 12px; color: var(--text); }
+.wb-chal-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+/* The unattributed ones are the majority and the published table drops them. Marked, not muted. */
+.wb-chal-unattr { border-left-color: #e0a020; }
+.wb-chal-unattr .wb-chal-swmi { color: #e0a020; font-style: italic; }
+
+.wb-hist, .wb-cross { border-collapse: collapse; width: 100%; font-size: 12px; }
+.wb-hist th, .wb-cross th {
+  text-align: left; color: var(--muted); font-weight: 600; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .4px; padding: 5px 7px;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.wb-hist td, .wb-cross td { padding: 5px 7px; border-bottom: 1px solid #1a232e; white-space: nowrap; }
+.wb-hist { table-layout: fixed; }
+.wb-hist th.ctr { font-size: 9.5px; white-space: normal; line-height: 1.25; }
+.wb-hist .ctr, .wb-cross .ctr, .wb-hist th.ctr, .wb-cross th.ctr { text-align: center; }
+.wb-cross .num, .wb-cross th.num { text-align: right; }
+.wb-hist tbody tr:hover, .wb-cross tbody tr:hover { background: #16202b; }
+
+/* An unattributed row is not a footnote — 57 of 95 challenges land in it. It is marked, not muted. */
+.wb-unattr, .wb-unattr-row td:first-child { color: #e0a020; font-style: italic; }
+.wb-zero { color: #3d4652; }
+.wb-cell {
+  background: #1e3a44; color: var(--text); border: 1px solid #2c5561; border-radius: 4px;
+  padding: 1px 9px; font: inherit; cursor: pointer; min-width: 30px;
+}
+.wb-cell:hover { background: #2c5561; border-color: var(--wb-sel, #ffd479); }
+
 
 section#tables { padding: 18px 20px 60px; display: grid; gap: 20px; }
 
