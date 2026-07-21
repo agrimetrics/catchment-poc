@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Corfe River &mdash; a wastewater linkage the data doesn&rsquo;t name</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="points.css" />
+  <style>
+main { display: block; }
+.screen p { color: #c3cfda; font-size: 14.5px; line-height: 1.65; max-width: 82ch; margin: 0 0 12px; }
+.hero.tight { margin-bottom: 14px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em;
+  background: var(--panel-2); color: var(--text); padding: 1px 5px; border-radius: 4px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.svgcard { display: block; width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.mapfig .svgcard { max-width: 400px; margin: 0 auto; }
+.cap { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 10px 0 0; }
+.panel.problem h3.warn { color: #ff9a9d; }
+.panel.problem { border-color: rgba(229,72,77,.45); }
+.stat b .frac { font-size: 15px; }
+.stat span { min-height: 0; }
+.tbl .mk { display: inline-block; width: 10px; height: 10px; margin-right: 7px; vertical-align: middle;
+  border: 2px solid; }
+.tbl .mk.cir { border-radius: 50%; border-color: #1c6fb8; background: #3aa0ff; }
+.tbl .mk.sq { border-color: #c07d10; background: #f5a623; }
+.tbl .mk.dia { border-color: #a52a2e; background: #e5484d; transform: rotate(45deg); }
+.tbl .mk.tri { width: 0; height: 0; border-width: 0 6px 10px 6px; border-style: solid;
+  border-color: transparent transparent #8ba0b2 transparent; }
+.maplegend .sw.tri { width: 0; height: 0; border-radius: 0; border-width: 0 6px 11px 6px; border-style: solid;
+  border-color: transparent transparent #8ba0b2 transparent; }
+.maplegend .sw.sq { border-radius: 2px; }
+.maplegend .sw.dia { border-radius: 1px; transform: rotate(45deg); }
+.maplegend .mutedkey { flex-basis: 100%; color: var(--muted); }
+.maplegend .tv { color: var(--text); }
+.mpt { font: 600 11px ui-monospace, Menlo, monospace; fill: #e7eef5; }
+.mpt.halo { stroke: #1e2b38; stroke-width: 3.5; paint-order: stroke; }
+.mriver { font: italic 12px -apple-system, sans-serif; fill: #6db3e0; }
+.mlbl { font: 600 11px -apple-system, sans-serif; fill: #93a4b3; }
+.tick { font: 11px -apple-system, sans-serif; fill: #93a4b3; }
+.axlab { font: 600 12px -apple-system, sans-serif; fill: #b7c4d0; }
+pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+  overflow-x: auto; color: #cdd9e3; font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin: 4px 0 14px; }
+pre.budget { background: var(--panel); }
+.src-foot { color: var(--muted); font-size: 12px; line-height: 1.55; margin-top: 30px;
+  padding-top: 16px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body class="pts-body">
+<header>
+  <div class="title">
+    <h1>Corfe River</h1>
+    <span class="subtitle">A wastewater linkage the data carries only as a label</span>
+  </div>
+  <div class="header-links">
+    <a class="docs-link" href="docs.html" title="Project documentation">Docs</a>
+    <a class="docs-link" href="sparql.html" title="SPARQL query editor">SPARQL</a>
+    <a class="docs-link" href="index.html" title="Return to the map app">&larr; Back to app</a>
+  </div>
+</header>
+
+<main><section class="screen">
+
+  <div class="hero">
+    <p class="kicker">Linked data &middot; one river, four points</p>
+    <h2>A wastewater linkage the data doesn&rsquo;t yet name</h2>
+    <p class="lede">Two sampling points sit either side of the same sewage works on the same river, but nothing in
+    the graph <b>says so</b>. The only thing tying <b>CORFE RIVER D/S CORFE STW</b> to <b>CORFE CASTLE STW</b> is
+    four characters of free text &mdash; &ldquo;D/S&rdquo;, for <em>downstream</em> &mdash; buried in a label. This
+    page makes the relationship explicit, plots the phosphorus each point carries, and shows why naming the link
+    turns four unrelated time-series into a source-apportionment model for the stretch of the river.</p>
+    <p class="note">The link, once declared, lets a machine reason: any phosphorus the downstream river carries that
+    the STW effluent does <b>not</b> account for can be attributed to something else &mdash; diffuse environmental
+    discharge, or the intermittent storm overflow at <code>SW-50900130</code>. Today that inference is impossible to
+    make automatically, because the link is a string, not a triple.</p>
+    <div class="scoreline">
+      <span class="sc">STW effluent mean <b>0.60&nbsp;mg/l</b></span>
+      <span class="sc">Downstream river mean <b>0.076&nbsp;mg/l</b></span>
+      <span class="sc bad">Storm overflow, P records <b>0</b></span>
+      <span class="sc bad">Upstream baseline, P records <b>0</b></span>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="panel mapfig">
+      <h3>The stretch of river, to scale</h3>
+      <svg viewBox="0 0 470 560" class="svgcard" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Locator map of the four Corfe River sampling points">
+  <rect x="0" y="0" width="470" height="560" rx="8" fill="#1e2b38"/>
+  <path d="M 93 467 C 93 447 91 456 111 426 S 196 226 286 105" fill="none" stroke="#2f5f80" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 93 467 C 93 447 91 456 111 426 S 196 226 286 105" fill="none" stroke="#3aa0ff" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
+  <g transform="translate(99,447) rotate(0)"><path d="M 0 7 L 0 -7 M -4 -2 L 0 -8 L 4 -2" fill="none" stroke="#3aa0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="translate(206,248) rotate(-38)"><path d="M 0 7 L 0 -7 M -4 -2 L 0 -8 L 4 -2" fill="none" stroke="#3aa0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="278" y="65" text-anchor="end" class="mriver">Corfe River &#8594; Poole Harbour</text>
+  <path d="M 93 457 L 102 475 L 84 475 Z" fill="#5a6b78" stroke="#8ba0b2" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="96" y="417" width="18" height="18" rx="1.5" fill="#f5a623" stroke="#c07d10" stroke-width="2.5"/>
+  <path d="M 118 417 L 128 427 L 118 437 L 108 427 Z" fill="#e5484d" stroke="#a52a2e" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="286" cy="105" r="9" fill="#3aa0ff" stroke="#1c6fb8" stroke-width="2.5"/>
+  <text x="108" y="485" text-anchor="start" class="mpt halo">SW-50908888</text><text x="108" y="485" text-anchor="start" class="mpt">SW-50908888</text>
+  <text x="91" y="428" text-anchor="end" class="mpt halo">SW-50900722</text><text x="91" y="428" text-anchor="end" class="mpt">SW-50900722</text>
+  <text x="133" y="431" text-anchor="start" class="mpt halo">SW-50900130</text><text x="133" y="431" text-anchor="start" class="mpt">SW-50900130</text>
+  <text x="271" y="108" text-anchor="end" class="mpt halo">SW-50900712</text><text x="271" y="108" text-anchor="end" class="mpt">SW-50900712</text>
+  <line x1="64" y1="534" x2="128" y2="534" stroke="#93a4b3" stroke-width="2.5"/><line x1="64" y1="530" x2="64" y2="538" stroke="#93a4b3" stroke-width="2.5"/><line x1="128" y1="530" x2="128" y2="538" stroke="#93a4b3" stroke-width="2.5"/><text x="96" y="526" text-anchor="middle" class="mlbl">200 m</text><line x1="430" y1="74" x2="430" y2="30" stroke="#93a4b3" stroke-width="2.5"/><path d="M 430 24 L 425 35 L 435 35 Z" fill="#93a4b3"/><text x="430" y="90" text-anchor="middle" class="mlbl">N</text>
+</svg>
+      <div class="maplegend">
+        <span class="key"><span class="sw tri"></span> <code>SW-50908888</code> upstream</span>
+        <span class="key"><span class="sw sq" style="background:#f5a623"></span> <code>SW-50900722</code> STW effluent</span>
+        <span class="key"><span class="sw dia" style="background:#e5484d"></span> <code>SW-50900130</code> storm overflow</span>
+        <span class="key"><span class="sw" style="background:#3aa0ff"></span> <code>SW-50900712</code> downstream</span>
+      </div>
+      <p class="cap">Positioned by their true Ordnance Survey eastings/northings (EPSG:27700). The river flows
+      south&rarr;north into Poole Harbour, so the works discharge <em>between</em> the upstream baseline and the
+      downstream monitoring point &mdash; exactly the arrangement a mass-balance needs.</p>
+    </div>
+    <div class="panel">
+      <h3>Four points, two of them sampled for phosphorus</h3>
+      <table class="tbl">
+        <thead><tr><th>Point</th><th>Role</th><th class="c">P recs</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mk tri"></span><span class="mono">SW-50908888</span><br><span class="sub">Miscellaneous River Corfe</span></td><td>Upstream river baseline</td><td class="c bad">0</td></tr>
+          <tr><td><span class="mk sq"></span><span class="mono">SW-50900722</span><br><span class="sub">Corfe Castle STW</span></td><td>Final treated effluent (point source)</td><td class="c">52</td></tr>
+          <tr><td><span class="mk dia"></span><span class="mono">SW-50900130</span><br><span class="sub">Corfe Castle STW settled storm sewage</span></td><td>Storm overflow (intermittent)</td><td class="c bad">0</td></tr>
+          <tr><td><span class="mk cir"></span><span class="mono">SW-50900712</span><br><span class="sub">Corfe River D/S Corfe STW</span></td><td>Downstream river (receiving water)</td><td class="c">61</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Only two of the four points are routinely sampled for phosphorus. The upstream baseline carries
+      just oil/grease investigation records; the storm overflow carries none at all. That gap is itself part of the
+      argument &mdash; see below.</p>
+    </div>
+  </div>
+
+  <div class="hero tight">
+    <p class="kicker">Phosphorus, Total as P</p>
+    <h2>Effluent vs. receiving water, 2020 onward</h2>
+  </div>
+  <div class="board">
+    <svg viewBox="0 0 900 430" class="svgcard" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Phosphorus time series, STW effluent versus downstream river, 2020 onward">
+  <rect x="0" y="0" width="900" height="430" fill="#1e2b38"/>
+  <line x1="62" y1="376.0" x2="876" y2="376.0" stroke="#223140" stroke-width="1"/><text x="54" y="380.0" text-anchor="end" class="tick">0.0</text><line x1="62" y1="334.6" x2="876" y2="334.6" stroke="#223140" stroke-width="1"/><text x="54" y="338.6" text-anchor="end" class="tick">0.2</text><line x1="62" y1="293.2" x2="876" y2="293.2" stroke="#223140" stroke-width="1"/><text x="54" y="297.2" text-anchor="end" class="tick">0.4</text><line x1="62" y1="251.8" x2="876" y2="251.8" stroke="#223140" stroke-width="1"/><text x="54" y="255.8" text-anchor="end" class="tick">0.6</text><line x1="62" y1="210.4" x2="876" y2="210.4" stroke="#223140" stroke-width="1"/><text x="54" y="214.4" text-anchor="end" class="tick">0.8</text><line x1="62" y1="168.9" x2="876" y2="168.9" stroke="#223140" stroke-width="1"/><text x="54" y="172.9" text-anchor="end" class="tick">1.0</text><line x1="62" y1="127.5" x2="876" y2="127.5" stroke="#223140" stroke-width="1"/><text x="54" y="131.5" text-anchor="end" class="tick">1.2</text><line x1="62" y1="86.1" x2="876" y2="86.1" stroke="#223140" stroke-width="1"/><text x="54" y="90.1" text-anchor="end" class="tick">1.4</text><line x1="62" y1="44.7" x2="876" y2="44.7" stroke="#223140" stroke-width="1"/><text x="54" y="48.7" text-anchor="end" class="tick">1.6</text><line x1="62.0" y1="24" x2="62.0" y2="376" stroke="#1b2833" stroke-width="1"/><text x="62.0" y="396" text-anchor="middle" class="tick">2020</text><line x1="186.5" y1="24" x2="186.5" y2="376" stroke="#1b2833" stroke-width="1"/><text x="186.5" y="396" text-anchor="middle" class="tick">2021</text><line x1="310.7" y1="24" x2="310.7" y2="376" stroke="#1b2833" stroke-width="1"/><text x="310.7" y="396" text-anchor="middle" class="tick">2022</text><line x1="434.8" y1="24" x2="434.8" y2="376" stroke="#1b2833" stroke-width="1"/><text x="434.8" y="396" text-anchor="middle" class="tick">2023</text><line x1="559.0" y1="24" x2="559.0" y2="376" stroke="#1b2833" stroke-width="1"/><text x="559.0" y="396" text-anchor="middle" class="tick">2024</text><line x1="683.5" y1="24" x2="683.5" y2="376" stroke="#1b2833" stroke-width="1"/><text x="683.5" y="396" text-anchor="middle" class="tick">2025</text><line x1="807.6" y1="24" x2="807.6" y2="376" stroke="#1b2833" stroke-width="1"/><text x="807.6" y="396" text-anchor="middle" class="tick">2026</text>
+  <rect x="62" y="24" width="814" height="352" fill="none" stroke="#2b3a49" stroke-width="1"/>
+  <line x1="62" y1="251.9" x2="876" y2="251.9" stroke="#f5a623" stroke-width="1.3" stroke-dasharray="2 3" opacity="0.8"/><line x1="62" y1="360.3" x2="876" y2="360.3" stroke="#3aa0ff" stroke-width="1.3" stroke-dasharray="2 3" opacity="0.8"/><rect x="307.7" y="295.4" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="322.6" y="314.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="341.0" y="239.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="344.1" y="212.6" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="355.6" y="100.8" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="367.5" y="144.2" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="373.0" y="100.8" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="378.8" y="123.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="400.5" y="283.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="402.6" y="258.1" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="420.9" y="312.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="434.2" y="251.9" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="446.8" y="309.9" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="457.3" y="305.7" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="462.4" y="293.3" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="475.0" y="307.8" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="486.3" y="34.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="492.0" y="148.4" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="504.6" y="299.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="517.9" y="212.6" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="526.7" y="305.7" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="536.3" y="293.3" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="545.8" y="299.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="575.0" y="245.7" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="577.1" y="220.8" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="584.2" y="272.6" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="593.4" y="258.1" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="598.9" y="258.1" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="620.6" y="131.8" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="624.0" y="171.2" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="633.9" y="181.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="644.1" y="285.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="653.6" y="312.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="659.4" y="334.7" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="665.9" y="297.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="685.9" y="283.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="694.1" y="258.1" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="702.9" y="291.2" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="712.8" y="272.6" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="725.4" y="196.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="733.9" y="233.3" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="745.8" y="90.4" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="758.4" y="196.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="767.6" y="314.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="777.8" y="283.0" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="790.4" y="297.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="794.1" y="328.5" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="809.8" y="324.4" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="821.7" y="258.1" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="829.1" y="301.6" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="840.7" y="274.7" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><rect x="851.3" y="272.6" width="8" height="8" fill="none" stroke="#f5a623" stroke-width="1.7"/><circle cx="167.1" cy="355.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="176.3" cy="355.7" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="187.9" cy="362.7" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="198.1" cy="353.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="208.9" cy="360.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="221.2" cy="360.9" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="232.8" cy="358.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="243.3" cy="366.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="252.5" cy="347.0" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="261.7" cy="353.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="270.9" cy="363.6" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="281.1" cy="353.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="290.9" cy="361.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="302.2" cy="359.8" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="316.1" cy="359.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="322.2" cy="367.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="334.1" cy="360.7" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="343.3" cy="349.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="355.6" cy="368.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="364.1" cy="358.8" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="381.4" cy="355.7" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="388.6" cy="349.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="397.7" cy="361.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="409.3" cy="361.5" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="415.1" cy="347.0" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="429.4" cy="367.5" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="445.4" cy="366.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="460.3" cy="364.0" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="476.7" cy="368.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="500.1" cy="363.4" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="507.9" cy="347.0" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="527.0" cy="360.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="535.8" cy="266.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="540.3" cy="349.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="548.4" cy="364.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="566.8" cy="356.7" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="571.2" cy="365.9" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="617.5" cy="367.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="631.1" cy="365.0" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="662.0" cy="365.6" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="692.7" cy="342.9" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="698.1" cy="369.4" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="707.6" cy="369.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="714.8" cy="373.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="734.2" cy="370.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="743.3" cy="371.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="754.9" cy="367.5" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="760.0" cy="365.9" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="774.6" cy="367.5" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="781.4" cy="366.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="790.3" cy="367.1" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="793.0" cy="373.3" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="797.8" cy="361.5" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="801.8" cy="371.9" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="811.4" cy="365.4" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="814.8" cy="360.5" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="823.3" cy="360.9" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="828.7" cy="368.8" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="836.2" cy="369.2" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="841.0" cy="368.8" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/><circle cx="861.4" cy="363.4" r="4.2" fill="none" stroke="#3aa0ff" stroke-width="1.7"/>
+  <text transform="translate(16,200.0) rotate(-90)" text-anchor="middle" class="axlab">Phosphorus, Total as P (mg/l)</text>
+</svg>
+    <div class="maplegend">
+      <span class="key"><span class="sw sq" style="background:#f5a623"></span> <code>SW-50900722</code> STW final effluent
+        &mdash; n&nbsp;52, 0.18&ndash;1.63&nbsp;mg/l, mean&nbsp;<b class="tv">0.60</b></span>
+      <span class="key"><span class="sw" style="background:#3aa0ff"></span> <code>SW-50900712</code> downstream river
+        &mdash; n&nbsp;61, 0.013&ndash;0.53&nbsp;mg/l, mean&nbsp;<b class="tv">0.076</b></span>
+      <span class="key mutedkey">Dashed lines mark each series&rsquo; mean &middot; squares = STW effluent, open circles = downstream river &middot; x-axis 1&nbsp;Jan&nbsp;2020&nbsp;&rarr;&nbsp;today</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>0.60</b><span>STW final-effluent mean, mg/l (n&nbsp;52, Jan&nbsp;2022&ndash;May&nbsp;2026)</span></div>
+    <div class="stat"><b>0.076</b><span>Downstream-river mean, mg/l (n&nbsp;61, Nov&nbsp;2020&ndash;Jun&nbsp;2026)</span></div>
+    <div class="stat"><b>~8&times;</b><span>Effluent is more concentrated than the receiving river &mdash; because the discharge is diluted into a far larger flow</span></div>
+  </div>
+  <p>The shapes tell the story before any statistics do. The <b>STW effluent</b> (squares) is a concentrated point
+  source. The <b>downstream river</b> (circles) sits an order of magnitude lower, because the works&rsquo; discharge
+  is diluted into a far larger river flow. Neither series means much on its own. Together, and <em>with the link
+  declared</em>, they become two knowns in a phosphorus budget for the stretch of the river.</p>
+
+  <div class="hero tight">
+    <p class="kicker">Why it matters</p>
+    <h2>Naming the link makes the stretch computable</h2>
+  </div>
+  <p>Phosphorus in the downstream river at <code>SW-50900712</code> is the sum of everything upstream of it:</p>
+  <pre class="budget">river load (SW-50900712)
+   =  upstream baseline        (SW-50908888)
+    + STW treated effluent     (SW-50900722)   &larr; explicitly permitted &amp; monitored
+    + storm overflow spills    (SW-50900130)   &larr; intermittent, unmonitored here
+    + diffuse catchment runoff (unattributed environmental discharge)</pre>
+  <p>The STW is the one term in that equation that is <em>explicitly accounted for</em>: it is permitted, and its
+  effluent is sampled 52&nbsp;times. So if you subtract the upstream baseline and the STW&rsquo;s known
+  contribution from what the river actually carries, <b>the residual is everything nobody has claimed</b> &mdash;
+  diffuse environmental discharge from the catchment, plus whatever the storm overflow released during a spill. That
+  residual is where the regulatory interest lives, and it is only computable if a machine can follow
+  <code>SW-50900712</code> back to the discharges above it. Today it cannot: the topology exists only in a
+  human-readable label.</p>
+
+  <div class="split">
+    <div class="panel problem">
+      <h3 class="warn">Problem 1 &mdash; no flow, no load</h3>
+      <p>Everything plotted here is <b>concentration</b> (mg/l), not <b>load</b> (mass per day), and a budget only
+      balances in load: <span class="mono">load = concentration &times; flow</span>. The STW&rsquo;s effluent flow
+      &mdash; the volume of treated sewage it discharges each day &mdash; <b>is not in the water-quality archive at
+      all</b>, and neither is the river&rsquo;s gauged flow at the downstream point. So although the effluent is
+      ~8&times; more concentrated than the river, we cannot yet say how much phosphorus <em>mass</em> the
+      works contributes, nor what share of the river&rsquo;s load that is. The concentration series set the budget
+      up; without the STW&rsquo;s discharge volume they cannot solve it. Linking the sampling points is necessary but
+      not sufficient &mdash; <b>the STW&rsquo;s flow record has to be joined in too</b>.</p>
+    </div>
+    <div class="panel problem">
+      <h3 class="warn">Problem 2 &mdash; the monitoring gap is the tell</h3>
+      <p>The two points that would <em>close</em> the budget &mdash; the upstream baseline and the storm overflow
+      &mdash; have no phosphorus data. So the sewage works is the only quantified source on a river that plainly
+      receives more than one. Anything the STW&rsquo;s effluent doesn&rsquo;t explain is, by elimination, coming from
+      the environment or from the overflow. Making the linkage explicit doesn&rsquo;t just enable the sum &mdash; it
+      shows exactly which gauge is missing.</p>
+    </div>
+  </div>
+
+  <div class="hero tight">
+    <p class="kicker">The fix</p>
+    <h2>Make the relationship a triple, not a string</h2>
+  </div>
+  <p>The demonstrator already models each point as a <code>geo:Feature</code> with a geometry. What it lacks is the
+  hydrological topology between them. The label <code>&quot;CORFE RIVER D/S CORFE STW&quot;</code> encodes it in
+  prose; the fix is to assert it directly, using the demonstrator&rsquo;s own extension namespace
+  (<code>ns1: &lt;http://example.com/water-regulation/&gt;</code>):</p>
+  <pre class="ttl">@prefix sp:   &lt;http://environment.data.gov.uk/water-quality/sampling-point/&gt; .
+@prefix ns1:  &lt;http://example.com/water-regulation/&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+
+sp:SW-50900712                              # Corfe River, downstream
+    ns1:downstreamOf     sp:SW-50900722 ,    # &hellip; of the STW effluent
+                         sp:SW-50900130 ;    # &hellip; and the storm overflow
+    ns1:upstreamBaseline sp:SW-50908888 .    # the stretch&rsquo;s reference condition
+
+sp:SW-50908888  ns1:upstreamOf  sp:SW-50900722 , sp:SW-50900712 .
+
+# minimal, standards-friendly fallback if you don't want new predicates yet:
+sp:SW-50900712  skos:related  sp:SW-50900722 , sp:SW-50900130 , sp:SW-50908888 .</pre>
+  <p>For a standards-based route, the same topology aligns with OGC <em>HY_Features</em>
+  (<code>hyf:HY_FlowPath</code> / upstream&ndash;downstream relations) rather than a bespoke predicate &mdash; but the
+  point stands either way: <b>one triple replaces a fragile substring, and the stretch becomes queryable.</b> A
+  single SPARQL query could then return &ldquo;every river point downstream of a discharge whose phosphorus exceeds
+  its upstream baseline&rdquo; &mdash; the exact question this page had to answer by hand.</p>
+
+  <p class="src-foot">Source: EA Water Quality Archive, determinand 348 (Phosphorus, Total as P), Poole Harbour
+  rivers extract 2020&ndash;2026. Coordinates: Ordnance Survey National Grid (EPSG:27700), drawn to scale.
+  Storm-overflow and upstream markers are placed from their registered grid references; they carry no phosphorus
+  observations in the extract. Page is static and self-contained &mdash; no network required.</p>
+
+</section></main>
+</body>
+</html>

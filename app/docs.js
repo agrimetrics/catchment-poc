@@ -14,6 +14,7 @@ const DOCS = [
     { path: "/README.md", title: "Project overview" },
   ]},
   { group: "Concepts", items: [
+    { href: "corfe-river-wastewater.html", title: "Corfe River — a wastewater linkage the data doesn't name" },
     { href: "points.html#/why", title: "Points apart — why identifiers, not proximity" },
     { href: "points.html#/blackheath", title: "…1: proximity returns an upstream river" },
     { href: "points.html#/brockhill", title: "…2: 7 outlets on one coordinate" },
