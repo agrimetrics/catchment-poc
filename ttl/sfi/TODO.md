@@ -3,6 +3,47 @@
 The SFI concept scheme now carries FARMSCOPER-modelled pollutant impact rates (see the README).
 Two source questions remain open, and the store deliberately declines to answer either.
 
+## 0. Water-body attribution — built, and reconciled (`waterbody_reconcile.py`)
+
+Each SFI option is a MULTIPOINT, and the app aggregates by application (one hull, one payment total
+per application). To show any option group — soil management, hedgerows, organic, all of them — *in
+a given water-body catchment*, each option's points are attributed to the 19 water-body catchments
+in `ttl/catchment.ttl`.
+
+**Front end (shipped).** The farming view has a **"Farming by option group"** table
+(`sfiByCatchment` / `sfiCatchmentCard` in `app/app.js`). By default it shows the whole catchment;
+click a sub-catchment on the map (turn on *Waterbodies* first) and it rescopes to that water body,
+with an **✕ whole catchment** reset. Columns:
+
+- **Parcels** — the action's mapped points inside the scope. Partitions exactly (disjoint water
+  bodies, every point in the operational catchment).
+- **Extent** — the action's own **area (ha)** or, for linear actions like hedgerows, **length (m)**,
+  taken from the **per-parcel** nodes in `sfi.ttl` (`SFIParcels`), so it is **exact** for the
+  sub-catchment (a parcel's hectares belong to one water body — no apportionment). Shown **per action
+  type and never totalled**: 73% of fields carry more than one action and the source records
+  different areas for different actions on the same point, so a single "area under improvement" is
+  double-counted and invalid, and a distinct land footprint is not recoverable from this data. The
+  total cell is a dash.
+- **Annual payment** — apportioned by parcel share; sums cleanly (a payment is per action, not per
+  land).
+
+**Why the per-parcel nodes exist.** The per-option MULTIPOINT in `sfi.ttl` also carries a SUMMED area.
+Splitting that summed area across sub-catchments by point count assumes equal parcel sizes and is wrong
+by up to **~180 ha (~25%)** on a single water body. So `sfi.ttl` also holds one node per drawn point
+(`option_parcel` in `sfi_to_db.py`, `SFIParcels` in `sfi.obda`) with its own area/length — materialised
+by ontop like everything else. Regenerating sfi.ttl through the normal build reproduces the prior
+25,656 triples exactly and adds the 38,659 parcel triples (nothing else changes).
+
+**Reconciliation (offline proof).** `waterbody_reconcile.py` proves it all ties to the by-application
+totals: parcels and payment partition/apportion exactly, and — the new part — **every group's
+hectares and metres partition exactly** across the 19 water bodies (Σ = 54,660.6 ha, 2,597,945 m). A
+browser check confirms the app's own extent partitions with zero mismatch across all 27 groups.
+
+The one thing that cannot reconcile is **whole-option membership**: 268 of 1,115 options straddle more
+than one water-body catchment, so counting a whole option once per water body overcounts the 1,115 by
+355. That is why the table counts *parcels*, exact extent and apportioned payment, never whole
+agreements — and never a summed extent.
+
 ## 1. Validate what `Kg … Ha-1 Yr-1` actually means
 
 **This is the load-bearing assumption of the whole impact model and it is currently unverified.**

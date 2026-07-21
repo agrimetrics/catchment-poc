@@ -405,6 +405,9 @@ td.modelled .unit { color: var(--muted); font-size: 11px; }
 .wb-cell:hover { background: #2c5561; border-color: var(--wb-sel, #ffd479); }
 
 
+/* Total row of the farming-by-catchment table: set off from the group rows by a heavier rule. */
+.tot-row td { border-top: 2px solid var(--line); }
+
 section#tables { padding: 18px 20px 60px; display: grid; gap: 20px; }
 
 .card {

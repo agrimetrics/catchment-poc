@@ -11,6 +11,12 @@ python ttl/sfi/sfi_to_db.py
   && rdfpipe -i turtle -o turtle ttl/sfi/sfi_raw.ttl > ttl/sfi.ttl
 ```
 
+`sfi.ttl` also carries **one node per drawn parcel** (`option_parcel` table in `sfi_to_db.py`,
+`SFIParcels` mapping in `sfi.obda`), each with its own area (ha) or length (m). This is what lets an
+extent question scoped to a sub-catchment be exact rather than apportioned from the per-option summed
+total (which errs by ~25% on a single water body). The parcels come out of the same `ontop
+materialize` as everything else — no separate step.
+
 ## How the scope was whittled down (for convenience)
 
 - **Clipped to the catchment.** The source SFI geojson is a national, drawn-polygon dataset. The

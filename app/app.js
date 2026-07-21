@@ -400,6 +400,18 @@ const Q = {
       OPTIONAL { ?opt farm:annualPayment/qudt:numericValue ?cost }
     } GROUP BY ?app ?opt ?def ?broader ?broaderLabel ?cost`,
 
+  // One row per DRAWN PARCEL (SFIParcels in sfi.ttl), with its own point and extent -- area (ha) for
+  // area-based actions, mtl (metres) for linear ones. This is what lets an extent question scoped to a
+  // sub-catchment be exact: the per-option MULTIPOINT + SUMMED extent in sfi.ttl can only be
+  // apportioned by point count, which is wrong by ~25% on a single water body. Joined to its option by
+  // core:partOf. See sfiByCatchment.
+  sfiParcels: `${PREFIXES}
+    SELECT ?opt ?wkt ?area ?mtl WHERE {
+      ?parcel core:partOf ?opt ; geo:asWKT ?wkt .
+      OPTIONAL { ?parcel ex-farm:area ?area }
+      OPTIONAL { ?parcel ex-farm:mtl ?mtl }
+    }`,
+
   // MODELLED pollutant removal, per application and per option (FARMSCOPER via the SFI concept
   // scheme). These are a SEPARATE query rather than columns on `applications`/`sfiOptions` for a
   // plain reason: an application carries one impact PER SUBSTANCE, so folding them in would multiply
@@ -1546,12 +1558,12 @@ function styleActionMarker(mk, on) {
 // Load everything once
 // ---------------------------------------------------------------------------
 async function loadAll() {
-  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory, samplingPoints, appImpacts, optionImpacts] =
+  const [substances, breaches, dps, conditions, actions, proposed, applications, groupLabels, sfiOptions, limitHistory, samplingPoints, appImpacts, optionImpacts, sfiParcels] =
     await Promise.all([
       sparql(Q.substances), sparql(Q.breaches), sparql(Q.dischargePoints),
       sparql(Q.conditions), sparql(Q.actions), sparql(Q.proposed),
       sparql(Q.applications), sparql(Q.groupLabels), sparql(Q.sfiOptions), sparql(Q.limitHistory),
-      sparql(Q.samplingPoints), sparql(Q.appImpacts), sparql(Q.optionImpacts),
+      sparql(Q.samplingPoints), sparql(Q.appImpacts), sparql(Q.optionImpacts), sparql(Q.sfiParcels),
     ]);
 
   // Sampling points (the Ambient view). `permit` is a SAMPLE: a point can be monitored by more than
@@ -1754,8 +1766,29 @@ async function loadAll() {
       broader: broaderCode, broaderLabel: o.broaderLabel || DB.groupLabels[broaderCode] || broaderCode,
       cost: o.cost != null ? Number(o.cost) : null,
       points, centroid: centroidOf(points),
+      // Per-parcel geometry+extent, filled in below from DB.sfiParcels. Each entry {lat,lon,area,mtl}.
+      parcels: [],
     };
   }).filter((o) => o.points.length);
+  // Attach each option's drawn parcels (point + own extent). Keyed by option IRI. These carry the
+  // per-parcel area/length that makes a sub-catchment extent exact; the MULTIPOINT above stays the
+  // rendering geometry. The two describe the same points, so parcels.length == points.length.
+  const optByIri = {};
+  for (const o of DB.sfiOptions) optByIri[o.iri] = o;
+  for (const p of sfiParcels) {
+    const o = optByIri[p.opt];
+    if (!o) continue;
+    const pt = parseWkt(p.wkt).points[0];
+    if (!pt) continue;
+    o.parcels.push({ lat: pt[0], lon: pt[1],
+      area: p.area != null ? Number(p.area) : null,
+      mtl: p.mtl != null ? Number(p.mtl) : null });
+  }
+  const parcelMismatch = DB.sfiOptions.filter((o) => o.parcels.length !== o.points.length).length;
+  if (parcelMismatch)
+    console.error(`SFI parcels: ${parcelMismatch} options where parcel count != multipoint count — ` +
+      `the SFIParcels nodes are out of step with the option MULTIPOINTs.`);
+
   DB.optionsByApp = groupBy(DB.sfiOptions, "app");
   // How many of each application's options have no published rate (superseded SFI 2023 codes).
   for (const a of DB.applications) {
@@ -2201,6 +2234,9 @@ async function loadWaterbodies() {
       desig: r.desig, desigLabel: r.desigLabel,
       // Bounding-box area, used only to decide stacking order (see restackWb).
       area: (b.getNorth() - b.getSouth()) * (b.getEast() - b.getWest()),
+      // The catchment polygon as a [lat,lon] ring, kept for point-in-polygon: it is what scopes SFI
+      // parcels to this sub-catchment (see sfiByCatchment). Same ring the layer draws.
+      ring: pts,
       layer, on: false, versions: [], classifications: [], rnags: [],
     });
   }
@@ -2290,6 +2326,7 @@ function closeWaterbody() {
   selectedWb = null;
   for (const w of WB.values()) styleWb(w, false);
   closeChart();
+  refreshSfiCatchment();               // back to whole-catchment scope
 }
 
 // Open the detail panel for one water body. `fromMap` distinguishes a polygon click (leave the view
@@ -2311,6 +2348,9 @@ function openWaterbody(notation, fromMap) {
   // Waterbodies control, and this panel is a thing you read WHILE switching between water bodies —
   // hiding the control the moment you open one means you have to close the panel to pick the next.
   body.innerHTML = waterbodyPanel(w);
+  // Re-scope the farming "by option group" table to this sub-catchment. In-place, not via render(),
+  // so the side panel just written above survives. No-ops outside the farming view.
+  refreshSfiCatchment();
   setTimeout(() => {
     map.invalidateSize();
     if (!fromMap) map.fitBounds(w.layer.getBounds(), { padding: [30, 30] });
@@ -3618,7 +3658,7 @@ function renderFarming(tables) {
     closeChart();
   }
 
-  tables.append(applicationsTable(), optionsTable(selectedApp));
+  tables.append(applicationsTable(), optionsTable(selectedApp), sfiCatchmentCard());
 
   if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.25), { maxZoom: 14 });
   else {
@@ -3726,6 +3766,106 @@ function optionsTable(appIri) {
       `<tr><td class="mono">${esc(o.code)}</td><td>${esc(o.def || "—")}</td>` +
       `<td class="num">${o.cost != null ? fmtGBP(o.cost) + "/yr" : '<span class="muted">unpriced</span>'}</td></tr>`).join("")).outerHTML);
   return c;
+}
+
+// ---------------------------------------------------------------------------
+// SFI by option group, scoped to a sub-catchment (or the whole catchment)
+// ---------------------------------------------------------------------------
+// "How much hedgerow / soil management / organic farming is in this water body?" Attributes each
+// option's MULTIPOINT parcels to the selected water-body catchment by point-in-polygon, exactly as
+// ttl/sfi/waterbody_reconcile.py does offline, and aggregates by broader group.
+//
+// Per option group, scoped to a sub-catchment (null => whole catchment): the EXACT extent under each
+// action type, from the per-parcel area/length (SFIParcels in sfi.ttl). Each parcel's hectares (or metres)
+// belong to exactly one water body, so an in-scope parcel contributes its FULL own extent -- no
+// apportionment, which the summed per-option area would have forced (wrong by ~25% on a water body).
+//
+// EXTENT IS PER ACTION TYPE AND IS NOT SUMMED into a catchment total. A field commonly carries several
+// actions (73% of parcels here) and the source even records different areas for different actions at
+// the same point, so "total area under actions" double-counts and is not a valid answer -- and a
+// distinct land footprint is not recoverable from this data. So the card shows each group's extent and
+// deliberately reports NO extent total. Payment (money) and parcel counts do sum; extent does not.
+function sfiByCatchment(notation) {
+  const w = notation ? WB.get(notation) : null;
+  const ring = w ? w.ring : null;                    // null ring => whole catchment, every parcel counts
+  const byGroup = {};
+  for (const o of DB.sfiOptions) {
+    const inParcels = ring ? o.parcels.filter((p) => pointInRing(p.lat, p.lon, ring)) : o.parcels;
+    if (!inParcels.length) continue;
+    const g = (byGroup[o.broader] ||= { code: o.broader, label: o.broaderLabel, parcels: 0, payment: 0, ha: 0, m: 0 });
+    g.parcels += inParcels.length;
+    // Payment is per-option, so apportion it by the option's in-scope parcel share (a field carries a
+    // payment per action, not per land, so this does sum cleanly to the option and application totals).
+    if (o.cost != null) g.payment += o.cost * (inParcels.length / o.parcels.length);
+    for (const p of inParcels) {
+      if (p.area != null) g.ha += p.area;            // EXACT: this parcel's own hectares
+      if (p.mtl != null) g.m += p.mtl;               // EXACT: this parcel's own metres
+    }
+  }
+  return Object.values(byGroup).sort((a, b) => b.parcels - a.parcels || b.payment - a.payment);
+}
+
+function sfiCatchmentCard() {
+  const w = selectedWb ? WB.get(selectedWb) : null;
+  const groups = sfiByCatchment(selectedWb);
+  const totParcels = groups.reduce((s, g) => s + g.parcels, 0);
+  const totPay = groups.reduce((s, g) => s + g.payment, 0);
+  const anyPriced = groups.some((g) => g.payment > 0);
+
+  // Extent in the group's OWN unit: hectares for area actions, metres for linear ones. Exact for the
+  // scope. No total is offered (see note) — the value here is per action type only.
+  const extentCell = (g) => {
+    if (g.ha > 0) return `<td class="num" data-sort="${g.ha}">${fmtNum(Math.round(g.ha))}<span class="unit"> ha</span></td>`;
+    if (g.m > 0) return `<td class="num" data-sort="${g.m}">${fmtNum(Math.round(g.m))}<span class="unit"> m</span></td>`;
+    return `<td class="num" data-sort="-1"><span class="muted">—</span></td>`;
+  };
+
+  const rows = groups.map((g) => `
+    <tr>
+      <td>${swatch(groupColor(g.code))}${esc(g.label)} <span class="mono">${esc(g.code)}</span></td>
+      <td class="num">${fmtNum(g.parcels)}</td>
+      ${extentCell(g)}
+      <td class="num" data-sort="${g.payment > 0 ? g.payment : -1}">${g.payment > 0 ? fmtGBP(Math.round(g.payment)) + "/yr" : '<span class="muted">unpriced</span>'}</td>
+    </tr>`).join("") +
+    // Extent is deliberately NOT totalled — the cell is a dash. Parcels and payment do sum.
+    `<tr class="tot-row"><td><b>Total</b></td><td class="num"><b>${fmtNum(totParcels)}</b></td>` +
+    `<td class="num"><span class="muted" title="Extent is per action type and cannot be summed — a field carries several actions">—</span></td>` +
+    `<td class="num"><b>${anyPriced ? fmtGBP(Math.round(totPay)) + "/yr" : "—"}</b></td></tr>`;
+
+  const hint = w
+    ? ` <span class="count">— ${esc(w.label)} · <span class="sub-link sfi-all" title="Show the whole catchment">✕ whole catchment</span></span>`
+    : ` <span class="count">— whole catchment · turn on Waterbodies and click a sub-catchment to scope</span>`;
+
+  const c = document.createElement("div");
+  c.className = "card";
+  c.id = "sfi-catchment";
+  c.innerHTML = `<h2>Farming by option group${hint} <span class="count">${groups.length}</span></h2>`;
+  c.append(tableEl(["Option group", "Parcels|r", "Extent|r", "Annual payment|r"], rows));
+
+  const note = document.createElement("p");
+  note.className = "table-caveat";
+  note.innerHTML =
+    `<b>Extent</b> is each action's own area (ha) or length (m), taken from the per-parcel figures in ` +
+    `the source, so it is <b>exact</b> for this sub-catchment — a parcel's hectares belong to one water ` +
+    `body, not split by apportionment. It is shown <b>per action type and is not totalled</b>: a field ` +
+    `usually carries several actions (73% here do), and the source even records different areas for ` +
+    `different actions on the same point, so a single "area under improvement" figure would double-count ` +
+    `and is not a valid answer — a distinct land footprint is not recoverable from this data. ` +
+    `<b>Parcels</b> is the count of that action's mapped points here; <b>payment</b> is apportioned by ` +
+    `parcel share. Both of those do sum. This is not a count of whole agreements — a straddling option ` +
+    `is split between sub-catchments.`;
+  c.append(note);
+
+  c.addEventListener("click", (e) => { if (e.target.closest(".sfi-all")) closeWaterbody(); });
+  return c;
+}
+
+// Rebuild ONLY this card in place, so a water-body click updates it without a full render() (which
+// would rebuild every farming table and, worse, close the water-body side panel). No-ops when the
+// card is absent -- i.e. in every view but farming.
+function refreshSfiCatchment() {
+  const existing = document.getElementById("sfi-catchment");
+  if (existing) existing.replaceWith(sfiCatchmentCard());
 }
 
 // Expandable rows: clicking a summary row toggles the detail row and lazily fills it.

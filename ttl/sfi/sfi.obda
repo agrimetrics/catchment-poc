@@ -55,6 +55,13 @@ target      :Option/{app_id}/{option_code} ex:area {total_area}^^xsd:decimal .
             :Option/{app_id}/{option_code} geo:hasGeometry :Option/{app_id}/{option_code}#geometry .
             :Option/{app_id}/{option_code}#geometry geo:asWKT "{geom_wkt}"^^geo:wktLiteral .
 
+mappingId   SFIParcels
+source      SELECT app_id, option_code, parcel_ix, area, mtl, geom_wkt FROM option_parcel
+target      :Option/{app_id}/{option_code}/parcel/{parcel_ix} defra-core:partOf :Option/{app_id}/{option_code} .
+            :Option/{app_id}/{option_code}/parcel/{parcel_ix} geo:asWKT "{geom_wkt}"^^geo:wktLiteral .
+            :Option/{app_id}/{option_code}/parcel/{parcel_ix} ex:area {area}^^xsd:decimal .
+            :Option/{app_id}/{option_code}/parcel/{parcel_ix} ex:mtl {mtl}^^xsd:decimal .
+
 mappingId   SFIConcepts
 source      SELECT notation, definition, comment, duration FROM concepts
 target      :Option/Concept/{notation} rdf:type skos:Concept .

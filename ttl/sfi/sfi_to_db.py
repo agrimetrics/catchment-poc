@@ -59,6 +59,22 @@ FROM result
 GROUP BY app_id, option_code;
 """)
 
+# One row per DRAWN PARCEL, keeping its OWN area/length rather than summing them away. The summed
+# option total above cannot be split across sub-catchments without assuming equal parcel sizes (wrong
+# by ~25% on a single water-body catchment); the per-parcel area is what lets an extent question scoped
+# to a sub-catchment be exact. `parcel_ix` is a per-option running index so each parcel gets a stable
+# URI (see the SFIParcels mapping in sfi.obda). Materialised into sfi.ttl by ontop like everything else.
+con.execute(f"""
+CREATE OR REPLACE TABLE option_parcel AS
+SELECT app_id,
+       option_code,
+       CAST(row_number() OVER (PARTITION BY app_id, option_code) - 1 AS BIGINT) AS parcel_ix,
+       CAST(area AS DECIMAL(18,4)) AS area,
+       CAST(mtl  AS DECIMAL(18,4)) AS mtl,
+       '<{CRS84}> ' || ST_AsText(geom) AS geom_wkt
+FROM result;
+""")
+
 
 # --- SFI concept scheme -------------------------------------------------------
 # Two sources are unioned into one `concepts` table:
