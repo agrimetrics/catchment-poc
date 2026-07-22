@@ -145,14 +145,17 @@ nav#views.app-nav {
 .app-nav__group--water::before { background: var(--blue); }
 .app-nav__group--land::before { background: var(--green); }
 .app-nav__divider { align-self: stretch; width: 1px; background: var(--line); margin: 10px 10px; }
+/* The view links sit UNDER their domain header, so they are kept quiet — muted, regular weight —
+   and only take colour on hover. The current view is the exception: bold with a blue underline, so
+   it reads as "where you are" without the whole strip competing with the WATER / LAND headers. */
 .app-nav__link {
   appearance: none; background: none; border: none; cursor: pointer;
-  font-family: inherit; font-size: 16px; color: var(--accent);
+  font-family: inherit; font-size: 15px; font-weight: 400; color: var(--muted);
   padding: 13px 8px; margin: 0 0 -1px;
-  border: none; border-bottom: 4px solid transparent; border-radius: 0;
+  border-bottom: 4px solid transparent; border-radius: 0;
   white-space: nowrap;
 }
-.app-nav__link:hover { color: var(--accent-dark); text-decoration: underline; text-underline-offset: 3px; }
+.app-nav__link:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .app-nav__link.active {
   color: var(--text); font-weight: 700; border-bottom-color: var(--accent); text-decoration: none;
 }
