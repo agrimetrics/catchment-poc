@@ -1366,13 +1366,23 @@ function groupCostsForApp(appIri) {
   return Object.values(byGroup).sort((a, b) => b.value - a.value);
 }
 
-// Count view: mapped locations (multipoint components) per intervention group — how many places
-// each intervention is done. This is the "count" view and the fallback when there are no prices.
-function groupCountsForApp(appIri) {
+// Details view (application): the per-group breakdown — parcels, extent, annual payment, and the
+// modelled phosphorus/nitrogen removal each group contributes. An option belongs entirely to its
+// application, so every parcel counts and nothing is apportioned (unlike the sub-catchment view,
+// which rings the parcels). Mirrors sfiByCatchment's shape so both feed the one Details table.
+function sfiGroupsForApp(appIri) {
   const byGroup = {};
-  for (const o of DB.optionsByApp[appIri] || [])
-    (byGroup[o.broader] ||= { code: o.broader, label: o.broaderLabel, count: 0 }).count += o.points.length;
-  return Object.values(byGroup).sort((a, b) => b.count - a.count);
+  for (const o of DB.optionsByApp[appIri] || []) {
+    const g = (byGroup[o.broader] ||= {
+      code: o.broader, label: o.broaderLabel, parcels: 0, payment: 0, ha: 0, m: 0, removals: {},
+    });
+    g.parcels += o.parcels.length;
+    if (o.cost != null) g.payment += o.cost;
+    g.ha += o.ha; g.m += o.m;
+    const imp = DB.optionImpacts[o.iri] || {};
+    for (const sub in imp) g.removals[sub] = (g.removals[sub] || 0) + imp[sub];
+  }
+  return Object.values(byGroup).sort((a, b) => b.parcels - a.parcels || b.payment - a.payment);
 }
 
 // Removals view: the application's MODELLED annual pollutant removal for one substance, split into
@@ -1398,10 +1408,10 @@ function removalSubstancesFor(appIri) {
   return currentSubstance ? have.filter((s) => s === currentSubstance) : have;
 }
 
-// The "SFI Application" tab body: cost pie, count bars or modelled removals for the selected
-// application. Priced applications default to the cost pie with a Cost/Count/Removals toggle; unpriced
-// ones fall back to the count bar chart (no prices to show). Opening/closing is handled by the tab
-// system (renderTabs); this only fills #chart-body.
+// The "SFI Application" tab body: cost pie, modelled removals or the per-group Details table for the
+// selected application. Priced applications default to the cost pie with a Cost/Removals/Details
+// toggle; unpriced ones fall back to the Details table (no prices to show). Opening/closing is handled
+// by the tab system (renderTabs); this only fills #chart-body.
 function renderAppChart(appIri) {
   const app = DB.appById[appIri];
   const slices = groupCostsForApp(appIri);
@@ -1411,12 +1421,15 @@ function renderAppChart(appIri) {
   // Cost is the only mode that can be unavailable (SFI 2023 has no published rates). Count and
   // Removals always have something to say — including "nothing modelled here", which is an answer.
   let mode = farmChartMode;
-  if (mode === "value" && !hasPrices) mode = "count";
+  if (mode === "value" && !hasPrices) mode = "details";
   const btn = (m, lbl) => `<button class="${mode === m ? "on" : ""}" onclick="setFarmChartMode('${m}')">${lbl}</button>`;
-  const toggle = `<div class="chart-toggle">${hasPrices ? btn("value", "Cost") : ""}${btn("count", "Count")}${btn("removal", "Removals")}</div>`;
+  const toggle = `<div class="chart-toggle">${hasPrices ? btn("value", "Cost") : ""}${btn("removal", "Removals")}${btn("details", "Details")}</div>`;
+  const intro = `<p class="wb-note">Every option in this application, grouped. <b>Parcels</b> counts each ` +
+    `action's mapped points; <b>payment</b> is the option's own annual rate. <b>Extent</b> is each action's ` +
+    `exact area or length and is <b>not totalled</b> — a field carries several actions.</p>`;
   const body = mode === "value" ? renderPie(slices, total, unpriced, app)
     : mode === "removal" ? renderRemovals(appIri)
-    : renderBars(groupCountsForApp(appIri), app, hasPrices, unpriced);
+    : sfiDetailsTable(sfiGroupsForApp(appIri), intro);
   document.getElementById("chart-body").innerHTML = toggle + body;
 }
 
@@ -1453,7 +1466,7 @@ function renderRemovals(appIri) {
   if (!bars.length) return `<p class="chart-note">No modelled removal for this application.</p>`;
 
   // The legend is shared by the bars — colour follows the intervention group, the same group colours
-  // the cost pie and the count bars use, so identity carries across all three modes.
+  // the cost pie and the Details table use, so identity carries across all three modes.
   const seen = {};
   for (const b of bars) for (const g of b.groups) seen[g.code] = g;
   const legend = Object.values(seen).map((g) =>
@@ -1531,7 +1544,7 @@ function niceFloor(v) {
 // charts never strip it — only the applications table flips it, under a column that says "Removed".
 const fmtKg = (v) => `${v < 0 ? "−" : ""}${fmtNum(Math.abs(Math.round(v)))} kg/yr`;
 
-// The Cost/Count/Removals mode is shared by the two SFI charts (application and catchment summary);
+// The Cost/Removals/Details mode is shared by the two SFI panels (application and catchment summary);
 // the toggle re-renders whichever of them is the active tab.
 function setFarmChartMode(m) {
   farmChartMode = m;
@@ -1539,44 +1552,6 @@ function setFarmChartMode(m) {
   else if (activeTab === "sfi" && selectedWb) renderSfiCatchmentChart(selectedWb);
 }
 window.setFarmChartMode = setFarmChartMode;
-
-// Count view: a bar per intervention group (categorical x), option count on y.
-function renderBars(groups, app, hasPrices, unpriced) {
-  if (!groups.length) return `<p class="chart-note">No options for this application.</p>`;
-  const W = 340, H = 300, m = { l: 34, r: 12, t: 16, b: 64 };
-  const iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
-  const yMax = Math.max(1, ...groups.map((g) => g.count));
-  const bw = iw / groups.length;
-  const y = (v) => m.t + ih - (ih * v) / yMax;
-  let grid = "";
-  const ticks = Math.min(yMax, 5);
-  for (let i = 0; i <= ticks; i++) {
-    const v = Math.round((yMax * i) / ticks), yy = y(v);
-    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#b1b4b6"/>` +
-      `<text x="${m.l - 5}" y="${yy + 3}" fill="#505a5f" font-size="10" text-anchor="end">${v}</text>`;
-  }
-  let bars = "";
-  groups.forEach((g, i) => {
-    const x0 = m.l + i * bw + bw * 0.16, w = bw * 0.68, yy = y(g.count);
-    bars += `<rect x="${x0}" y="${yy}" width="${w}" height="${y0 - yy}" fill="${groupColor(g.code)}" rx="2"><title>${esc(g.label)} — ${g.count}</title></rect>` +
-      `<text x="${x0 + w / 2}" y="${yy - 4}" fill="#0b0c0c" font-size="10" text-anchor="middle">${g.count}</text>` +
-      `<text transform="translate(${x0 + w / 2} ${y0 + 9}) rotate(35)" fill="#505a5f" font-size="9.5" text-anchor="start">${esc(g.code)}</text>`;
-  });
-  const note = hasPrices
-    ? "count of intervention locations"
-    : `SFI 2023 — rates unavailable; showing intervention locations (${unpriced} options unpriced)`;
-  const legend = groups.map((g) =>
-    `<div class="pie-leg"><span class="dot" style="background:${groupColor(g.code)}"></span>` +
-    `<span class="pie-name">${esc(g.label)} <span class="mono">${esc(g.code)}</span></span>` +
-    `<span class="pie-val">${g.count}</span></div>`).join("");
-  return `<svg viewBox="0 0 ${W} ${H}" class="bars" preserveAspectRatio="xMidYMid meet">${grid}${bars}
-    <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
-    <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
-    <text transform="translate(11 ${m.t + ih / 2}) rotate(-90)" fill="#505a5f" font-size="10" text-anchor="middle">locations</text>
-  </svg>
-  <p class="chart-note">${note}</p>
-  <div class="pie-legend">${legend}</div>`;
-}
 
 function renderPie(slices, total, unpriced, app) {
   if (!slices.length || total <= 0) {
@@ -1696,7 +1671,7 @@ let currentSubstance = ""; // notation or ""
 let currentOptionType = ""; // farming: broader option-group code filter, or ""
 let selectedApp = null;    // farming: selected application IRI (or null)
 let selectedAction = null; // WINEP: focused action IRI (or null) — links the table row and map marker
-let farmChartMode = "value"; // farming chart: "value" (cost pie) | "count" (bar)
+let farmChartMode = "value"; // farming panel: "value" (cost pie) | "removal" (bars) | "details" (table)
 let farmDisplay = "applications"; // farming map: "applications" (hull polygons) | "options" (parcel points)
 let optionRenderer = null;   // shared L.canvas() for the ~12,900 option-point dots
 let farmDisplayControl = null;
@@ -2666,38 +2641,79 @@ function waterbodyPanel(w) {
 // a field carries several actions at different areas, so one "area under improvement" figure would
 // double-count and is not valid. (This is where the parcels/extent/payment numbers live now that the
 // tab has replaced the table that used to be folded into the challenges panel.)
-function sfiCatchmentTable(notation) {
-  const groups = sfiByCatchment(notation);
-  if (!groups.length)
-    return `<p class="wb-note">No SFI option parcels fall within this sub-catchment.</p>`;
+// The two land substances the Details table breaks removal out by, discovered from the data so the
+// columns cannot drift from what the graph models: whichever notations read as phosphorus / nitrogen
+// fill the P and N slots. Either may be absent (then that column is all dashes).
+function landCols() {
+  const cols = { P: null, N: null };
+  for (const [sub, label] of Object.entries(DB.landSubstances)) {
+    const el = String(label).split(",")[0].trim().toLowerCase();
+    if (el.startsWith("phos")) cols.P = { sub, label };
+    else if (el.startsWith("nitro")) cols.N = { sub, label };
+  }
+  return cols;
+}
+
+// The SFI "Details" table — the per-group breakdown shown for BOTH a selected application and a
+// selected sub-catchment (whichever built `groups`). Carries the exact numbers the cost pie and the
+// removal bars abstract away: parcels, extent, annual payment, and the modelled phosphorus / nitrogen
+// removal each group contributes. `intro` is the scope-specific lede paragraph.
+function sfiDetailsTable(groups, intro) {
+  if (!groups.length) return `<p class="wb-note">No SFI option parcels here.</p>`;
+  const cols = landCols();
   const totParcels = groups.reduce((s, g) => s + g.parcels, 0);
   const totPay = groups.reduce((s, g) => s + g.payment, 0);
   const anyPriced = groups.some((g) => g.payment > 0);
+  const sumRem = (sub) => sub ? groups.reduce((s, g) => s + (g.removals[sub] || 0), 0) : 0;
+
   const extentCell = (g) => {
     if (g.ha > 0) return `${fmtNum(Math.round(g.ha))}<span class="unit"> ha</span>`;
     if (g.m > 0) return `${fmtNum(Math.round(g.m))}<span class="unit"> m</span>`;
     return `<span class="muted">—</span>`;
   };
+  // Removals are stored NEGATIVE (a reduction in loss); a column headed "removal" reads a positive
+  // number as the amount kept out, so it shows the magnitude, flagged modelled (green .modelled cell).
+  const remCell = (g, sub) => {
+    const kg = sub ? g.removals[sub] : null;
+    return (kg == null || kg === 0)
+      ? `<td class="num"><span class="muted">—</span></td>`
+      : `<td class="num modelled" data-sort="${Math.abs(kg)}">${fmtNum(Math.round(Math.abs(kg)))}<span class="unit"> kg/yr</span></td>`;
+  };
+  const remTot = (sub) => {
+    const kg = sumRem(sub);
+    return kg ? `<td class="num modelled"><b>${fmtNum(Math.round(Math.abs(kg)))}<span class="unit"> kg/yr</span></b></td>`
+      : `<td class="num"><span class="muted">—</span></td>`;
+  };
+
   const rows = groups.map((g) => `
       <tr>
         <td>${swatch(groupColor(g.code))}${esc(g.label)} <span class="mono">${esc(g.code)}</span></td>
         <td class="num">${fmtNum(g.parcels)}</td>
         <td class="num">${extentCell(g)}</td>
         <td class="num">${g.payment > 0 ? fmtGBP(Math.round(g.payment)) + "/yr" : '<span class="muted">unpriced</span>'}</td>
+        ${remCell(g, cols.P && cols.P.sub)}
+        ${remCell(g, cols.N && cols.N.sub)}
       </tr>`).join("") +
     `<tr class="tot-row"><td><b>Total</b></td><td class="num"><b>${fmtNum(totParcels)}</b></td>` +
     `<td class="num"><span class="muted" title="Extent is per action type and cannot be summed — a field carries several actions">—</span></td>` +
-    `<td class="num"><b>${anyPriced ? fmtGBP(Math.round(totPay)) + "/yr" : "—"}</b></td></tr>`;
+    `<td class="num"><b>${anyPriced ? fmtGBP(Math.round(totPay)) + "/yr" : "—"}</b></td>` +
+    `${remTot(cols.P && cols.P.sub)}${remTot(cols.N && cols.N.sub)}</tr>`;
 
-  return `
-    <p class="wb-note">Options whose parcels fall inside this sub-catchment.
-      <b>Parcels</b> counts this action's mapped points; <b>payment</b> is apportioned by parcel share.
-      Both sum cleanly. <b>Extent</b> is each action's own exact area or length and is
-      <b>not totalled</b> — a field carries several actions, so a single footprint would double-count.</p>
+  const pHead = cols.P ? esc(shortSub(cols.P.label)) : "Phosphorus";
+  const nHead = cols.N ? esc(shortSub(cols.N.label)) : "Nitrogen";
+  return `${intro}
     <table class="wb-sfi">
-      <thead><tr><th>Option group</th><th class="num">Parcels</th><th class="num">Extent</th><th class="num">Annual payment</th></tr></thead>
+      <thead><tr>
+        <th>Option group</th><th class="num">Parcels</th><th class="num">Extent</th>
+        <th class="num">Annual payment</th>
+        <th class="num">Modelled ${pHead} removal</th>
+        <th class="num">Modelled ${nHead} removal</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table>
+    <p class="chart-note modelled-note"><b>Modelled, not measured.</b> Removal is FARMSCOPER's per-hectare
+      change in loss × mapped area; the store keeps it negative (a reduction), shown here as the amount kept
+      out of the catchment. Only area-based options carry one, so linear actions read <span class="muted">—</span>.</p>`;
 }
 
 window.wbFocus = (notation) => openWaterbody(notation, false);
@@ -4258,9 +4274,24 @@ function groupRemovalsForCatchment(notation, sub) {
   return Object.values(byGroup).sort((a, b) => a.value - b.value);  // most negative (biggest cut) first
 }
 
-// The "Catchment: SFI Summary" tab body — the selected sub-catchment's SFI as cost pie / count bars /
+// The sub-catchment's per-group breakdown PLUS its modelled removals, folded onto the same group
+// objects so the shared Details table can read parcels / extent / payment / removals in one shape.
+// Removals are apportioned by in-scope parcel share (as groupRemovalsForCatchment does), matching how
+// payment is apportioned, so every column sums cleanly across sub-catchments.
+function sfiGroupsForCatchment(notation) {
+  const groups = sfiByCatchment(notation);              // fresh objects each call — safe to augment
+  const byCode = {};
+  for (const g of groups) { g.removals = {}; byCode[g.code] = g; }
+  for (const sub in DB.landSubstances) {
+    for (const r of groupRemovalsForCatchment(notation, sub))
+      if (byCode[r.code]) byCode[r.code].removals[sub] = r.value;
+  }
+  return groups;
+}
+
+// The "Catchment: SFI Summary" tab body — the selected sub-catchment's SFI as cost pie / removal bars /
 // modelled removals, mirroring the application chart but scoped to the catchment. Shares farmChartMode
-// with the application chart (one Cost/Count/Removals toggle idiom across both).
+// with the application chart (one Cost/Removals/Details toggle idiom across both).
 function renderSfiCatchmentChart(notation) {
   const w = notation ? WB.get(notation) : null;
   const scope = w ? esc(w.label) : "the whole catchment";
@@ -4280,15 +4311,19 @@ function renderSfiCatchmentChart(notation) {
   }
 
   let mode = farmChartMode;
-  if (mode === "value" && !hasPrices) mode = "count";
+  if (mode === "value" && !hasPrices) mode = "details";
   const btn = (m, lbl) => `<button class="${mode === m ? "on" : ""}" onclick="setFarmChartMode('${m}')">${lbl}</button>`;
-  const toggle = `<div class="chart-toggle">${hasPrices ? btn("value", "Cost") : ""}${btn("count", "Count")}${btn("removal", "Removals")}</div>`;
+  const toggle = `<div class="chart-toggle">${hasPrices ? btn("value", "Cost") : ""}${btn("removal", "Removals")}${btn("details", "Details")}</div>`;
 
-  // Count is the per-group table (parcels / extent / payment) — it carries the exact numbers the pie
-  // and removal bars abstract away, and is where the old folded table's content now lives.
+  // Details is the per-group table (parcels / extent / payment / modelled removals) — it carries the
+  // exact numbers the pie and removal bars abstract away, and is where the old folded table now lives.
+  const intro = `<p class="wb-note">Options whose parcels fall inside this sub-catchment. ` +
+    `<b>Parcels</b> counts this action's mapped points; <b>payment</b> is apportioned by parcel share. ` +
+    `Both sum cleanly. <b>Extent</b> is each action's own exact area or length and is <b>not totalled</b> — ` +
+    `a field carries several actions, so a single footprint would double-count.</p>`;
   const body = mode === "value" ? renderPie(costSlices, total, unpriced, null)
     : mode === "removal" ? renderCatchmentRemovals(notation, scope)
-    : sfiCatchmentTable(notation);
+    : sfiDetailsTable(sfiGroupsForCatchment(notation), intro);
 
   const head = `<p class="chart-scope">SFI in <b>${scope}</b> · ${groups.length} option group${groups.length === 1 ? "" : "s"}</p>`;
   document.getElementById("chart-body").innerHTML = head + toggle + body;
@@ -4324,7 +4359,7 @@ function renderCatchmentRemovals(notation, scope) {
 
 // The whole-catchment SFI overview, shown below the map in the farming view. Per-sub-catchment
 // figures no longer live here — clicking a waterbody catchment scopes them into the "Catchment: SFI
-// Summary" tab in the side panel (see renderSfiCatchmentChart / sfiCatchmentTable). This card is
+// Summary" tab in the side panel (see renderSfiCatchmentChart / sfiDetailsTable). This card is
 // always the whole catchment, so it stays a stable reference the scoped tab reads against.
 function sfiCatchmentCard() {
   const groups = sfiByCatchment(null);
