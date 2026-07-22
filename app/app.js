@@ -64,7 +64,7 @@ function familyOf(typeLabel) {
 // SFI programmes (schemes). Only the Expanded Offer has published option rates in our source
 // workbook, so SFI 2023 agreements are shown unpriced. Applications colour-code by programme.
 const PROGRAMMES = {
-  "SFI EO": { label: "SFI Expanded Offer", color: "#46b978", priced: true },
+  "SFI EO": { label: "SFI Expanded Offer", color: "#00703c", priced: true },
   "SFI 23": { label: "SFI 2023", color: "#8a94a0", priced: false },
 };
 const progOf = (a) =>
@@ -1196,16 +1196,16 @@ function renderChart(ctx, obs, meta = {}) {
   let grid = "";
   for (let i = 0; i <= 5; i++) {
     const val = (yMax * i) / 5, yy = y(val);
-    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#2b3a49"/>` +
-      `<text x="${m.l - 6}" y="${yy + 3}" fill="#93a4b3" font-size="10" text-anchor="end">${val.toFixed(dp)}</text>`;
+    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#b1b4b6"/>` +
+      `<text x="${m.l - 6}" y="${yy + 3}" fill="#505a5f" font-size="10" text-anchor="end">${val.toFixed(dp)}</text>`;
   }
   const yr1 = new Date(tMin).getFullYear(), yr2 = new Date(tMax).getFullYear();
   const step = Math.max(1, Math.ceil((yr2 - yr1) / 8));
   for (let yr = yr1; yr <= yr2; yr += step) {
     const xx = x(Date.parse(`${yr}-01-01`));
     if (xx < m.l - 1 || xx > W - m.r + 1) continue;
-    grid += `<line x1="${xx}" y1="${m.t}" x2="${xx}" y2="${y0}" stroke="#212e3b"/>` +
-      `<text x="${xx}" y="${y0 + 14}" fill="#93a4b3" font-size="10" text-anchor="middle">${yr}</text>`;
+    grid += `<line x1="${xx}" y1="${m.t}" x2="${xx}" y2="${y0}" stroke="#b1b4b6"/>` +
+      `<text x="${xx}" y="${y0 + 14}" fill="#505a5f" font-size="10" text-anchor="middle">${yr}</text>`;
   }
 
   // Limit line. If we have dated version windows, draw the limit as a STEP line following the
@@ -1213,7 +1213,7 @@ function renderChart(ctx, obs, meta = {}) {
   let lines = "";
   const hasSteps = ctx.steps.some((s) => s.upper != null || s.lower != null);
   // plain stepped segments (used for the lower bound and the upper-tier backstop; no per-segment labels)
-  const stepLine = (pick, width, colour = "#e5484d") => {
+  const stepLine = (pick, width, colour = "#d4351c") => {
     let svg = "";
     for (const s of ctx.steps) {
       const v = pick(s);
@@ -1233,14 +1233,14 @@ function renderChart(ctx, obs, meta = {}) {
       if (!run || !run.versions.length) return;
       const first = run.versions[0], last = run.versions[run.versions.length - 1];
       const label = first === last ? `v${first}` : `v${first}-v${last}`;
-      svg += `<text x="${run.xLeft + 3}" y="${run.yy - 4}" fill="#e5484d" font-size="10">${esc(label)}</text>`;
+      svg += `<text x="${run.xLeft + 3}" y="${run.yy - 4}" fill="#d4351c" font-size="10">${esc(label)}</text>`;
     };
     for (const s of ctx.steps) {
       if (!Number.isFinite(s.upper)) continue;
       const from = Math.max(s.from, tMin), to = Math.min(s.to == null ? tMax : s.to, tMax);
       if (to < tMin || from > tMax) continue;
       const yy = y(s.upper);
-      svg += `<line x1="${x(from)}" y1="${yy}" x2="${x(to)}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>`;
+      svg += `<line x1="${x(from)}" y1="${yy}" x2="${x(to)}" y2="${yy}" stroke="#d4351c" stroke-width="1.75" stroke-dasharray="6 4"/>`;
       if (run && run.upper === s.upper) {
         if (s.version != null) run.versions.push(s.version);         // extend the current run
       } else {
@@ -1262,7 +1262,7 @@ function renderChart(ctx, obs, meta = {}) {
     lines += stepLine((s) => s.maxUpper, 1.25, TIER) + stepUpperLine() + stepLine((s) => s.lower, 1.5);
     // value + unit on the RIGHT, for the latest (current) enforced limit only
     if (ctx.upper != null)
-      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}${statSuffix}</text>`;
+      lines += `<text x="${W - m.r}" y="${y(ctx.upper) - 4}" fill="#d4351c" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}${statSuffix}</text>`;
     if (ctx.maxUpper != null)
       lines += `<text x="${W - m.r}" y="${y(ctx.maxUpper) - 4}" fill="${TIER}" font-size="10" text-anchor="end">${fmtNum(ctx.maxUpper)} ${prettyUnit(ctx.unit)} (upper tier)</text>`;
   } else {
@@ -1274,13 +1274,13 @@ function renderChart(ctx, obs, meta = {}) {
     }
     if (ctx.upper != null) {
       const yy = y(ctx.upper);
-      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.75" stroke-dasharray="6 4"/>`
-        + (ctx.version != null ? `<text x="${m.l + 3}" y="${yy - 4}" fill="#e5484d" font-size="10">v${esc(ctx.version)}</text>` : "")
-        + `<text x="${W - m.r}" y="${yy - 4}" fill="#e5484d" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}${statSuffix}</text>`;
+      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#d4351c" stroke-width="1.75" stroke-dasharray="6 4"/>`
+        + (ctx.version != null ? `<text x="${m.l + 3}" y="${yy - 4}" fill="#d4351c" font-size="10">v${esc(ctx.version)}</text>` : "")
+        + `<text x="${W - m.r}" y="${yy - 4}" fill="#d4351c" font-size="10" text-anchor="end">${fmtNum(ctx.upper)} ${prettyUnit(ctx.unit)}${statSuffix}</text>`;
     }
     if (ctx.lower != null) {
       const yy = y(ctx.lower);
-      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+      lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#d4351c" stroke-width="1.5" stroke-dasharray="6 4"/>`;
     }
   }
   const seen = new Set();
@@ -1290,9 +1290,9 @@ function renderChart(ctx, obs, meta = {}) {
     seen.add(v);
     const yy = y(v);
     // "proposed" on the LEFT of the line; value + unit + method on the RIGHT
-    lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#a06bff" stroke-width="1.75" stroke-dasharray="6 4"/>`
-      + `<text x="${m.l + 3}" y="${yy - 4}" fill="#a06bff" font-size="10">proposed</text>`
-      + `<text x="${W - m.r}" y="${yy - 4}" fill="#a06bff" font-size="10" text-anchor="end">${fmtNum(v)} ${prettyUnit(b.unit)}${b.stat ? " (" + esc(b.stat) + ")" : ""}</text>`;
+    lines += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#4c2c92" stroke-width="1.75" stroke-dasharray="6 4"/>`
+      + `<text x="${m.l + 3}" y="${yy - 4}" fill="#4c2c92" font-size="10">proposed</text>`
+      + `<text x="${W - m.r}" y="${yy - 4}" fill="#4c2c92" font-size="10" text-anchor="end">${fmtNum(v)} ${prettyUnit(b.unit)}${b.stat ? " (" + esc(b.stat) + ")" : ""}</text>`;
   }
 
   // ✕ miss = fails a per-sample rule (a breach on its own). △ exceedance = over a percentile/mean
@@ -1305,13 +1305,13 @@ function renderChart(ctx, obs, meta = {}) {
     if (st === "miss") {
       nMiss++;
       const s = 3.5;
-      pts += `<path d="M${px - s} ${py - s}L${px + s} ${py + s}M${px - s} ${py + s}L${px + s} ${py - s}" stroke="#e5484d" stroke-width="1.7"/>`;
+      pts += `<path d="M${px - s} ${py - s}L${px + s} ${py + s}M${px - s} ${py + s}L${px + s} ${py - s}" stroke="#d4351c" stroke-width="1.7"/>`;
     } else if (st === "exceedance") {
       nExc++;
       const s = 4;
       pts += `<path d="M${px} ${py - s}L${px + s} ${py + s * 0.75}L${px - s} ${py + s * 0.75}Z" fill="none" stroke="${EXC}" stroke-width="1.5"/>`;
     } else {
-      pts += `<circle cx="${px}" cy="${py}" r="3" fill="none" stroke="#3aa0ff" stroke-width="1.5"/>`;
+      pts += `<circle cx="${px}" cy="${py}" r="3" fill="none" stroke="#1d70b8" stroke-width="1.5"/>`;
     }
   }
   const excLabel = ctx.upperStatLabel ? esc(ctx.upperStatLabel).toLowerCase() : "period limit";
@@ -1322,24 +1322,24 @@ function renderChart(ctx, obs, meta = {}) {
   const regulated = hasSteps || ctx.upper != null || ctx.maxUpper != null || ctx.lower != null;
   const legend = regulated
     ? `<div class="chart-legend">
-        <span class="item" style="color:#e5484d">✕ miss (${nMiss})</span>
+        <span class="item" style="color:#d4351c">✕ miss (${nMiss})</span>
         ${nExc || ctx.maxUpper != null ? `<span class="item" style="color:${EXC}">△ over ${excLabel} (${nExc})</span>` : ""}
-        <span class="item" style="color:#3aa0ff">◯ hit (${obs.length - nMiss - nExc})</span>
-        <span class="item" style="color:#e5484d">– – enforced limit${hasSteps ? " (by version)" : ""}</span>
+        <span class="item" style="color:#1d70b8">◯ hit (${obs.length - nMiss - nExc})</span>
+        <span class="item" style="color:#d4351c">– – enforced limit${hasSteps ? " (by version)" : ""}</span>
         ${ctx.maxUpper != null ? `<span class="item" style="color:${TIER}">– – upper tier</span>` : ""}
-        ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
+        ${ctx.proposed.length ? `<span class="item" style="color:#4c2c92">– – proposed limit</span>` : ""}
       </div>`
     : `<div class="chart-legend">
-        <span class="item" style="color:#3aa0ff">◯ observation (${obs.length})</span>
+        <span class="item" style="color:#1d70b8">◯ observation (${obs.length})</span>
         <span class="item muted">measured, not regulated — no permit limit here</span>
-        ${ctx.proposed.length ? `<span class="item" style="color:#a06bff">– – proposed limit</span>` : ""}
+        ${ctx.proposed.length ? `<span class="item" style="color:#4c2c92">– – proposed limit</span>` : ""}
       </div>`;
   // Y-axis label: the permit unit if there is one, else the determinand's own unit from the
   // observations (e.g. "mg/l"). Only truly unitless series fall back to the word "value".
   const yLabel = prettyUnit(ctx.unit) || prettyUnit(ctx.obsUnit) || "value";
   return `${head}${legend}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
     ${grid}
-    <text transform="translate(13 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="11" text-anchor="middle">${esc(yLabel)}</text>
+    <text transform="translate(13 ${m.t + ih / 2}) rotate(-90)" fill="#505a5f" font-size="11" text-anchor="middle">${esc(yLabel)}</text>
     ${lines}${pts}
     <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
     <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
@@ -1481,8 +1481,8 @@ function removalChart(bars) {
   let grid = "";
   for (let i = 0; i <= 4; i++) {
     const v = (yMin * i) / 4, yy = y(v);
-    grid += `<line x1="${m.l}" y1="${yy.toFixed(1)}" x2="${W - m.r}" y2="${yy.toFixed(1)}" stroke="${i ? "#2b3a49" : "#4a5b6b"}"/>` +
-      `<text x="${m.l - 6}" y="${(yy + 3).toFixed(1)}" fill="#93a4b3" font-size="10" text-anchor="end">${fmtNum(Math.round(v))}</text>`;
+    grid += `<line x1="${m.l}" y1="${yy.toFixed(1)}" x2="${W - m.r}" y2="${yy.toFixed(1)}" stroke="${i ? "#b1b4b6" : "#4a5b6b"}"/>` +
+      `<text x="${m.l - 6}" y="${(yy + 3).toFixed(1)}" fill="#505a5f" font-size="10" text-anchor="end">${fmtNum(Math.round(v))}</text>`;
   }
 
   const slot = iw / bars.length, bw = Math.min(96, slot * 0.5);
@@ -1497,7 +1497,7 @@ function removalChart(bars) {
       cols += `<rect x="${bx.toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${groupColor(g.code)}" rx="2">` +
         `<title>${esc(g.label)} (${esc(g.code)}) — ${fmtKg(g.value)} · ${share}% of the ${esc(b.label)} reduction</title></rect>`;
       // Direct-label only segments with room for the code; the tooltip and legend carry the rest.
-      if (h >= 15) cols += `<text x="${(bx + bw / 2).toFixed(1)}" y="${(yTop + h / 2 + 3.5).toFixed(1)}" fill="#0b1016" font-size="10" font-weight="600" text-anchor="middle">${esc(g.code)}</text>`;
+      if (h >= 15) cols += `<text x="${(bx + bw / 2).toFixed(1)}" y="${(yTop + h / 2 + 3.5).toFixed(1)}" fill="#0b0c0c" font-size="10" font-weight="600" text-anchor="middle">${esc(g.code)}</text>`;
       cursor += g.value;
     }
     // Name and total both sit UNDER the axis, stacked. Putting the total at the bar's end instead
@@ -1505,15 +1505,15 @@ function removalChart(bars) {
     // biggest one always does, since the scale is built from it. Down here it is legible for a bar of
     // any length, which is the point: phosphorus's bar can be four pixels tall and still be readable.
     const cx = (bx + bw / 2).toFixed(1);
-    cols += `<text x="${cx}" y="${(m.t + ih + 16).toFixed(1)}" fill="#e8eef4" font-size="11" text-anchor="middle">${esc(shortSub(b.label))}</text>` +
-      `<text x="${cx}" y="${(m.t + ih + 31).toFixed(1)}" fill="#46b978" font-size="11" font-weight="600" text-anchor="middle">${fmtKg(b.total)}</text>`;
+    cols += `<text x="${cx}" y="${(m.t + ih + 16).toFixed(1)}" fill="#0b0c0c" font-size="11" text-anchor="middle">${esc(shortSub(b.label))}</text>` +
+      `<text x="${cx}" y="${(m.t + ih + 31).toFixed(1)}" fill="#00703c" font-size="11" font-weight="600" text-anchor="middle">${fmtKg(b.total)}</text>`;
   });
 
   return `<div class="removal-chart">
     <svg viewBox="0 0 ${W} ${H}" class="bars" preserveAspectRatio="xMidYMid meet">${grid}${cols}
       <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${(m.t + ih).toFixed(1)}" stroke="#4a5b6b"/>
       <line x1="${m.l}" y1="${zero.toFixed(1)}" x2="${W - m.r}" y2="${zero.toFixed(1)}" stroke="#4a5b6b"/>
-      <text transform="translate(13 ${(m.t + ih / 2).toFixed(1)}) rotate(-90)" fill="#93a4b3" font-size="10" text-anchor="middle">modelled change in loss (kg/yr)</text>
+      <text transform="translate(13 ${(m.t + ih / 2).toFixed(1)}) rotate(-90)" fill="#505a5f" font-size="10" text-anchor="middle">modelled change in loss (kg/yr)</text>
     </svg></div>`;
 }
 
@@ -1552,15 +1552,15 @@ function renderBars(groups, app, hasPrices, unpriced) {
   const ticks = Math.min(yMax, 5);
   for (let i = 0; i <= ticks; i++) {
     const v = Math.round((yMax * i) / ticks), yy = y(v);
-    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#2b3a49"/>` +
-      `<text x="${m.l - 5}" y="${yy + 3}" fill="#93a4b3" font-size="10" text-anchor="end">${v}</text>`;
+    grid += `<line x1="${m.l}" y1="${yy}" x2="${W - m.r}" y2="${yy}" stroke="#b1b4b6"/>` +
+      `<text x="${m.l - 5}" y="${yy + 3}" fill="#505a5f" font-size="10" text-anchor="end">${v}</text>`;
   }
   let bars = "";
   groups.forEach((g, i) => {
     const x0 = m.l + i * bw + bw * 0.16, w = bw * 0.68, yy = y(g.count);
     bars += `<rect x="${x0}" y="${yy}" width="${w}" height="${y0 - yy}" fill="${groupColor(g.code)}" rx="2"><title>${esc(g.label)} — ${g.count}</title></rect>` +
-      `<text x="${x0 + w / 2}" y="${yy - 4}" fill="#e8eef4" font-size="10" text-anchor="middle">${g.count}</text>` +
-      `<text transform="translate(${x0 + w / 2} ${y0 + 9}) rotate(35)" fill="#93a4b3" font-size="9.5" text-anchor="start">${esc(g.code)}</text>`;
+      `<text x="${x0 + w / 2}" y="${yy - 4}" fill="#0b0c0c" font-size="10" text-anchor="middle">${g.count}</text>` +
+      `<text transform="translate(${x0 + w / 2} ${y0 + 9}) rotate(35)" fill="#505a5f" font-size="9.5" text-anchor="start">${esc(g.code)}</text>`;
   });
   const note = hasPrices
     ? "count of intervention locations"
@@ -1572,7 +1572,7 @@ function renderBars(groups, app, hasPrices, unpriced) {
   return `<svg viewBox="0 0 ${W} ${H}" class="bars" preserveAspectRatio="xMidYMid meet">${grid}${bars}
     <line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${y0}" stroke="#4a5b6b"/>
     <line x1="${m.l}" y1="${y0}" x2="${W - m.r}" y2="${y0}" stroke="#4a5b6b"/>
-    <text transform="translate(11 ${m.t + ih / 2}) rotate(-90)" fill="#93a4b3" font-size="10" text-anchor="middle">locations</text>
+    <text transform="translate(11 ${m.t + ih / 2}) rotate(-90)" fill="#505a5f" font-size="10" text-anchor="middle">locations</text>
   </svg>
   <p class="chart-note">${note}</p>
   <div class="pie-legend">${legend}</div>`;
@@ -1596,7 +1596,7 @@ function renderPie(slices, total, unpriced, app) {
     // full-circle guard (a lone slice) — draw as a circle, an arc back to the same point is a no-op
     paths += slices.length === 1
       ? `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${groupColor(g.code)}"/>`
-      : `<path d="M${cx} ${cy} L${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="${groupColor(g.code)}" stroke="#0b1016" stroke-width="1"><title>${esc(g.label)} — ${fmtGBP(g.value)}</title></path>`;
+      : `<path d="M${cx} ${cy} L${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="${groupColor(g.code)}" stroke="#0b0c0c" stroke-width="1"><title>${esc(g.label)} — ${fmtGBP(g.value)}</title></path>`;
     a0 = a1;
   }
   const legend = slices.map((g) =>
@@ -1604,9 +1604,9 @@ function renderPie(slices, total, unpriced, app) {
     `<span class="pie-name">${esc(g.label)} <span class="mono">${esc(g.code)}</span></span>` +
     `<span class="pie-val">${fmtGBP(g.value)} · ${Math.round((g.value / total) * 100)}%</span></div>`).join("");
   return `<svg viewBox="0 0 ${S} ${S}" class="pie" preserveAspectRatio="xMidYMid meet">${paths}
-    <circle cx="${cx}" cy="${cy}" r="58" fill="#0b1016"/>
-    <text x="${cx}" y="${cy - 3}" text-anchor="middle" fill="#e8eef4" font-size="22" font-weight="600">${fmtGBP(total)}</text>
-    <text x="${cx}" y="${cy + 17}" text-anchor="middle" fill="#93a4b3" font-size="12">per annum</text>
+    <circle cx="${cx}" cy="${cy}" r="58" fill="#ffffff"/>
+    <text x="${cx}" y="${cy - 3}" text-anchor="middle" fill="#0b0c0c" font-size="22" font-weight="700">${fmtGBP(total)}</text>
+    <text x="${cx}" y="${cy + 17}" text-anchor="middle" fill="#505a5f" font-size="12">per annum</text>
   </svg>
   <p class="chart-note">${fmtGBP(total)} per annum · cost per intervention${unpriced ? ` · <b>${unpriced}</b> option${unpriced === 1 ? "" : "s"} unpriced` : ""}</p>
   <div class="pie-legend">${legend}</div>`;
@@ -1726,7 +1726,7 @@ function focusAction(iri, fromMap) {
   }
 }
 function styleActionMarker(mk, on) {
-  mk.setStyle({ color: "#0b1016", weight: 1.5, fillColor: on ? "#c9aaff" : "#a06bff", fillOpacity: on ? 1 : 0.85 });
+  mk.setStyle({ color: "#0b0c0c", weight: 1.5, fillColor: on ? "#c9aaff" : "#4c2c92", fillOpacity: on ? 1 : 0.85 });
   mk.setRadius(on ? 9 : 7);
   if (on) mk.bringToFront();
 }
@@ -2068,7 +2068,7 @@ function initMap() {
       // interactive it silently ate clicks aimed at a water body wherever the two overlap — which is
       // everywhere, since every water body is inside the catchment.
       interactive: false,
-      style: { color: "#5aa9ff", weight: 1.5, fillColor: "#3aa0ff", fillOpacity: 0.06 },
+      style: { color: "#5aa9ff", weight: 1.5, fillColor: "#1d70b8", fillOpacity: 0.06 },
     }).addTo(map);
   }).catch(() => {});
 
@@ -2163,7 +2163,7 @@ function setBasemap(mode) {
 }
 
 function dot(color, r = 7, opacity = 0.9) {
-  return { radius: r, color: "#0b1016", weight: 1.5, fillColor: color, fillOpacity: opacity };
+  return { radius: r, color: "#0b0c0c", weight: 1.5, fillColor: color, fillOpacity: opacity };
 }
 function circle(lat, lon, style, popupHtml) {
   const m = L.circleMarker([lat, lon], style);
@@ -2392,7 +2392,7 @@ function onWaterbodySelect(e) {
 // Water bodies (Catchment Data Explorer) — layer, legend control, detail panel
 // ---------------------------------------------------------------------------
 // The water bodies have to read as a distinct layer against a catchment outline that is ALREADY blue
-// (#3aa0ff at 0.06) and a basemap full of blue watercourses. The first attempt — #4fd1c5 at 0.14 —
+// (#1d70b8 at 0.06) and a basemap full of blue watercourses. The first attempt — #4fd1c5 at 0.14 —
 // was technically drawn and technically clickable, and invisible: ticking the control produced no
 // change a user could see, so there was nothing to click. Opacity and stroke weight here are the
 // affordance, not decoration.
@@ -2407,8 +2407,8 @@ const WB_STYLE_SEL = { color: WB_SEL, weight: 3.5, fillColor: WB_SEL, fillOpacit
 // standing rule is that an absence of measurement never gets painted as a result.
 const STATUS_COLOR = {
   "High": "#2f9e5a", "Good": "#57b85c", "Supports Good": "#57b85c",
-  "Moderate": "#e0a020", "Poor": "#e5762d", "Bad": "#e5484d",
-  "Fail": "#e5484d", "Does Not Support Good": "#e5762d", "Not High": "#8a94a6",
+  "Moderate": "#e0a020", "Poor": "#e5762d", "Bad": "#d4351c",
+  "Fail": "#d4351c", "Does Not Support Good": "#e5762d", "Not High": "#8a94a6",
 };
 // Shortened for the pills only — "Does not require assessment" is wider than the column it sits in.
 // The full wording stays in the title attribute; nothing is shortened into something that reads as a
@@ -3036,11 +3036,11 @@ function render() {
     // and cleared would be the single most damaging thing this app could do, because "no breach found"
     // is what a regulator reads as "compliant".
     setLegend([
-      { c: "#3aa0ff", t: "Discharge point — assessed, no breach" },
-      { c: "#e5484d", t: "current breach" },
-      { c: "#f5a623", t: "past breach" },
+      { c: "#1d70b8", t: "Discharge point — assessed, no breach" },
+      { c: "#d4351c", t: "current breach" },
+      { c: "#f47738", t: "past breach" },
       { c: "#8a94a0", t: "not assessed — we could not judge it" },
-      { c: "#a06bff", t: "WINEP action site (future works)" },
+      { c: "#4c2c92", t: "WINEP action site (future works)" },
     ]);
     // The outlet/coordinate counts are the points.html argument, stated where the map is drawn: the
     // markers below are FEWER than the outlets they stand for, because outlets share a coordinate.
@@ -3085,7 +3085,7 @@ function render() {
   // three real results to flag one gap, which overstates our ignorance as badly as the old code
   // overstated our knowledge. The gap is not hidden: the popup lists each condition's own status, and
   // the permit table carries a separate "not assessed" count beside the breach count.
-  const STATUS_COLOR = { current: "#e5484d", past: "#f5a623", none: "#3aa0ff", unknown: "#8a94a0" };
+  const STATUS_COLOR = { current: "#d4351c", past: "#f47738", none: "#1d70b8", unknown: "#8a94a0" };
   const STATUS_R = { current: 8, past: 7, none: 6, unknown: 6 };
   if (show.discharge) {
     const order = { unknown: 0, none: 1, past: 2, current: 3 }; // draw current breaches on top
@@ -3124,7 +3124,7 @@ function render() {
       if (a.lat == null) continue;
       if (currentSubstance && !actionIdsWithSub.has(a.iri)) continue;
       const on = a.iri === selectedAction;
-      const mk = circle(a.lat, a.lon, dot(on ? "#c9aaff" : "#a06bff", on ? 9 : 7, on ? 1 : 0.85), actionPopup(a, limByAction[a.iri] || []));
+      const mk = circle(a.lat, a.lon, dot(on ? "#c9aaff" : "#4c2c92", on ? 9 : 7, on ? 1 : 0.85), actionPopup(a, limByAction[a.iri] || []));
       // The WINEP table is on this view, so a marker click can focus its row (and vice versa).
       mk.on("click", () => focusAction(a.iri, true));
       actionMarkers[a.iri] = mk;
@@ -3163,7 +3163,7 @@ function render() {
   }
   if (show.sfi) {
     for (const s of DB.sfi)
-      L.circleMarker([s.lat, s.lon], dot("#46b978", 5, 0.8)).bindPopup(`<b>SFI option</b><br>${esc(s.code)}`).addTo(layers.sfi);
+      L.circleMarker([s.lat, s.lon], dot("#00703c", 5, 0.8)).bindPopup(`<b>SFI option</b><br>${esc(s.code)}`).addTo(layers.sfi);
     layers.sfi.addTo(map);
   }
 
@@ -3608,7 +3608,7 @@ function actionTable(actions, limByAction) {
     const hint = sp
       ? `<p class="expand-hint">Click a substance to chart its observations at ${esc(sp)} against the current and proposed limits.</p>`
       : "";
-    return `${a?.desc ? `<p style="color:#93a4b3">${esc(a.desc)}</p>` : ""}${hint}${body.outerHTML}`;
+    return `${a?.desc ? `<p style="color:#505a5f">${esc(a.desc)}</p>` : ""}${hint}${body.outerHTML}`;
   });
   return c;
 }
@@ -3931,7 +3931,7 @@ function renderApplicationHulls() {
   setLegend([
     { c: PROGRAMMES["SFI EO"].color, t: "SFI Expanded Offer — priced" },
     { c: PROGRAMMES["SFI 23"].color, t: "SFI 2023 — rates unavailable" },
-    { c: "#f5a623", t: "selected application" },
+    { c: "#f47738", t: "selected application" },
   ]);
 
   // Every application as a polygon (convex hull of all its option multipoints, or a small square when
@@ -3948,7 +3948,7 @@ function renderApplicationHulls() {
     if (!pts.length) continue;
     const sel = app.iri === selectedApp;
     const prog = progOf(app);
-    const col = sel ? "#f5a623" : prog.color;
+    const col = sel ? "#f47738" : prog.color;
     const ring = hullPolygon(pts);
     const shape = L.polygon(ring, { color: col, weight: sel ? 2.5 : 1, fillColor: col, fillOpacity: baseFillOf(app.iri) });
     shape.on("mousemove", (e) => showOverlapTip(e.latlng));
@@ -4404,7 +4404,7 @@ function wireExpand(cardEl, keys, build) {
 function subHead(text) {
   const d = document.createElement("div");
   d.style.cssText = "padding:2px 0 8px";
-  d.innerHTML = `<b style="color:#93a4b3">${text}</b>`;
+  d.innerHTML = `<b style="color:#505a5f">${text}</b>`;
   return d;
 }
 

@@ -1,4 +1,4 @@
-/* Documentation viewer — reuses the palette + header/footer from style.css. */
+/* Documentation viewer — reuses the GOV.UK palette + header/footer from style.css. */
 
 .docs-main { display: flex; align-items: flex-start; min-height: calc(100vh - 62px); }
 
@@ -6,7 +6,7 @@
 .docs-nav {
   flex: 0 0 268px;
   align-self: stretch;
-  background: var(--panel);
+  background: var(--panel-2);
   border-right: 1px solid var(--line);
   padding: 16px 0 60px;
   position: sticky;
@@ -18,65 +18,64 @@
   padding: 6px 22px 4px;
   margin-top: 12px;
   color: var(--muted);
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px;
+  font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0;
 }
 .docs-nav .grp:first-child { margin-top: 0; }
 .docs-nav a {
   display: block;
-  padding: 7px 22px 7px 24px;
-  color: var(--text);
-  font-size: 13.5px;
+  padding: 7px 22px 7px 20px;
+  color: var(--accent);
+  font-size: 15px;
   text-decoration: none;
-  border-left: 2px solid transparent;
+  border-left: 4px solid transparent;
 }
-.docs-nav a:hover { background: var(--panel-2); text-decoration: none; }
-.docs-nav a.active { border-left-color: var(--accent); background: #223449; color: var(--accent); }
+.docs-nav a:hover { background: #ffffff; text-decoration: underline; }
+.docs-nav a.active { border-left-color: var(--accent); background: #ffffff; color: var(--text); font-weight: 700; }
 
 /* Article column. */
 .docs-content { flex: 1 1 auto; min-width: 0; padding: 26px 44px 90px; }
 .docs-article { max-width: 840px; margin: 0 auto; }
 .loading { color: var(--muted); font-style: italic; padding: 20px 0; }
 
-/* Rendered Markdown typography. */
-.docs-article h1 { font-size: 27px; line-height: 1.25; margin: 0 0 16px; }
+/* Rendered Markdown typography (GOV.UK heading scale). */
+.docs-article h1 { font-size: 36px; font-weight: 700; line-height: 1.15; margin: 0 0 20px; }
 .docs-article h2 {
-  font-size: 20px; margin: 32px 0 12px; padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  font-size: 27px; font-weight: 700; margin: 36px 0 14px; padding-bottom: 0;
+  border-bottom: none;
 }
-.docs-article h3 { font-size: 16px; margin: 24px 0 8px; }
-.docs-article h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); }
+.docs-article h3 { font-size: 20px; font-weight: 700; margin: 26px 0 8px; }
+.docs-article h4 { font-size: 16px; font-weight: 700; margin: 20px 0 6px; color: var(--text); }
 .docs-article :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 16px; }
-.docs-article p, .docs-article li { line-height: 1.65; }
+.docs-article p, .docs-article li { line-height: 1.6; font-size: 16px; }
 .docs-article ul, .docs-article ol { padding-left: 24px; }
 .docs-article li { margin: 4px 0; }
 .docs-article li > ul, .docs-article li > ol { margin: 4px 0; }
 
-.docs-article a { color: var(--accent); }
-.docs-article a:hover { text-decoration: underline; }
-.docs-article a.ext-link { text-decoration: underline; }
+.docs-article a { color: var(--accent); text-decoration: underline; }
+.docs-article a:hover { color: var(--accent-dark); text-decoration-thickness: 3px; }
 .docs-article a.ext-link::after { content: " ↗"; font-size: .82em; vertical-align: super; }
 
 .docs-article code {
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
-  padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+  background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 0;
+  padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px;
 }
 .docs-article pre {
-  background: #0b131c; border: 1px solid var(--line); border-radius: 9px;
-  padding: 13px 15px; overflow-x: auto; margin: 14px 0;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 0;
+  padding: 14px 16px; overflow-x: auto; margin: 16px 0;
 }
-.docs-article pre code { background: none; border: none; padding: 0; font-size: 12.5px; line-height: 1.5; }
+.docs-article pre code { background: none; border: none; padding: 0; font-size: 14px; line-height: 1.5; }
 
 .docs-article blockquote {
-  border-left: 3px solid var(--accent); margin: 14px 0; padding: 2px 16px;
-  color: var(--muted); background: var(--panel);
+  border-left: 4px solid var(--line); margin: 16px 0; padding: 2px 16px;
+  color: var(--muted); background: none;
 }
 .docs-article blockquote p { margin: 8px 0; }
 
-.docs-article table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; display: block; overflow-x: auto; }
-.docs-article th, .docs-article td { border: 1px solid var(--line); padding: 7px 11px; text-align: left; vertical-align: top; }
-.docs-article th { background: var(--panel-2); font-weight: 600; }
+.docs-article table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 15px; display: block; overflow-x: auto; }
+.docs-article th, .docs-article td { border-bottom: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.docs-article th { background: none; font-weight: 700; border-bottom: 2px solid var(--text); }
 
-.docs-article hr { border: none; border-top: 1px solid var(--line); margin: 26px 0; }
+.docs-article hr { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
 .docs-article img { max-width: 100%; }
 
 @media (max-width: 720px) {

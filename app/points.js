@@ -44,9 +44,9 @@ proj4.defs(
 
 // The three roles, and their colours (matching the map app: WINEP = purple).
 const ROLE = {
-  dp:  { color: "#3aa0ff", r: 7, label: "Discharge point" },
-  sp:  { color: "#46b978", r: 6, label: "Sampling point" },
-  act: { color: "#a06bff", r: 7, label: "WINEP action site" },
+  dp:  { color: "#1d70b8", r: 7, label: "Discharge point" },
+  sp:  { color: "#00703c", r: 6, label: "Sampling point" },
+  act: { color: "#4c2c92", r: 7, label: "WINEP action site" },
 };
 // A sampling point that monitors no discharge — a river, a borehole. Still in the layer a spatial
 // join picks from, which is the whole trouble.
@@ -533,7 +533,7 @@ function marker(pt, { radius, color, label, dashed = false } = {}) {
   const r = ROLE[pt.role] || {};
   const mk = L.circleMarker(pt.ll, {
     radius: radius || r.r || 6,
-    color: "#0b1016", weight: 1.5,
+    color: "#0b0c0c", weight: 1.5,
     fillColor: color || r.color || AMBIENT_COLOR, fillOpacity: 0.92,
     dashArray: dashed ? "3 3" : null,
   });
@@ -544,8 +544,8 @@ function marker(pt, { radius, color, label, dashed = false } = {}) {
 // The two kinds of asserted link, and how each is drawn. Proximity's guess is drawn in red, dashed,
 // so it never reads as one of them.
 const LEG_STYLE = {
-  mon:   { color: "#f5a623", dash: null,  label: "identifier link · monitoredAt" },
-  winep: { color: "#a06bff", dash: "6 4", label: "identifier link · targetPermit" },
+  mon:   { color: "#f47738", dash: null,  label: "identifier link · monitoredAt" },
+  winep: { color: "#4c2c92", dash: "6 4", label: "identifier link · targetPermit" },
 };
 
 // A leg between two points, optionally labelled with its length. `dim` draws it as background: the
@@ -836,16 +836,16 @@ function joinDiagram() {
         <path d="M0 0 L7 3 L0 6 z" fill="#7d8a99"/>
       </marker>
     </defs>
-    <rect x="8" y="12" width="120" height="34" rx="6" fill="#16202b" stroke="#3aa0ff"/>
+    <rect x="8" y="12" width="120" height="34" rx="6" fill="#ffffff" stroke="#1d70b8"/>
     <text x="68" y="27" class="dn">Permit</text><text x="68" y="39" class="ds">042451</text>
 
-    <rect x="8" y="96" width="120" height="34" rx="6" fill="#16202b" stroke="#3aa0ff"/>
+    <rect x="8" y="96" width="120" height="34" rx="6" fill="#ffffff" stroke="#1d70b8"/>
     <text x="68" y="111" class="dn">Discharge point</text><text x="68" y="123" class="ds">outlet 1 / effluent 1</text>
 
-    <rect x="238" y="96" width="130" height="34" rx="6" fill="#16202b" stroke="#46b978"/>
+    <rect x="238" y="96" width="130" height="34" rx="6" fill="#ffffff" stroke="#00703c"/>
     <text x="303" y="111" class="dn">Sampling point</text><text x="303" y="123" class="ds">SW-50951080</text>
 
-    <rect x="238" y="12" width="130" height="34" rx="6" fill="#16202b" stroke="#a06bff"/>
+    <rect x="238" y="12" width="130" height="34" rx="6" fill="#ffffff" stroke="#4c2c92"/>
     <text x="303" y="27" class="dn">WINEP action</text><text x="303" y="39" class="ds">08WW102103</text>
 
     <line x1="68" y1="46" x2="68" y2="94" stroke="#7d8a99" marker-end="url(#ar)"/>
@@ -865,21 +865,21 @@ function joinDiagram() {
 function gisDiagram() {
   return `<svg class="diagram" viewBox="0 0 380 210" role="img"
        aria-label="Three unlabelled dots on a map, with a question mark: proximity must guess which belongs to which">
-    <circle cx="70" cy="120" r="8" fill="#3aa0ff" stroke="#0b1016"/>
+    <circle cx="70" cy="120" r="8" fill="#1d70b8" stroke="#0b0c0c"/>
     <text x="70" y="146" class="ds">an outlet</text>
 
-    <circle cx="250" cy="70" r="7" fill="#46b978" stroke="#0b1016"/>
+    <circle cx="250" cy="70" r="7" fill="#00703c" stroke="#0b0c0c"/>
     <text x="250" y="54" class="ds">a sampling point</text>
 
-    <circle cx="290" cy="150" r="7" fill="#8a94a0" stroke="#0b1016"/>
+    <circle cx="290" cy="150" r="7" fill="#8a94a0" stroke="#0b0c0c"/>
     <text x="299" y="172" class="ds">a river station</text>
 
-    <circle cx="160" cy="40" r="7" fill="#8a94a0" stroke="#0b1016"/>
+    <circle cx="160" cy="40" r="7" fill="#8a94a0" stroke="#0b0c0c"/>
     <text x="160" y="24" class="ds">a borehole</text>
 
-    <line x1="78" y1="116" x2="243" y2="74" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <line x1="78" y1="124" x2="283" y2="148" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <line x1="76" y1="113" x2="154" y2="46" stroke="#e5484d" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <line x1="78" y1="116" x2="243" y2="74" stroke="#d4351c" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <line x1="78" y1="124" x2="283" y2="148" stroke="#d4351c" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <line x1="76" y1="113" x2="154" y2="46" stroke="#d4351c" stroke-width="1.5" stroke-dasharray="4 3"/>
     <text x="150" y="110" class="dbad">which one?</text>
     <text x="190" y="196" class="ds mid">distance is the only evidence left</text>
   </svg>`;
@@ -1107,7 +1107,7 @@ function drawExample(c, outlets) {
   drawLegs(c, map);
   for (const o of outlets)
     if (!o.hit)
-      leg(o.g, o.near, { color: "#e5484d", dash: "5 4", weight: 2, kind: "mon" }).addTo(map);
+      leg(o.g, o.near, { color: "#d4351c", dash: "5 4", weight: 2, kind: "mon" }).addTo(map);
 
   for (const pt of c.points) {
     const stacked = pt.role === "dp" && stacks[pt.key];
@@ -1315,8 +1315,8 @@ function drawUnlocatable(c) {
   for (const g of anchors)
     for (const r of RADII)
       L.circle(g.ll, {
-        radius: r, color: "#e5484d", weight: 1.2, opacity: 0.55,
-        fillColor: "#e5484d", fillOpacity: 0.04, dashArray: "4 4", interactive: false,
+        radius: r, color: "#d4351c", weight: 1.2, opacity: 0.55,
+        fillColor: "#d4351c", fillOpacity: 0.04, dashArray: "4 4", interactive: false,
       }).addTo(map).bindTooltip(`${r} m`, { className: "pts-leg", direction: "top" });
 
   for (const [iri, g] of Object.entries(c.sp))
@@ -1346,7 +1346,7 @@ function drawUnlocatable(c) {
     `<span class="key"><span class="sw" style="background:${ROLE.sp.color}"></span>Sampling point — known</span>`,
     ...(acts.length ? [`<span class="key"><span class="sw" style="background:${ROLE.act.color}"></span>WINEP action site — known</span>`] : []),
     `<span class="key"><span class="ln red"></span>5 m · 50 m · 500 m from the sampling point</span>`,
-    `<span class="key"><span class="sw" style="background:#0b1016;border:1px solid var(--red)"></span>Discharge point — <b>no location published</b></span>`,
+    `<span class="key"><span class="sw" style="background:#0b0c0c;border:1px solid var(--red)"></span>Discharge point — <b>no location published</b></span>`,
   ].join("");
 
   // The two panels: what the store knows, and what it refuses to guess.

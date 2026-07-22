@@ -1,76 +1,128 @@
+/* ------------------------------------------------------------------------------------------------
+   Poole Harbour Rivers demonstrator — GOV.UK Frontend theme.
+
+   Aligned to the GOV.UK Design System / govuk-frontend v6.4.0 visual language:
+   the GOV.UK colour palette, a square (no-radius) geometry, bold headings, the black masthead with
+   its 10px blue underline, and the yellow keyboard-focus state. No crown or other government marking
+   is included — a reserved, empty ".gov-crest" slot on the left of the header (and a matching slot in
+   the footer) leaves room to add an official identity later.
+
+   The class/element structure of the app is unchanged: only the palette, typography, geometry and
+   focus states are reskinned, so the (large, HTML-emitting) app.js keeps working untouched.
+   ------------------------------------------------------------------------------------------------ */
+
 :root {
-  --bg: #0f1720;
-  --panel: #17212b;
-  --panel-2: #1e2b38;
-  --line: #2b3a49;
-  --text: #e7eef5;
-  --muted: #93a4b3;
-  --accent: #3aa0ff;
-  --red: #e5484d;
-  --amber: #f5a623;
-  --blue: #3aa0ff;
-  --purple: #a06bff;
-  --green: #46b978;
+  /* GOV.UK palette (govuk-colours). */
+  --bg: #ffffff;             /* page background */
+  --panel: #ffffff;          /* cards / chrome surfaces */
+  --panel-2: #f3f2f1;        /* light-grey secondary surface (table headers, toggles) */
+  --line: #b1b4b6;           /* mid-grey borders */
+  --line-2: #dcdedf;         /* faint inner rule */
+  --text: #0b0c0c;           /* near-black body text */
+  --muted: #505a5f;          /* secondary/dark-grey text */
+  --accent: #1d70b8;         /* link blue */
+  --accent-dark: #003078;    /* link hover / active border */
+  --select-blue: #d2e2f1;    /* selected-surface tint */
+  --focus: #ffdd00;          /* keyboard focus yellow */
+  --red: #d4351c;
+  --amber: #f47738;          /* GOV.UK orange */
+  --blue: #1d70b8;
+  --purple: #4c2c92;
+  --green: #00703c;
+  --green-shadow: #002d18;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: 16px/1.45 "GDS Transport", arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ---- Keyboard focus: the GOV.UK yellow ----------------------------------------------------- */
+a:focus,
+button:focus,
+[tabindex]:focus,
+summary:focus,
+.chart-tab:focus,
+.desig-site:focus {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: var(--focus);
+  box-shadow: 0 -2px var(--focus), 0 4px #0b0c0c;
+  text-decoration: none;
+}
+select:focus,
+input:focus,
+textarea:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px #0b0c0c;
+}
+
+/* ---- Masthead: black bar, white text, 10px blue underline --------------------------------- */
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 20px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  padding: 12px 20px;
+  background: #0b0c0c;
+  border-bottom: 10px solid var(--accent);
+  color: #ffffff;
   flex-wrap: wrap;
 }
-header h1 { margin: 0; font-size: 19px; letter-spacing: .2px; }
-.subtitle { color: var(--muted); font-size: 12.5px; }
+/* Reserved, empty slot for an official identity (crown + department name). Deliberately blank. */
+.gov-crest { flex: none; width: 36px; height: 34px; align-self: center; }
+header .title { flex: 1 1 auto; min-width: 0; }
+header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0; color: #ffffff; }
+.subtitle { color: #b1b4b6; font-size: 13px; }
 
 /* Top-right utility links (Docs, SPARQL); mirrored as "← Back to app" on those pages. */
-.header-links { flex: none; display: flex; align-items: center; gap: 8px; }
+.header-links { flex: none; display: flex; align-items: center; gap: 12px; }
 .docs-link {
   flex: none;
-  color: var(--text);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 600;
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 0;
+  padding: 2px 0;
+  font-size: 15px;
+  font-weight: 400;
   text-decoration: none;
   white-space: nowrap;
 }
-.docs-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.docs-link:visited { color: #ffffff; }
+.docs-link:hover { border-bottom-color: #ffffff; color: #ffffff; text-decoration: none; }
+.docs-link:focus { border-bottom-color: transparent; color: #0b0c0c; }
 
 .controls { display: flex; align-items: center; gap: 14px; }
 .substance-picker { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+
+/* ---- Form controls: GOV.UK select (white, 2px black border, square) ----------------------- */
 select {
   display: block;
   margin-top: 4px;
-  background: var(--panel-2);
+  background: #ffffff;
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 7px 10px;
-  font-size: 14px;
+  border: 2px solid var(--text);
+  border-radius: 0;
+  padding: 6px 8px;
+  font-size: 16px;
   min-width: 240px;
 }
 
+/* ---- View chooser ------------------------------------------------------------------------- */
 nav#views {
   display: flex;
   flex-wrap: wrap; /* so the Water & Land substance filter can take a full-width row of its own */
   gap: 14px;
-  padding: 10px 20px 14px;
-  background: var(--panel);
+  padding: 14px 20px;
+  background: #ffffff;
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
 }
@@ -79,458 +131,435 @@ nav#views {
   margin: 0;
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 6px 8px 8px;
+  border-radius: 0;
+  padding: 8px 12px 12px;
   display: flex;
   flex-direction: column; /* so the filter can pin to the bottom and line up across boxes */
 }
-.view-group.water { flex: 3 1 0; background: rgba(90, 169, 255, .04); }
-.view-group.land { flex: 1 1 0; background: rgba(70, 185, 120, .05); }
-/* Substance spans BOTH domains now: nitrogen and phosphorus are measured in the water and modelled
-   on the land, so the filter cannot live inside either box. It gets its own full-width row. */
-.view-group.both {
-  flex: 1 1 100%;
-  background: linear-gradient(90deg, rgba(90, 169, 255, .05), rgba(70, 185, 120, .05));
-}
-.view-group.both > legend { color: #7fc4c9; }
-.view-group.both .group-filter { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.view-group.water { flex: 3 1 0; }
+.view-group.land { flex: 1 1 0; }
+/* Substance spans BOTH domains: nitrogen and phosphorus are measured in the water and modelled on
+   the land, so the filter cannot live inside either box. It gets its own full-width row. */
+.view-group.both { flex: 1 1 100%; background: var(--panel-2); }
+.view-group.both .group-filter { display: flex; align-items: center; gap: 12px; padding-top: 2px; }
 .view-group.both .group-filter select { margin-top: 0; width: auto; min-width: 320px; }
-.filter-note { text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--muted); }
+.filter-note { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
 .filter-note b { color: var(--text); }
 .view-group > legend {
-  padding: 0 8px; margin-left: 2px;
-  font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  padding: 0 6px; margin-left: -2px;
+  font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none;
+  color: var(--muted);
 }
-.view-group.water > legend { color: #5aa9ff; }
-.view-group.land > legend { color: #46b978; }
-.group-buttons { display: flex; gap: 8px; }
+.group-buttons { display: flex; gap: 10px; }
 /* A filter dropdown living inside a domain super-box (Substance in Water, Option type in Land). */
 .group-filter {
-  margin-top: auto; padding-top: 8px; /* pin to the bottom so Substance & Option type align */
-  color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+  margin-top: auto; padding-top: 10px; /* pin to the bottom so Substance & Option type align */
+  color: var(--muted); font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: 700;
 }
-.group-filter select { margin-top: 4px; width: 100%; min-width: 0; font-size: 13px; padding: 6px 9px; }
+.group-filter select { margin-top: 4px; width: 100%; min-width: 0; font-size: 15px; padding: 6px 8px; }
+
+/* Selectable view cards. GOV.UK does not have a "card button", so these use the system geometry:
+   square, 2px border; the chosen one gets the blue border + light-blue fill. */
 nav#views button {
   flex: 1 1 0;
-  min-width: 170px;
+  min-width: 180px;
   text-align: left;
-  background: var(--panel-2);
+  background: #ffffff;
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 10px 13px;
+  border: 2px solid var(--line);
+  border-radius: 0;
+  padding: 12px 14px;
   cursor: pointer;
-  transition: border-color .15s, background .15s;
+  font-family: inherit;
+  transition: border-color .1s, background .1s;
 }
-nav#views button:hover { border-color: var(--accent); }
-nav#views button.active { border-color: var(--accent); background: #223449; box-shadow: inset 0 0 0 1px var(--accent); }
-.v-title { display: block; font-weight: 600; font-size: 14px; }
-.v-desc { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+nav#views button:hover { border-color: var(--text); }
+nav#views button.active {
+  border-color: var(--accent);
+  background: var(--select-blue);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.v-title { display: block; font-weight: 700; font-size: 16px; }
+.v-desc { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; line-height: 1.35; }
 
+/* ---- Lede ---------------------------------------------------------------------------------- */
 #lede {
   margin: 0;
-  padding: 12px 20px;
-  color: var(--muted);
-  background: var(--bg);
+  padding: 14px 20px;
+  color: var(--text);
+  background: var(--panel-2);
   border-bottom: 1px solid var(--line);
-  font-size: 13.5px;
+  font-size: 16px;
+  line-height: 1.5;
 }
-#lede b { color: var(--text); }
-
-/* The measured view's receipt for what its substance filter has hidden. Set off from the lede with a
-   rule, because it is not more prose about the catchment — it is a statement about what this map is
-   NOT showing you, and it has to survive being skimmed. */
+#lede b { color: var(--text); font-weight: 700; }
 #lede .note {
   display: block;
   margin-top: 8px;
-  padding-left: 10px;
-  border-left: 2px solid var(--line);
+  padding-left: 12px;
+  border-left: 4px solid var(--line);
 }
-#lede .note a { color: var(--text); }
+#lede .note a { color: var(--accent); }
 
 /* Catchment scope banner: says the map and tables below are restricted to one water body, and offers
-   the way back to the whole catchment. Accent-tinted so it reads as an active filter, not prose. */
+   the way back to the whole catchment. Blue-tinted so it reads as an active filter, not prose. */
 .scope-note {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  margin: 0 0 10px; padding: 7px 11px; font-size: 12.5px; color: var(--text);
-  background: #223449; border: 1px solid var(--accent); border-radius: 6px;
+  margin: 0 0 10px; padding: 9px 12px; font-size: 15px; color: var(--text);
+  background: var(--select-blue); border-left: 4px solid var(--accent); border-radius: 0;
 }
 .scope-note .scope-clear {
-  margin-left: auto; padding: 3px 10px; font: inherit; font-size: 11.5px; cursor: pointer;
-  color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+  margin-left: auto; padding: 4px 11px; font: inherit; font-size: 14px; cursor: pointer;
+  color: var(--accent); background: #ffffff; border: 1px solid var(--accent); border-radius: 0;
 }
-.scope-note .scope-clear:hover { color: var(--accent); border-color: var(--accent); }
+.scope-note .scope-clear:hover { color: #ffffff; background: var(--accent); }
 
+/* ---- Map stage ----------------------------------------------------------------------------- */
 #stage { display: flex; align-items: stretch; height: 56vh; min-height: 360px; }
-#map { flex: 1 1 auto; height: 100%; background: #0a1017; }
+#map { flex: 1 1 auto; height: 100%; background: var(--panel-2); }
 
 /* Base-map style toggle (a Leaflet control, top-right of the map). */
 .basemap-control {
   display: flex; overflow: hidden;
-  border: 1px solid var(--line); border-radius: 7px;
-  background: var(--panel); box-shadow: 0 1px 5px #0007;
+  border: 2px solid var(--text); border-radius: 0;
+  background: #ffffff; box-shadow: 0 1px 4px rgba(11, 12, 12, .25);
 }
 .basemap-control button {
-  background: var(--panel-2); color: var(--muted); border: none;
-  padding: 5px 11px; font-size: 11.5px; line-height: 1.3; cursor: pointer; white-space: nowrap;
+  background: #ffffff; color: var(--text); border: none;
+  padding: 6px 11px; font-size: 13px; line-height: 1.3; cursor: pointer; white-space: nowrap;
 }
 .basemap-control button + button { border-left: 1px solid var(--line); }
-.basemap-control button:hover { color: var(--text); }
-.basemap-control button.on { background: var(--accent); color: #06121f; font-weight: 600; }
-/* Desaturated base map: greyscale the tiles (only the tile container) so coloured overlays pop. */
-.basemap-desaturated { filter: grayscale(1) contrast(0.92) brightness(1.04); }
+.basemap-control button:hover { background: var(--panel-2); }
+.basemap-control button.on { background: var(--accent); color: #ffffff; font-weight: 700; }
+/* Desaturated base map: greyscale the tiles so coloured overlays pop. */
+.basemap-desaturated { filter: grayscale(1) contrast(0.95) brightness(1.0); }
 
+/* ---- Side panel (chart / detail) ----------------------------------------------------------- */
 #chart {
   flex: 0 0 44%;
-  /* A flex item's default min-width:auto is min-CONTENT, which silently beats flex-basis: the water
-     body panel's classification table is ~10 nowrap columns wide, and without this the panel grew
-     past 44% and squeezed the map down to a sliver. Content scrolls inside the panel instead. */
   min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: #ffffff;
   border-left: 1px solid var(--line);
 }
 #chart.hidden { display: none; }
 .chart-head {
   display: flex; align-items: stretch;
   padding: 0; border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
 }
-/* Browser-style tab strip across all three views. One tab per open thing (max four); the strip
-   scrolls sideways rather than wrapping, so the panel body keeps its full height. */
+/* Browser-style tab strip. One tab per open thing (max four); the strip scrolls sideways. */
 .chart-tabs { display: flex; align-items: stretch; gap: 0; overflow-x: auto; width: 100%; }
 .chart-tab {
   display: flex; align-items: center; gap: 7px; flex: 0 0 auto; max-width: 220px;
   background: transparent; color: var(--muted); border: none; border-right: 1px solid var(--line);
-  border-bottom: 2px solid transparent; cursor: pointer;
-  padding: 8px 10px 7px; font-size: 12px; font-family: inherit; line-height: 1.2; white-space: nowrap;
+  border-bottom: 4px solid transparent; cursor: pointer;
+  padding: 9px 12px 7px; font-size: 14px; font-family: inherit; line-height: 1.2; white-space: nowrap;
 }
-.chart-tab:hover { background: var(--panel-2); color: var(--text); }
-.chart-tab.active { color: var(--text); background: var(--panel-2); border-bottom-color: var(--accent); }
+.chart-tab:hover { background: #ffffff; color: var(--text); }
+.chart-tab.active { color: var(--text); background: #ffffff; border-bottom-color: var(--accent); font-weight: 700; }
 .chart-tab .tab-kind {
-  font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
-  border: 1px solid var(--line); border-radius: 3px; padding: 1px 4px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 0; padding: 1px 4px;
 }
 .chart-tab.active .tab-kind { color: var(--accent); border-color: var(--accent); }
 .chart-tab .tab-label { overflow: hidden; text-overflow: ellipsis; }
 .chart-tab .tab-close {
-  color: var(--muted); border-radius: 3px; padding: 0 3px; font-size: 12px; line-height: 1;
+  color: var(--muted); border-radius: 0; padding: 0 4px; font-size: 13px; line-height: 1;
 }
-.chart-tab .tab-close:hover { background: #3a2530; color: #ff8b8b; }
-#chart-body { flex: 1; overflow: auto; padding: 8px 6px 12px; }
+.chart-tab .tab-close:hover { background: #f6d7d2; color: var(--red); }
+#chart-body { flex: 1; overflow: auto; padding: 10px 8px 14px; }
 #chart-body svg { width: 100%; height: auto; display: block; }
-/* Time-series chart: it is drawn at the panel's own size (see chartBox), so the panel is exactly as
-   tall as the map and never scrolls. The flex column is a belt-and-braces guard for the moment
-   between a window resize and the redraw: the plot shrinks to fit rather than growing a scrollbar. */
 #chart-body.fit { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 #chart-body.fit > .chart-legend, #chart-body.fit > .chart-note, #chart-body.fit > .chart-scope { flex: none; }
 #chart-body.fit > svg { flex: 1 1 auto; min-height: 0; }
-.chart-note { color: var(--muted); font-size: 11.5px; padding: 4px 12px 0; }
-.chart-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 12px 2px; font-size: 12px; color: var(--muted); }
+.chart-note { color: var(--muted); font-size: 13px; padding: 4px 12px 0; }
+.chart-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 12px 2px; font-size: 13px; color: var(--muted); }
 .chart-legend .item { display: flex; align-items: center; gap: 6px; }
 /* Internal clickable (stays in the app): dashed underline, no arrow. */
-.sub-link { cursor: pointer; border-bottom: 1px dashed currentColor; }
-.sub-link:hover { color: var(--accent); }
+.sub-link { cursor: pointer; color: var(--accent); border-bottom: 1px dashed currentColor; }
+.sub-link:hover { color: var(--accent-dark); }
 
-/* The sampling-point popup's determinand menu, shown when no substance is filtered: what this point is
-   actually sampled for. One line per determinand, because these are choices to be read and clicked, not
-   a sentence — and a point can offer a dozen.
-   NOT var(--text): that is the near-white of the app's dark chrome, and a Leaflet popup is white. These
-   have to be dark to be legible, and legible is the whole job of a menu. */
+/* Sampling-point popup's determinand menu (rendered in a light Leaflet popup). */
 .pp-dets { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 8px; }
-.pp-dets a { color: #14314d; text-decoration: none; font-weight: 500; width: fit-content; }
-.pp-dets a:hover { color: #0a63b8; border-bottom-color: currentColor; }
+.pp-dets a { color: var(--accent); text-decoration: underline; font-weight: 400; width: fit-content; }
+.pp-dets a:hover { color: var(--accent-dark); }
 
 /* Farming pie + application selection */
 svg.pie { max-width: 320px; margin: 4px auto 0; }
 svg.bars { max-width: 340px; margin: 2px auto 0; }
-.chart-scope { color: var(--text); font-size: 12.5px; padding: 8px 12px 0; margin: 0; }
-.chart-scope b { color: var(--text); }
+.chart-scope { color: var(--text); font-size: 14px; padding: 8px 12px 0; margin: 0; }
+.chart-scope b { color: var(--text); font-weight: 700; }
 /* Observation-load progress bar (the tab paginates the EA archive one request/second). */
-.obs-bar { height: 8px; margin: 12px 12px 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
-.obs-bar-fill { height: 100%; background: var(--accent); border-radius: 5px; transition: width .25s ease; }
+.obs-bar { height: 8px; margin: 12px 12px 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 0; overflow: hidden; }
+.obs-bar-fill { height: 100%; background: var(--accent); border-radius: 0; transition: width .25s ease; }
 .obs-bar.indet .obs-bar-fill { width: 34%; animation: obs-indet 1.1s ease-in-out infinite; }
 @keyframes obs-indet { 0% { margin-left: -34%; } 100% { margin-left: 100%; } }
 .chart-toggle { display: flex; justify-content: flex-end; padding: 2px 12px 0; }
 .chart-toggle button {
-  background: var(--panel-2); color: var(--muted); border: 1px solid #2b3a49;
-  font-size: 11.5px; padding: 2px 11px; cursor: pointer;
+  background: #ffffff; color: var(--accent); border: 1px solid var(--accent);
+  font-size: 13px; padding: 3px 12px; cursor: pointer;
 }
-.chart-toggle button:first-child { border-radius: 5px 0 0 5px; }
-.chart-toggle button:last-child { border-radius: 0 5px 5px 0; border-left: none; }
-.chart-toggle button.on { background: var(--accent); color: #06121f; border-color: var(--accent); }
+.chart-toggle button:first-child { border-radius: 0; }
+.chart-toggle button:last-child { border-radius: 0; border-left: none; }
+.chart-toggle button.on { background: var(--accent); color: #ffffff; border-color: var(--accent); }
 .pie-legend { padding: 6px 12px 4px; display: flex; flex-direction: column; gap: 4px; }
-.pie-leg { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.pie-leg { display: flex; align-items: center; gap: 7px; font-size: 13px; }
 .pie-leg .dot { width: 11px; height: 11px; border-radius: 2px; flex: none; }
 .pie-leg .pie-name { flex: 1; }
 .pie-leg .pie-val { color: var(--muted); font-variant-numeric: tabular-nums; }
-tbody tr.app-row { cursor: pointer; }
-tbody tr.app-row.sel { background: #2a2416; box-shadow: inset 3px 0 0 #f5a623; }
-tbody tr.app-row.sel:hover { background: #322a18; }
-/* WINEP action row focused (synced with its purple map marker). */
-tbody tr.action-row { cursor: pointer; }
-tbody tr.action-row.sel { background: #241f33; box-shadow: inset 3px 0 0 #a06bff; }
-tbody tr.action-row.sel:hover { background: #2b2540; }
 
-/* Removals: nitrogen & phosphorus share one x- and y-axis (one chart, no scrolling), each bar
-   stacked by intervention group and direct-labelled with its own total. */
+/* Row-focus highlights (synced with the map markers). */
+tbody tr.app-row { cursor: pointer; }
+tbody tr.app-row.sel { background: #fff7bf; box-shadow: inset 4px 0 0 var(--amber); }
+tbody tr.app-row.sel:hover { background: #fdeeae; }
+tbody tr.action-row { cursor: pointer; }
+tbody tr.action-row.sel { background: #dbd5e9; box-shadow: inset 4px 0 0 var(--purple); }
+tbody tr.action-row.sel:hover { background: #cfc7e3; }
+
+/* Removals: nitrogen & phosphorus share one x/y axis, each bar direct-labelled with its total. */
 .removal-chart { margin-bottom: 2px; }
-.removal-chip b { color: #46b978; }
+.removal-chip b { color: var(--green); }
 
 .muted { color: var(--muted); }
-.unpriced-tag { color: #d9a441; font-size: 11px; white-space: nowrap; }
+.unpriced-tag { color: #6e3619; font-size: 13px; white-space: nowrap; }
 
 /* MODELLED, NOT MEASURED. These figures are the only numbers in the app that nobody observed, and
    they sit in the same row as a real contractual payment — so the flag rides in the column header
    and the cell, not just a footnote a screenshot would crop away. */
 .modelled-tag {
-  display: inline-block; font-size: 9.5px; font-weight: 600; letter-spacing: .4px;
-  color: #d9a441; border: 1px solid rgba(217, 164, 65, .45); border-radius: 3px;
-  padding: 0 4px; margin-left: 4px; vertical-align: middle; text-transform: uppercase; cursor: help;
+  display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .4px;
+  color: #6e3619; background: #fcd6c3; border-radius: 0;
+  padding: 0 5px; margin-left: 4px; vertical-align: middle; text-transform: uppercase; cursor: help;
 }
-td.modelled { color: #7fd8a4; font-variant-numeric: tabular-nums; }
-td.modelled .unit { color: var(--muted); font-size: 11px; }
+td.modelled { color: var(--green); font-variant-numeric: tabular-nums; }
+td.modelled .unit { color: var(--muted); font-size: 13px; }
 .table-caveat {
-  margin: 0; padding: 8px 12px 10px; font-size: 11.5px; line-height: 1.5;
-  color: var(--muted); border-top: 1px solid var(--line); background: rgba(217, 164, 65, .05);
+  margin: 0; padding: 10px 12px 12px; font-size: 13px; line-height: 1.5;
+  color: var(--muted); border-top: 1px solid var(--line); background: #fcf0e8;
 }
-.table-caveat b { color: #d9a441; }
-.table-caveat code { font-size: 11px; }
-.chart-note.modelled-note { border-left: 2px solid #d9a441; padding-left: 8px; }
+.table-caveat b { color: #6e3619; }
+.table-caveat code { font-size: 13px; }
+.chart-note.modelled-note { border-left: 4px solid var(--amber); padding-left: 8px; }
 .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 /* programme prices summary in the lede */
 .prog-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; }
-.prog-chip { font-size: 12px; color: var(--muted); }
-.prog-chip b { color: var(--text); }
+.prog-chip { font-size: 14px; color: var(--muted); }
+.prog-chip b { color: var(--text); font-weight: 700; }
 /* permanent option-code labels on the spider hubs */
 .leaflet-tooltip.spider-label {
-  background: rgba(11, 16, 22, .82); color: #e8eef4; border: none; box-shadow: none;
-  font-size: 10.5px; font-weight: 600; padding: 1px 5px; white-space: nowrap;
+  background: rgba(11, 12, 12, .85); color: #ffffff; border: none; box-shadow: none;
+  font-size: 12px; font-weight: 700; padding: 1px 5px; white-space: nowrap;
 }
 .leaflet-tooltip.spider-label::before { display: none; }
 /* Hover tooltip listing all overlapping applications under the cursor. */
 .leaflet-tooltip.overlap-tip {
-  background: rgba(11, 16, 22, .93); color: #e8eef4; border: 1px solid var(--line);
-  border-radius: 6px; font-size: 11.5px; line-height: 1.45; padding: 5px 8px;
-  box-shadow: 0 3px 10px #0007; white-space: nowrap;
+  background: rgba(11, 12, 12, .92); color: #ffffff; border: none;
+  border-radius: 0; font-size: 13px; line-height: 1.45; padding: 6px 8px;
+  box-shadow: 0 3px 10px rgba(11, 12, 12, .4); white-space: nowrap;
 }
-.leaflet-tooltip.overlap-tip i { color: #9fb1c1; }
-.leaflet-tooltip.overlap-tip::before { border-top-color: rgba(11, 16, 22, .93); }
+.leaflet-tooltip.overlap-tip i { color: #d0d3d5; }
+.leaflet-tooltip.overlap-tip::before { border-top-color: rgba(11, 12, 12, .92); }
 /* Click-to-choose picker popup (on the default light Leaflet popup). */
 .app-picker { min-width: 210px; }
 .app-picker .pick-head {
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #667; margin-bottom: 5px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 5px;
 }
 .app-picker .pick-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 3px 0; }
-.app-picker .pick-row + .pick-row { border-top: 1px solid #e3e8ee; }
-.app-picker .pick-app { color: #0b57b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.app-picker .pick-meta { color: #556; font-size: 11.5px; white-space: nowrap; }
+.app-picker .pick-row + .pick-row { border-top: 1px solid var(--line-2); }
+.app-picker .pick-app { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.app-picker .pick-meta { color: var(--muted); font-size: 13px; white-space: nowrap; }
 
-/* Options-view floater: one card per option under the click (see openOptionPicker). Wider than the
-   application picker and stacked as cards, because each option carries several fields. */
+/* Options-view floater: one card per option under the click. */
 .opt-picker { min-width: 250px; max-width: 320px; }
 .opt-picker .opt-card { padding: 6px 0; }
-.opt-picker .opt-card + .opt-card { border-top: 1px solid #e3e8ee; }
-.opt-picker .opt-head { display: flex; align-items: center; gap: 6px; color: #0b1016; }
-.opt-picker .opt-head .mono { color: #556; }
-.opt-picker .opt-def { color: #445; font-size: 11.5px; margin: 2px 0; line-height: 1.4; }
-.opt-picker .opt-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: #334; margin-top: 2px; }
-.opt-picker .opt-app { color: #556; }
-.opt-picker .pick-opt-app { color: #0b57b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+.opt-picker .opt-card + .opt-card { border-top: 1px solid var(--line-2); }
+.opt-picker .opt-head { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.opt-picker .opt-head .mono { color: var(--muted); }
+.opt-picker .opt-def { color: #333; font-size: 13px; margin: 2px 0; line-height: 1.4; }
+.opt-picker .opt-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: #333; margin-top: 2px; }
+.opt-picker .opt-app { color: var(--muted); }
+.opt-picker .pick-opt-app { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
 
-/* The Applications/Options toggle reuses .basemap-control; nothing extra needed beyond a top margin so
-   it clears the base-map control it stacks under in the same corner. */
 .farm-display { margin-top: 6px; }
 
+/* ---- Legend -------------------------------------------------------------------------------- */
 .legend {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 20px;
-  padding: 10px 20px;
-  background: var(--panel);
+  padding: 12px 20px;
+  background: #ffffff;
   border-bottom: 1px solid var(--line);
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--muted);
 }
 .legend.collapsed { display: none; } /* collapse the legend while the chart panel is open */
 .legend-key { display: flex; flex-wrap: wrap; gap: 16px; }
 .legend .item { display: flex; align-items: center; gap: 7px; }
-.legend .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #0007; }
+.legend .dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid rgba(11, 12, 12, .2); }
 
 /* Conservation-designation toggle control (right side of the legend). */
 .legend-desig { display: flex; align-items: center; gap: 14px; margin-left: auto; }
-.desig-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.desig-title { font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: 700; color: var(--text); }
 .desig-cat { position: relative; }
 .desig-head { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; color: var(--text); }
 .desig-head .caret { color: var(--muted); width: 10px; display: inline-block; transition: transform .12s; }
 .desig-cat.open .caret { transform: rotate(90deg); }
 .desig-head .swatch { width: 12px; height: 12px; border-radius: 2px; }
 .desig-head .cat-all, .desig-site input { cursor: pointer; }
-.desig-count { color: var(--muted); font-size: 11px; }
+.desig-count { color: var(--muted); font-size: 13px; }
 .desig-list {
   position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 600;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  background: #ffffff; border: 1px solid var(--line); border-radius: 0;
   padding: 6px; width: 250px; max-height: 244px; overflow: auto;
-  box-shadow: 0 6px 16px #0008;
+  box-shadow: 0 4px 12px rgba(11, 12, 12, .25);
   display: flex; flex-direction: column; gap: 1px;
 }
 .desig-list.hidden { display: none; }
-.desig-site { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 3px 4px; border-radius: 5px; cursor: pointer; }
-.desig-site:hover { background: #1b2836; }
+.desig-site { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); padding: 4px 5px; border-radius: 0; cursor: pointer; }
+.desig-site:hover { background: var(--panel-2); }
 
-/* Waterbody Catchments is a native <select> in the WATER super-box (see #waterbody in index.html),
-   styled like the Substance and Option-type dropdowns via .group-filter — no bespoke CSS needed. */
-/* Water body polygons are clickable, so they get the cursor that says so — the same affordance the
-   circle markers have. Without it the only hint is the hover tooltip, which arrives too late. */
 .leaflet-waterbodies-pane path { cursor: pointer; }
 
-/* Water body detail panel (inside #chart-body, which scrolls for this content). */
-.wb-panel { font-size: 13px; color: var(--text); }
+/* ---- Water body detail panel (inside #chart-body) ------------------------------------------ */
+.wb-panel { font-size: 15px; color: var(--text); }
 .wb-panel h3 {
-  font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
-  margin: 18px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px;
+  font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 700;
+  margin: 20px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px;
 }
 .wb-panel h3:first-of-type { margin-top: 10px; }
-.wb-id { color: var(--muted); font-size: 11px; margin: 0 0 4px; font-family: ui-monospace, monospace; }
-/* Link to the water body's Catchment Data Explorer page (derived from the graph URI — see cdePageUrl).
-   A web page, not RDF; styled as a quiet link, not a warning. */
+.wb-id { color: var(--muted); font-size: 13px; margin: 0 0 4px; font-family: ui-monospace, monospace; }
+/* Link to the water body's Catchment Data Explorer page (a web page, not RDF). */
 .wb-uri {
-  margin-left: 8px; padding: 1px 7px; border-radius: 4px; text-decoration: none;
-  background: #14303a; color: #7fe3d6; border: 1px solid #2c5561;
-  font-family: system-ui, sans-serif; letter-spacing: .3px;
+  margin-left: 8px; padding: 1px 6px; border-radius: 0; text-decoration: underline;
+  color: var(--accent); background: none; border: none;
+  font-family: inherit; letter-spacing: 0;
 }
-.wb-uri:hover { border-color: var(--accent); color: #fff; }
+.wb-uri:hover { color: var(--accent-dark); }
 .wb-desig { margin: 0 0 6px; }
-.wb-note { color: var(--muted); font-size: 12px; margin: 6px 0; line-height: 1.5; }
-.wb-change { color: #ffd479; }
+.wb-note { color: var(--muted); font-size: 14px; margin: 6px 0; line-height: 1.5; }
+.wb-change { color: #6e3619; font-weight: 700; }
 .wb-yr { font-variant-numeric: tabular-nums; }
-.wb-cy { display: block; font-size: 9px; color: var(--muted); font-weight: 400; }
+.wb-cy { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 
-/* Status pills. Dark text because every status colour is a mid-to-bright fill. */
+/* Status pills. Explicit fill colours come from the classification data with dark text on top. */
 .wb-pill {
-  display: inline-block; padding: 2px 9px; border-radius: 999px;
-  font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
-  color: #0b1016;
+  display: inline-block; padding: 2px 9px; border-radius: 0;
+  font-size: 13px; font-weight: 700; line-height: 1.5; white-space: nowrap;
+  color: #0b0c0c;
 }
 /* "Not assessed" is an outline, not a fill — a different kind of thing, not a paler verdict. */
 .wb-pill-absent {
-  background: none; color: #5b6472; border: 1px dashed #333e4a; font-weight: 400;
+  background: none; color: var(--muted); border: 1px dashed var(--line); font-weight: 400;
 }
 
 /* One challenge (RNAG). */
 .wb-chal {
-  border-left: 3px solid #2c5561; background: #141d27;
-  border-radius: 0 6px 6px 0; padding: 7px 10px; margin: 6px 0;
+  border-left: 4px solid var(--line); background: var(--panel-2);
+  border-radius: 0; padding: 8px 11px; margin: 6px 0;
 }
 .wb-chal-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.wb-chal-p3 { font-size: 12px; font-weight: 600; color: var(--text); }
-.wb-chal-swmi { font-size: 12px; color: var(--text); }
-.wb-chal-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.wb-chal-p3 { font-size: 14px; font-weight: 700; color: var(--text); }
+.wb-chal-swmi { font-size: 14px; color: var(--text); }
+.wb-chal-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
 /* The unattributed ones are the majority and the published table drops them. Marked, not muted. */
-.wb-chal-unattr { border-left-color: #e0a020; }
-.wb-chal-unattr .wb-chal-swmi { color: #e0a020; font-style: italic; }
+.wb-chal-unattr { border-left-color: var(--amber); }
+.wb-chal-unattr .wb-chal-swmi { color: #6e3619; font-style: italic; }
 
-.wb-hist, .wb-cross { border-collapse: collapse; width: 100%; font-size: 12px; }
+.wb-hist, .wb-cross { border-collapse: collapse; width: 100%; font-size: 14px; }
 .wb-hist th, .wb-cross th {
-  text-align: left; color: var(--muted); font-weight: 600; font-size: 10px;
-  text-transform: uppercase; letter-spacing: .4px; padding: 5px 7px;
+  text-align: left; color: var(--muted); font-weight: 700; font-size: 12px;
+  text-transform: none; letter-spacing: 0; padding: 6px 8px;
   border-bottom: 1px solid var(--line); white-space: nowrap;
 }
-.wb-hist td, .wb-cross td { padding: 5px 7px; border-bottom: 1px solid #1a232e; white-space: nowrap; }
+.wb-hist td, .wb-cross td { padding: 6px 8px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
 .wb-hist { table-layout: fixed; }
-.wb-hist th.ctr { font-size: 9.5px; white-space: normal; line-height: 1.25; }
+.wb-hist th.ctr { font-size: 11px; white-space: normal; line-height: 1.25; }
 .wb-hist .ctr, .wb-cross .ctr, .wb-hist th.ctr, .wb-cross th.ctr { text-align: center; }
 .wb-cross .num, .wb-cross th.num { text-align: right; }
-.wb-hist tbody tr:hover, .wb-cross tbody tr:hover { background: #16202b; }
+.wb-hist tbody tr:hover, .wb-cross tbody tr:hover { background: var(--panel-2); }
 
 /* An unattributed row is not a footnote — 57 of 95 challenges land in it. It is marked, not muted. */
-.wb-unattr, .wb-unattr-row td:first-child { color: #e0a020; font-style: italic; }
-.wb-zero { color: #3d4652; }
+.wb-unattr, .wb-unattr-row td:first-child { color: #6e3619; font-style: italic; }
+.wb-zero { color: var(--line); }
 .wb-cell {
-  background: #1e3a44; color: var(--text); border: 1px solid #2c5561; border-radius: 4px;
+  background: #ffffff; color: var(--accent); border: 1px solid var(--accent); border-radius: 0;
   padding: 1px 9px; font: inherit; cursor: pointer; min-width: 30px;
 }
-.wb-cell:hover { background: #2c5561; border-color: var(--wb-sel, #ffd479); }
+.wb-cell:hover { background: var(--accent); color: #ffffff; }
 
-/* SFI per-group table — the "Count" mode of the Catchment: SFI Summary tab (sfiCatchmentTable), and
-   the whole-catchment card below the map. Mirrors the .wb-hist table styling. */
-.wb-sfi { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 4px; }
+/* SFI per-group table. Mirrors the .wb-hist table styling. */
+.wb-sfi { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 4px; }
 .wb-sfi th {
-  text-align: left; color: var(--muted); font-weight: 600; font-size: 10px;
-  text-transform: uppercase; letter-spacing: .4px; padding: 5px 7px;
+  text-align: left; color: var(--muted); font-weight: 700; font-size: 12px;
+  text-transform: none; letter-spacing: 0; padding: 6px 8px;
   border-bottom: 1px solid var(--line); white-space: nowrap;
 }
-.wb-sfi td { padding: 5px 7px; border-bottom: 1px solid #1a232e; }
+.wb-sfi td { padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
 .wb-sfi th.num, .wb-sfi td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.wb-sfi tbody tr:hover { background: #16202b; }
-.wb-sfi .unit { color: var(--muted); font-size: 11px; }
-.wb-sfi .mono { color: var(--muted); font-size: 10.5px; }
+.wb-sfi tbody tr:hover { background: var(--panel-2); }
+.wb-sfi .unit { color: var(--muted); font-size: 13px; }
+.wb-sfi .mono { color: var(--muted); font-size: 12px; }
 
+/* Total row of the farming-by-catchment table: set off by a heavier rule. */
+.tot-row td { border-top: 2px solid var(--text); }
 
-/* Total row of the farming-by-catchment table: set off from the group rows by a heavier rule. */
-.tot-row td { border-top: 2px solid var(--line); }
-
-section#tables { padding: 18px 20px 60px; display: grid; gap: 20px; }
+/* ---- Tables -------------------------------------------------------------------------------- */
+section#tables { padding: 20px 20px 60px; display: grid; gap: 20px; }
 
 .card {
-  background: var(--panel);
+  background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  /* clip, not hidden: both round off the corners, but `hidden` would make the card a scroll
-     container and so anchor the sticky table headers to the card instead of the page. */
+  border-radius: 0;
   overflow: clip;
 }
 .card > h2 {
   margin: 0;
-  padding: 12px 16px;
-  font-size: 14.5px;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 700;
   border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
   display: flex;
   align-items: baseline;
   gap: 10px;
 }
-.card > h2 .count { color: var(--muted); font-weight: 400; font-size: 12.5px; }
-/* Provenance link: opens the SPARQL query behind this table. Pushed to the right of the header. */
+.card > h2 .count { color: var(--muted); font-weight: 400; font-size: 15px; }
+/* Provenance link: opens the SPARQL query behind this table. */
 .card > h2 .sparql-link {
   flex: none;
   margin-left: auto;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-decoration: none;
+  color: var(--accent);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-decoration: underline;
   white-space: nowrap;
 }
-.card > h2 .sparql-link:hover { border-color: var(--accent); color: var(--accent); }
+.card > h2 .sparql-link:hover { color: var(--accent-dark); }
 
-/* Tables run their full length — the page is the only thing that scrolls. */
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
 /* Headers stick to the top of the window as you scroll past a long table. */
-th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; z-index: 1; }
-/* Nested tables (an expanded option group) must not sticky-fight with their parent's header. */
+th { position: sticky; top: 0; background: var(--panel-2); color: var(--text); font-weight: 700; font-size: 14px; text-transform: none; letter-spacing: 0; z-index: 1; }
 .expand-inner th { position: static; }
-/* The last row's rule would otherwise cut across the card's rounded bottom corners. */
 .card > table > tbody > tr:last-child > td,
 .card > .tbl-wrap > table > tbody > tr:last-child > td { border-bottom: none; }
-tbody tr:hover { background: #1b2836; }
-/* Column alignment — applies to BOTH the header and its cells so columns never look skew. */
+tbody tr:hover { background: var(--panel-2); }
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ctr { text-align: center; }
 
 /* --- Sortable headers ------------------------------------------------------------------------ */
 th.sortable { cursor: pointer; user-select: none; }
-th.sortable:hover { color: var(--text); }
-/* The caret is always in the layout (transparent when unsorted), so a column's width — and the
-   header row's alignment — does not jump the moment you sort it. */
-th.sortable::after {
-  content: "▾"; margin-left: 5px; font-size: 9px; color: transparent;
-}
+th.sortable:hover { color: var(--accent); }
+th.sortable::after { content: "▾"; margin-left: 5px; font-size: 9px; color: transparent; }
 th.sortable:hover::after { color: var(--muted); }
 th.sorted::after { color: var(--accent); }
 th.sorted.asc::after { content: "▴"; color: var(--accent); }
@@ -538,81 +567,72 @@ th.sorted.asc::after { content: "▴"; color: var(--accent); }
 /* --- Pager ---------------------------------------------------------------------------------- */
 .pager {
   display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  padding: 8px 12px; border-top: 1px solid var(--line);
+  padding: 10px 12px; border-top: 1px solid var(--line);
 }
 .pager .pg {
-  min-width: 26px; height: 26px; padding: 0 6px;
-  background: var(--panel-2); color: var(--muted);
-  border: 1px solid var(--line); border-radius: 5px;
-  font: inherit; font-size: 12px; cursor: pointer;
+  min-width: 30px; height: 30px; padding: 0 8px;
+  background: #ffffff; color: var(--accent);
+  border: 1px solid var(--line); border-radius: 0;
+  font: inherit; font-size: 14px; cursor: pointer;
 }
-.pager .pg:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
-.pager .pg:disabled { opacity: .35; cursor: default; }
+.pager .pg:hover:not(:disabled) { background: var(--panel-2); border-color: var(--text); }
+.pager .pg:disabled { opacity: .4; cursor: default; }
 .pager .pg.on {
-  background: var(--accent); border-color: var(--accent); color: #06131f; font-weight: 700;
+  background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 700;
 }
-.pager .pg-info { margin-left: auto; color: var(--muted); font-size: 11.5px; }
+.pager .pg-info { margin-left: auto; color: var(--muted); font-size: 14px; }
 
-.pill { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.pill.current { background: rgba(229,72,77,.18); color: #ff9a9d; }
-.pill.past { background: rgba(245,166,35,.16); color: #f5c47a; }
-.pill.carried { background: rgba(147,164,179,.18); color: var(--muted); }
-.pill.proposed { background: rgba(160,107,255,.18); color: #c9aaff; }
-/* "none" — an absent current limit (i.e. a brand-new limit): a faint, quiet pill. */
-.pill.none { background: rgba(147,164,179,.10); color: var(--muted); font-weight: 500; }
-
-/* The three-way status of a permit condition. These two carry the distinction the whole store exists
-   to protect, so they must not be confusable at a glance:
-
-     .ok       we examined this condition and it held.
-     .unknown  we could NOT examine it — no dated permit version to attribute the sample to, no
-               sampling point, or no sample ever taken. This is NOT "no breach".
-
-   .unknown is deliberately colourless and dashed. Nothing about it should read as a verdict: it is
-   the absence of one, and an absence that looks like a pass is the failure mode this project is a
-   warning about. */
-.pill.ok { background: rgba(70,185,120,.14); color: #7fd3a0; }
+/* ---- Tags / pills (GOV.UK govuk-tag palette) ---------------------------------------------- */
+.pill { display: inline-block; padding: 2px 8px; border-radius: 0; font-size: 13px; font-weight: 700; }
+.pill.current { background: #f6d7d2; color: #942514; }
+.pill.past { background: #fcd6c3; color: #6e3619; }
+.pill.carried { background: #eeefef; color: #383f43; }
+.pill.proposed { background: #dbd5e9; color: #3d2375; }
+.pill.none { background: #eeefef; color: var(--muted); font-weight: 400; }
+.pill.ok { background: #cce2d8; color: #005a30; }
+/* .unknown — the absence of a verdict. Deliberately colourless and dashed; never reads as a pass. */
 .pill.unknown {
-  background: transparent; color: var(--muted); font-weight: 500;
-  border: 1px dashed rgba(147,164,179,.45); padding: 0 7px; cursor: help;
+  background: transparent; color: var(--muted); font-weight: 400;
+  border: 1px dashed var(--line); padding: 0 7px; cursor: help;
 }
 .muted { color: var(--muted); font-weight: 400; }
 
-/* The statistic a limit is expressed in ("95th percentile", "Annual average"), shown beside the
-   value it bounds. Quiet, because it qualifies the number rather than competing with it — but
-   present, because "≤ 20 (95th percentile)" and "≤ 48 (maximum)" are different obligations. */
-.stat { color: var(--muted); font-size: 11px; white-space: nowrap; }
+/* The statistic a limit is expressed in ("95th percentile"), shown beside the value it bounds. */
+.stat { color: var(--muted); font-size: 13px; white-space: nowrap; }
 
-.expand-row > td { background: #131d27; padding: 0; }
+.expand-row > td { background: var(--panel-2); padding: 0; }
 .expand-inner { padding: 4px 12px 10px 12px; }
-/* Tells the reader the substance in an expanded WINEP action is clickable (it opens the chart). */
-.expand-hint { margin: 2px 0 8px; color: var(--muted); font-size: 12px; }
+.expand-hint { margin: 2px 0 8px; color: var(--muted); font-size: 14px; }
 .expandable { cursor: pointer; }
 .expandable .caret { color: var(--muted); display: inline-block; width: 12px; transition: transform .12s; }
 .expandable.open .caret { transform: rotate(90deg); }
 
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-/* External link (leaves the app, e.g. to the Water Quality Explorer): solid underline + ↗ arrow. */
+/* ---- Links --------------------------------------------------------------------------------- */
+a { color: var(--accent); text-decoration: underline; }
+a:hover { color: var(--accent-dark); text-decoration-thickness: 3px; }
+a:visited { color: #4c2c92; }
 .ext-link { text-decoration: underline; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
+/* ---- Footer -------------------------------------------------------------------------------- */
 footer {
   position: fixed; bottom: 0; left: 0; right: 0;
-  display: flex; justify-content: space-between;
-  padding: 6px 20px;
-  background: var(--panel); border-top: 1px solid var(--line);
-  font-size: 11.5px; color: var(--muted);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 20px;
+  background: var(--panel-2); border-top: 1px solid var(--line);
+  font-size: 13px; color: var(--muted);
 }
 footer code { color: var(--text); }
-/* Footer link to the SPARQL editor — internal navigation, so the dashed-underline convention. */
-.foot-link { color: var(--muted); border-bottom: 1px dashed currentColor; text-decoration: none; }
-.foot-link:hover { color: var(--accent); text-decoration: none; }
-.foot-link code { color: var(--text); }
+/* Footer link to the SPARQL editor. */
+.foot-link { color: var(--accent); text-decoration: underline; }
+.foot-link:hover { color: var(--accent-dark); }
+.foot-link code { color: inherit; }
 
-.leaflet-popup-content { font-size: 13px; }
-.leaflet-popup-content h3 { margin: 0 0 4px; font-size: 14px; }
+/* Leaflet popups are already light; keep readable dark text. */
+.leaflet-popup-content { font-size: 15px; }
+.leaflet-popup-content h3 { margin: 0 0 4px; font-size: 16px; }
 .leaflet-popup-content .kv { color: #333; }
 .leaflet-popup-content .kv b { color: #000; }
+.leaflet-popup-content a { color: var(--accent); }
 .hidden { display: none !important; }
 .empty { padding: 18px 16px; color: var(--muted); font-style: italic; }
