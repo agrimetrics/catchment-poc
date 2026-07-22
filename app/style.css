@@ -130,10 +130,20 @@ nav#views.app-nav {
   display: flex; align-items: stretch; flex-wrap: wrap;
   border-bottom: 1px solid var(--line-2);
 }
+/* Domain headers: uppercase, with a colour swatch that ties them to the map (water = blue markers,
+   land = green) so the grouping reads at a glance. */
 .app-nav__group {
-  align-self: center; padding: 0 6px;
-  font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap;
+  align-self: center; display: inline-flex; align-items: center; gap: 7px;
+  padding: 0 10px 0 4px; margin-right: 2px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--text); white-space: nowrap;
 }
+.app-nav__group::before {
+  content: ""; width: 11px; height: 11px; border-radius: 2px; flex: none;
+  border: 1px solid rgba(11, 12, 12, .25);
+}
+.app-nav__group--water::before { background: var(--blue); }
+.app-nav__group--land::before { background: var(--green); }
 .app-nav__divider { align-self: stretch; width: 1px; background: var(--line); margin: 10px 10px; }
 .app-nav__link {
   appearance: none; background: none; border: none; cursor: pointer;
@@ -151,9 +161,14 @@ nav#views.app-nav {
 .app-filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 24px; padding: 12px 0 14px; }
 .app-filter { display: flex; flex-direction: column; min-width: 0; }
 .app-filter__label { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+/* Domain scope of each filter, as a small tag echoing the nav swatches: which world it acts on. */
 .app-filter__scope {
-  font-weight: 400; font-size: 12px; color: var(--muted); text-transform: none;
+  display: inline-block; margin-left: 4px; padding: 0 6px; vertical-align: middle;
+  font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
 }
+.app-filter__scope--water { background: #d2e2f1; color: #144e81; }
+.app-filter__scope--land { background: #cce2d8; color: #005a30; }
+.app-filter__scope--both { background: #bfe3e0; color: #10403c; }
 .app-filter select { margin-top: 0; min-width: 220px; font-size: 15px; }
 .app-filter--both { flex: 1 1 300px; }
 .app-filter--both select { min-width: 300px; }

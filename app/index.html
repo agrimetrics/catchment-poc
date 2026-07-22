@@ -25,27 +25,27 @@
 
   <nav id="views" class="app-nav" aria-label="Choose a view">
     <div class="app-nav__views">
-      <span class="app-nav__group">Water</span>
+      <span class="app-nav__group app-nav__group--water">Water</span>
       <button type="button" data-view="regulated" class="app-nav__link active"
         title="What a permit allows, what breached it, and what will replace it — limits, breaches &amp; WINEP future works">The regulated world</button>
       <button type="button" data-view="measured" class="app-nav__link"
         title="What the sampling actually finds — every point in the catchment, permitted or not">The measured world</button>
       <span class="app-nav__divider" aria-hidden="true"></span>
-      <span class="app-nav__group">Land</span>
+      <span class="app-nav__group app-nav__group--land">Land</span>
       <button type="button" data-view="farming" class="app-nav__link"
         title="SFI agreements, what they pay per intervention &amp; what they are modelled to remove">Sustainable Farming Incentive</button>
     </div>
     <div class="app-filters">
       <div class="app-filter app-filter--water">
-        <label class="app-filter__label" for="waterbody">Waterbody catchment</label>
+        <label class="app-filter__label" for="waterbody">Waterbody catchment <span class="app-filter__scope app-filter__scope--water">water</span></label>
         <select id="waterbody"></select>
       </div>
       <div class="app-filter app-filter--land">
-        <label class="app-filter__label" for="optionType">Option type</label>
+        <label class="app-filter__label" for="optionType">Option type <span class="app-filter__scope app-filter__scope--land">land</span></label>
         <select id="optionType"></select>
       </div>
       <div class="app-filter app-filter--both">
-        <label class="app-filter__label" for="substance">Substance <span class="app-filter__scope">water &amp; land</span></label>
+        <label class="app-filter__label" for="substance">Substance <span class="app-filter__scope app-filter__scope--both">water &amp; land</span></label>
         <select id="substance"></select>
         <span class="filter-note" id="substance-note"></span>
       </div>
