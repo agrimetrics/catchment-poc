@@ -116,71 +116,49 @@ select {
   min-width: 240px;
 }
 
-/* ---- View chooser ------------------------------------------------------------------------- */
-nav#views {
-  display: flex;
-  flex-wrap: wrap; /* so the Water & Land substance filter can take a full-width row of its own */
-  gap: 14px;
-  padding: 14px 20px;
+/* ---- View navigation ---------------------------------------------------------------------- */
+/* The three views switch what the whole page shows, so they use the GOV.UK service/sub-navigation
+   pattern: a single compact bar of links, the current one bold with a blue underline — far shorter
+   than the old grouped card boxes. The two water views and the one land view are separated by a
+   thin rule, with quiet domain labels for context. A slim filter row sits beneath. */
+nav#views.app-nav {
+  padding: 0 20px;
   background: #ffffff;
   border-bottom: 1px solid var(--line);
-  overflow-x: auto;
 }
-/* Domain super-boxes grouping the views: Water (three) and Land (one). */
-.view-group {
-  margin: 0;
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  padding: 8px 12px 12px;
-  display: flex;
-  flex-direction: column; /* so the filter can pin to the bottom and line up across boxes */
+.app-nav__views {
+  display: flex; align-items: stretch; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line-2);
 }
-.view-group.water { flex: 3 1 0; }
-.view-group.land { flex: 1 1 0; }
-/* Substance spans BOTH domains: nitrogen and phosphorus are measured in the water and modelled on
-   the land, so the filter cannot live inside either box. It gets its own full-width row. */
-.view-group.both { flex: 1 1 100%; background: var(--panel-2); }
-.view-group.both .group-filter { display: flex; align-items: center; gap: 12px; padding-top: 2px; }
-.view-group.both .group-filter select { margin-top: 0; width: auto; min-width: 320px; }
-.filter-note { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
-.filter-note b { color: var(--text); }
-.view-group > legend {
-  padding: 0 6px; margin-left: -2px;
-  font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none;
-  color: var(--muted);
+.app-nav__group {
+  align-self: center; padding: 0 6px;
+  font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap;
 }
-.group-buttons { display: flex; gap: 10px; }
-/* A filter dropdown living inside a domain super-box (Substance in Water, Option type in Land). */
-.group-filter {
-  margin-top: auto; padding-top: 10px; /* pin to the bottom so Substance & Option type align */
-  color: var(--muted); font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: 700;
+.app-nav__divider { align-self: stretch; width: 1px; background: var(--line); margin: 10px 10px; }
+.app-nav__link {
+  appearance: none; background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 16px; color: var(--accent);
+  padding: 13px 8px; margin: 0 0 -1px;
+  border: none; border-bottom: 4px solid transparent; border-radius: 0;
+  white-space: nowrap;
 }
-.group-filter select { margin-top: 4px; width: 100%; min-width: 0; font-size: 15px; padding: 6px 8px; }
+.app-nav__link:hover { color: var(--accent-dark); text-decoration: underline; text-underline-offset: 3px; }
+.app-nav__link.active {
+  color: var(--text); font-weight: 700; border-bottom-color: var(--accent); text-decoration: none;
+}
 
-/* Selectable view cards. GOV.UK does not have a "card button", so these use the system geometry:
-   square, 2px border; the chosen one gets the blue border + light-blue fill. */
-nav#views button {
-  flex: 1 1 0;
-  min-width: 180px;
-  text-align: left;
-  background: #ffffff;
-  color: var(--text);
-  border: 2px solid var(--line);
-  border-radius: 0;
-  padding: 12px 14px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color .1s, background .1s;
+/* Filter row: GOV.UK selects with their labels, laid out inline to stay on one short row. */
+.app-filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 24px; padding: 12px 0 14px; }
+.app-filter { display: flex; flex-direction: column; min-width: 0; }
+.app-filter__label { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.app-filter__scope {
+  font-weight: 400; font-size: 12px; color: var(--muted); text-transform: none;
 }
-nav#views button:hover { border-color: var(--text); }
-nav#views button.active {
-  border-color: var(--accent);
-  background: var(--select-blue);
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-.v-title { display: block; font-weight: 700; font-size: 16px; }
-.v-desc { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; line-height: 1.35; }
+.app-filter select { margin-top: 0; min-width: 220px; font-size: 15px; }
+.app-filter--both { flex: 1 1 300px; }
+.app-filter--both select { min-width: 300px; }
+.filter-note { font-size: 12px; line-height: 1.4; color: var(--muted); margin-top: 5px; max-width: 44ch; }
+.filter-note b { color: var(--text); font-weight: 700; }
 
 /* ---- Lede ---------------------------------------------------------------------------------- */
 #lede {

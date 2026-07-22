@@ -23,42 +23,33 @@
     </div>
   </header>
 
-  <nav id="views">
-    <fieldset class="view-group water">
-      <legend>Water</legend>
-      <div class="group-buttons">
-        <button data-view="regulated" class="active">
-          <span class="v-title">The regulated world</span>
-          <span class="v-desc">What a permit allows, what breached it, and what will replace it — limits, breaches &amp; WINEP future works</span>
-        </button>
-        <button data-view="measured">
-          <span class="v-title">The measured world</span>
-          <span class="v-desc">What the sampling actually finds — every point in the catchment, permitted or not</span>
-        </button>
-      </div>
-      <label class="group-filter">Waterbody catchment
+  <nav id="views" class="app-nav" aria-label="Choose a view">
+    <div class="app-nav__views">
+      <span class="app-nav__group">Water</span>
+      <button type="button" data-view="regulated" class="app-nav__link active"
+        title="What a permit allows, what breached it, and what will replace it — limits, breaches &amp; WINEP future works">The regulated world</button>
+      <button type="button" data-view="measured" class="app-nav__link"
+        title="What the sampling actually finds — every point in the catchment, permitted or not">The measured world</button>
+      <span class="app-nav__divider" aria-hidden="true"></span>
+      <span class="app-nav__group">Land</span>
+      <button type="button" data-view="farming" class="app-nav__link"
+        title="SFI agreements, what they pay per intervention &amp; what they are modelled to remove">Sustainable Farming Incentive</button>
+    </div>
+    <div class="app-filters">
+      <div class="app-filter app-filter--water">
+        <label class="app-filter__label" for="waterbody">Waterbody catchment</label>
         <select id="waterbody"></select>
-      </label>
-    </fieldset>
-    <fieldset class="view-group land">
-      <legend>Land</legend>
-      <div class="group-buttons">
-        <button data-view="farming">
-          <span class="v-title">Sustainable Farming Incentive</span>
-          <span class="v-desc">SFI agreements, what they pay per intervention &amp; what they are modelled to remove</span>
-        </button>
       </div>
-      <label class="group-filter">Option type
+      <div class="app-filter app-filter--land">
+        <label class="app-filter__label" for="optionType">Option type</label>
         <select id="optionType"></select>
-      </label>
-    </fieldset>
-    <fieldset class="view-group both">
-      <legend>Water &amp; Land</legend>
-      <label class="group-filter">Substance
+      </div>
+      <div class="app-filter app-filter--both">
+        <label class="app-filter__label" for="substance">Substance <span class="app-filter__scope">water &amp; land</span></label>
         <select id="substance"></select>
         <span class="filter-note" id="substance-note"></span>
-      </label>
-    </fieldset>
+      </div>
+    </div>
   </nav>
 
   <p id="lede"></p>
