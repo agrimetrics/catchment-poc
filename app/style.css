@@ -630,5 +630,18 @@ footer code { color: var(--text); }
 .leaflet-popup-content .kv { color: #333; }
 .leaflet-popup-content .kv b { color: #000; }
 .leaflet-popup-content a { color: var(--accent); }
+/* The permit popup's per-outlet tally. Deliberately compact: it is a summary that points at the
+   Permits & limits table, not a second copy of it. */
+.pop-outlets { border-collapse: collapse; width: 100%; font-size: 13px; }
+/* Un-stick the header. The global `th { position: sticky; top: 0 }` keeps table headers under the
+   masthead as you scroll the page — but a popup is its own scrolling box inside a positioned Leaflet
+   pane, so the same rule pinned this header to the pane's top edge and it rendered BELOW its rows. */
+.pop-outlets th { position: static; background: none; }
+.pop-outlets th { text-align: left; font-weight: 600; color: #505a5f; padding: 0 10px 3px 0; }
+.pop-outlets td { padding: 2px 10px 2px 0; vertical-align: top; border-top: 1px solid #e6e8ea; }
+.pop-outlets td:first-child { white-space: nowrap; }
+
+/* A permit row the map sent us to (see showPermitRow). */
+tbody tr.permit-row.sel { background: #d3e5f5; box-shadow: inset 4px 0 0 var(--accent); }
 .hidden { display: none !important; }
 .empty { padding: 18px 16px; color: var(--muted); font-style: italic; }

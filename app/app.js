@@ -1633,6 +1633,24 @@ window.filterBreaches = (permitIri) => {
 };
 window.clearBreachFilter = () => { breachPermit = null; render(); };
 
+// The permit marker's "show this permit in the table ↓". The popup gives the scale of a permit — how
+// many outlets, how many limits, how many unexamined — and this is how you get from that to the
+// limits themselves, which are a table and were never a popup. The row may be sorted onto page 4, so
+// turn to its page first, then expand it (the expansion is the by-outlet limit list) and highlight it.
+let permitTableEl = null;   // the Permits & limits wrapper, so the map can page to a permit's row
+window.showPermitRow = (permitIri) => {
+  const card = document.getElementById("permit-card");
+  if (!card) return;
+  const tr = permitTableEl && permitTableEl.revealRow
+    ? permitTableEl.revealRow((r) => r.dataset.permit === permitIri)
+    : [...card.querySelectorAll("tr.permit-row")].find((r) => r.dataset.permit === permitIri);
+  if (!tr) return;
+  if (!tr.classList.contains("open")) tr.click();     // wireExpand builds the detail on first open
+  card.querySelectorAll("tr.permit-row").forEach((r) => r.classList.toggle("sel", r === tr));
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  setTimeout(() => tr.scrollIntoView({ behavior: "smooth", block: "center" }), 400);
+};
+
 const permitMarkers = {}; // permit IRI -> [marker] for the current render, for zoom-to-permit
 const actionMarkers = {}; // WINEP action IRI -> marker (current render), for table<->map focus
 const spMarkers = {};     // sampling point id -> marker (current render), so the table can open its popup
@@ -1647,7 +1665,10 @@ function zoomPermit(permit) {
   const lls = dps.map((d) => [d.lat, d.lon]);
   if (lls.length === 1) map.setView(lls[0], 14);
   else map.fitBounds(L.latLngBounds(lls).pad(0.3), { maxZoom: 14 });
-  const mk = (permitMarkers[permit] || [])[0];
+  // Prefer an outlet that HOLDS current limits. The markers are drawn in status order, so [0] is an
+  // "unknown" one — and where a permit's outlets were renamed at a version boundary that is a
+  // superseded outlet whose popup shows no limits at all, which reads as "this permit sets none".
+  const mk = (permitMarkers[permit] || [])[0];   // one marker per permit
   document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "start" });
   if (mk) setTimeout(() => mk.openPopup(), 350);
 }
@@ -2875,45 +2896,71 @@ function condStatus(c, breached) {
   return `<span class="pill unknown" title="${esc(why)}">not assessed</span>`;
 }
 
-// One unified popup per discharge point: identity + WQE link, its breaches, and the in-force limits —
-// each with whether we could actually judge it.
+// One popup per PERMIT, not per outlet. Every outlet on a permit shares the register's site grid
+// reference — all 60 permits with geometry put every outlet on one coordinate — so an outlet-grained
+// marker was 16 identical circles at Blackheath (042451), each holding a sixteenth of the answer and
+// only the topmost reachable. The permit is the thing on the map; the outlet is a row in its table.
 //
-// CURRENT breaches are listed: there are few, they are the news, and they are what a reader opened the
-// popup for. PAST breaches are COUNTED, with a link that filters the breach table to this permit —
-// because a works with a long history can carry dozens, and a popup that unrolls all of them is a wall
-// of text that buries the one thing that matters. The table is where a list belongs; it sorts, it
-// pages, and it carries the assessment detail the popup has no room for.
-function dischargePopup(dp, currentConds, cur, past) {
-  const wqe = dp.sp ? wqeLink(dp.sp) : '<span class="muted">no sampling point — the register names none</span>';
-  const breachedSub = new Set([...cur, ...past].map((b) => b.subNotation));
+// What it says, and deliberately what it does NOT:
+//   - the SCALE of the permit — outlets, limits in force, and how many went unexamined — with a link
+//     that turns the table to this permit's row and opens it. The full limit list lived here once and
+//     could not be honest: 48 limits at 8 outlets is a table, not a popup.
+//   - each outlet's own tally, because "6 limits, 2 assessed" is the shape of what we know, and
+//     assessment happens per outlet, through the effluent's own WQE sampling point (linked on the row).
+//     An outlet with no sampling point is an outlet nothing can be judged at, and it says so.
+//   - CURRENT breaches, named, because they are the news and there are few. PAST breaches stay a
+//     count with a link to the filtered breach table, which sorts and pages.
+function permitPopup(permit, outlets, cur, past) {
+  // Outlets the current version no longer names are counted, not listed. At Blackheath the register
+  // renamed 1 and 2 to 1a/1b/2a/2b at v7, so eight of the sixteen are history — eight rows saying
+  // "no limits in this version" would swamp the eight that carry the permit's actual obligations.
+  const live = outlets.filter((o) => o.conds.length);
+  const rows = (live.length ? live : outlets).map((o) => {
+    const nAss = o.conds.filter((c) => c.assessed).length;
+    const nCur = o.br.filter((b) => b.current).length;
+    // The parenthetical is the assessment, and a breach outranks the tally: an outlet in breach is not
+    // adequately described as "2 assessed".
+    const judged = nCur ? `<span class="pill current">${plural(nCur, "current breach", "current breaches")}</span>`
+      : !o.conds.length ? ""
+      : nAss ? `<span class="muted">${nAss} assessed${o.br.length ? ", past breaches" : ", no breach"}</span>`
+      : `<span class="muted">0 assessed</span>`;
+    const what = o.conds.length
+      ? `${plural(o.conds.length, "limit", "limits")} ${judged && "(" + judged + ")"}`
+      : `<span class="muted">no limits in this version</span>`;
+    const wqe = o.sp ? wqeLink(o.sp) : '<span class="muted">no sampling point</span>';
+    return `<tr><td class="mono">${esc(outletOf(o.dp.iri) || "—")}</td><td>${what}</td><td>${wqe}</td></tr>`;
+  }).join("");
+
+  const nConds = outlets.reduce((n, o) => n + o.conds.length, 0);
+  const nUn = outlets.reduce((n, o) => n + o.conds.filter((c) => !c.assessed).length, 0);
+  const superseded = outlets.length - live.length;
+
   let breaches = "";
   if (cur.length || past.length) {
-    const line = (b) => `${esc(b.subLabel)} — ${breachPeriod(b)}` +
+    const line = (b) => `${esc(b.subLabel)} <span class="mono">${esc(b.outlet || "")}</span> — ${breachPeriod(b)}` +
       (b.undated ? ' <span class="muted">(undated permit version)</span>' : "");
     const pastCell = past.length
       ? `${plural(past.length, "breach", "breaches")} ` +
-        `<span class="sub-link" onclick="event.stopPropagation();filterBreaches('${dp.permit}')">show in the table ↓</span>`
+        `<span class="sub-link" onclick="event.stopPropagation();filterBreaches('${permit}')">show in the table ↓</span>`
       : "none";
     breaches = `<hr><div class="kv"><b>Breaches</b><br>
       <b>Current:</b> ${cur.length ? cur.map(line).join("<br>") : "none"}<br>
       <b>Past:</b> ${pastCell}</div>`;
   }
-  const limits = currentConds.length
-    ? currentConds.slice().sort((a, b) => a.subLabel.localeCompare(b.subLabel))
-        .map((c) => `${subLink(c.subLabel, c.subNotation, dp.sp, dp.permit)}: ${limitRange(c)} `
-                  + condStatus(c, breachedSub.has(c.subNotation))).join("<br>")
-    : "—";
-  const nUn = currentConds.filter((c) => !c.assessed).length;
-  const caveat = nUn
-    ? `<div class="kv muted" style="margin-top:6px">${nUn} of ${currentConds.length} condition${
-        currentConds.length === 1 ? "" : "s"} could not be assessed. That is not the same as passing.</div>`
+  // "not assessed" is never folded into the limit count. A permit with no breaches and 46 unexamined
+  // limits is not a compliant permit, and the headline must not let it read as one.
+  const untested = nUn
+    ? ` · <span class="pill unknown" title="No dated permit version, no sampling point, or no sample ever taken. That is not the same as passing.">${nUn} not assessed</span>`
     : "";
-  return `<h3>Discharge point <span class="muted">${esc(outletOf(dp.iri) || "")}</span></h3>
-    <div class="kv"><b>Permit:</b> ${permitRef(dp.permit)}<br>
-    <b>Monitored at:</b> ${wqe}</div>
+  // With a substance chosen the permits table is replaced by the substance story, which has no permit
+  // row to reveal — so the link is omitted rather than left to do nothing when clicked.
+  return `<h3>Permit ${permitRef(permit)} <span class="muted">v${DB.currentVersion[permit] ?? "?"}</span></h3>
+    <div class="kv">${plural(live.length, "outlet", "outlets")} · ${plural(nConds, "limit", "limits")} in force${untested}<br>
+    ${superseded ? `<span class="muted">${superseded} further outlet${superseded === 1 ? " carries" : "s carry"} no limits in this version.</span><br>` : ""}
+    ${currentSubstance ? "" : `<span class="sub-link" onclick="event.stopPropagation();showPermitRow('${permit}')">show this permit in the table ↓</span>`}</div>
     ${breaches}
-    <hr><div class="kv"><b>Current limits</b> <span style="color:#777">(v${DB.currentVersion[dp.permit] ?? "?"})</span><br>${limits}</div>
-    ${caveat}`;
+    <hr><table class="pop-outlets"><thead><tr><th>Outlet</th><th>Limits</th><th>Monitored at (WQE)</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
 }
 function actionPopup(a, limits) {
   // Substances here open the time-series chart for the action's target permit, exactly as they do in
@@ -3105,32 +3152,40 @@ function render() {
   const STATUS_R = { current: 8, past: 7, none: 6, unknown: 6 };
   if (show.discharge) {
     const order = { unknown: 0, none: 1, past: 2, current: 3 }; // draw current breaches on top
-    const items = dischargePoints
-      .filter((dp) => dp.lat != null)
-      .map((dp) => {
-        const allConds = DB.condByDp[dp.iri] || [];               // THIS outlet's limits, not the permit's
-        const allBr = breachAtDp[dp.iri] || [];                   // breaches AT this outlet
-        const fConds = allConds.filter((c) => matchSub(c.subNotation));
-        const fBr = allBr.filter((b) => matchSub(b.subNotation));
-        const scope = currentSubstance ? fConds : allConds;
-        const status = fBr.some((b) => b.current) ? "current"
-          : fBr.length ? "past"
-          : !scope.length || scope.every((c) => !c.assessed) ? "unknown"
-          : "none";
-        return { dp, allConds, allBr, fConds, fBr, status };
-      })
-      // in a substance view, only show discharge points relevant to the substance
+    // One marker per PERMIT. The register gives every outlet on a permit the same site grid reference,
+    // so an outlet-grained marker drew 16 circles on one pixel at Blackheath and buried 15 of them.
+    const byPermit = groupBy(dischargePoints.filter((dp) => dp.lat != null), "permit");
+    const items = Object.entries(byPermit).map(([permit, dps]) => {
+      const outlets = dps.map((dp) => ({
+        dp, sp: dp.sp,
+        conds: DB.condByDp[dp.iri] || [],                       // THIS outlet's limits, not the permit's
+        br: breachAtDp[dp.iri] || [],                           // breaches AT this outlet
+      })).sort((a, b) => (b.conds.length - a.conds.length)
+                      || String(outletOf(a.dp.iri)).localeCompare(String(outletOf(b.dp.iri))));
+      const allConds = outlets.flatMap((o) => o.conds);
+      const allBr = outlets.flatMap((o) => o.br);
+      const fConds = allConds.filter((c) => matchSub(c.subNotation));
+      const fBr = allBr.filter((b) => matchSub(b.subNotation));
+      const scope = currentSubstance ? fConds : allConds;
+      const status = fBr.some((b) => b.current) ? "current"
+        : fBr.length ? "past"
+        : !scope.length || scope.every((c) => !c.assessed) ? "unknown"
+        : "none";
+      return { permit, dps, outlets, allBr, fConds, fBr, status };
+    })
+      // in a substance view, only show permits relevant to the substance
       .filter((x) => !currentSubstance || x.fConds.length || x.fBr.length)
       .sort((a, b) => order[a.status] - order[b.status]);
     for (const x of items) {
       const cur = x.allBr.filter((b) => b.current);
       const past = x.allBr.filter((b) => !b.current);
-      const mk = circle(x.dp.lat, x.dp.lon,
+      const at = x.dps[0];
+      const mk = circle(at.lat, at.lon,
         dot(STATUS_COLOR[x.status], STATUS_R[x.status], x.status === "unknown" ? 0.55 : 0.9),
-        dischargePopup(x.dp, x.allConds, cur, past));
+        permitPopup(x.permit, x.outlets, cur, past));
       mk.addTo(layers.dischargePoints);
-      (permitMarkers[x.dp.permit] ||= []).push(mk);
-      drawnBounds.push([x.dp.lat, x.dp.lon]);
+      (permitMarkers[x.permit] ||= []).push(mk);
+      drawnBounds.push([at.lat, at.lon]);
     }
     layers.dischargePoints.addTo(map);
   }
@@ -3427,7 +3482,14 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
   const rows = permits.map((p, i) => {
     const cur = (condByPermit[p] || []); // current-version conditions only
     const dps = dpByPermit[p] || [];
-    const sp = dps.map((d) => d.sp).filter(Boolean)[0] || null;
+    // A permit is monitored at its OUTLETS' sampling points, and they differ: 042451's outlets are
+    // split between two, and eight have none at all. Showing whichever came back first credited the
+    // whole permit with one outlet's monitoring — so where they differ, say how many and send the
+    // reader to the by-outlet rows, which carry a point each.
+    const sps = [...new Set(dps.map((d) => d.sp).filter(Boolean))];
+    const spCell = sps.length === 1 ? wqeLink(sps[0])
+      : sps.length ? `<span class="muted" title="${esc(sps.join(", "))}">${plural(sps.length, "sampling point")} — see the outlet rows</span>`
+      : "—";
     const nB = (breachesByPermit[p] || []).length;
     const nUn = cur.filter((c) => !c.assessed).length;
     // The two numbers that must never be conflated: how many of this permit's limits we FAILED, and
@@ -3439,17 +3501,18 @@ function permitTable(conditions, dpByPermit, condByPermit, condHistByPermit, bre
     const untested = nUn
       ? `<span class="pill unknown" title="${esc(nUn + " of this permit's " + cur.length + " current limits could not be assessed — see the expanded rows")}">${nUn} not assessed</span>`
       : "—";
-    return `<tr class="expandable" data-row="${i}"><td data-sort="${esc(permitRef(p))}"><span class="caret">▸</span> ${permitLink(p)}
+    return `<tr class="expandable permit-row" data-row="${i}" data-permit="${esc(p)}"><td data-sort="${esc(permitRef(p))}"><span class="caret">▸</span> ${permitLink(p)}
           <span style="color:#777"> v${DB.currentVersion[p] ?? "?"}</span></td>
         <td data-sort="${cur.length}">${cur.length} current limit${cur.length === 1 ? "" : "s"}</td><td>${dps.length}</td>
         <td class="ctr" data-sort="${nB}">${judged}</td>
         <td class="ctr" data-sort="${nUn}">${untested}</td>
-        <td>${wqeLink(sp)}</td></tr>
+        <td>${spCell}</td></tr>
       <tr class="expand-row hidden" data-exp="${i}"><td colspan="6"><div class="expand-inner"></div></td></tr>`;
   }).join("");
-  const c = card("Permits &amp; limits", permits.length,
-    pagedTable(["Permit", "Current limits", "Discharge points", "Breaches|c", "Not assessed|c", "Monitored at"], rows),
-    PQ.permits(currentSubstance));
+  const tbl = pagedTable(["Permit", "Current limits", "Discharge points", "Breaches|c", "Not assessed|c", "Monitored at"], rows);
+  permitTableEl = tbl;    // so a permit marker can turn to this permit's page (see showPermitRow)
+  const c = card("Permits &amp; limits", permits.length, tbl, PQ.permits(currentSubstance));
+  c.id = "permit-card";
   wireExpand(c, permits, (p) => permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit));
   return c;
 }
@@ -3470,13 +3533,18 @@ function permitDetail(p, condByPermit, condHistByPermit, breachedKey, dpByPermit
 
   // Both nested tables are paginated and sortable in their own right — they have to be, now that a
   // permit's limits are per-outlet: 042451 holds 14 outlets and 043091 dozens of conditions.
-  const curTbl = pagedTable(["Outlet", "Substance", "Limit|r", "Unit", "Status|c"],
+  // "Monitored at" is on the OUTLET row, not the permit row above: the effluent's own sampling point is
+  // what any assessment of that outlet was made against, and an outlet the register names no point for
+  // is one nothing could be judged at. A single permit-level sampling point would credit every outlet
+  // with the one that happens to be listed first.
+  const curTbl = pagedTable(["Outlet", "Substance", "Limit|r", "Unit", "Status|c", "Monitored at (WQE)"],
     cur.map((c) => `<tr>
       <td class="mono" data-sort="${esc(c.outlet || "")}">${esc(c.outlet || "—")}</td>
       <td>${subLink(c.subLabel, c.subNotation, spOfDp[c.dp], p)}</td>
       <td class="num" data-sort="${c.upper != null ? c.upper : ""}" title="${esc((c.stmts || []).join("; "))}">${limitBounds(c)}</td>
       <td>${prettyUnit(c.unit)}</td>
-      <td class="ctr" data-sort="${c.assessed ? 1 : 0}">${condStatus(c, breachedSub.has(`${c.dp}|${c.subNotation}`))}</td></tr>`).join(""));
+      <td class="ctr" data-sort="${c.assessed ? 1 : 0}">${condStatus(c, breachedSub.has(`${c.dp}|${c.subNotation}`))}</td>
+      <td>${wqeLink(spOfDp[c.dp])}</td></tr>`).join(""));
 
   const histTbl = pagedTable(["Version", "Outlet", "Substance", "Limit|r", "Unit", "|c"],
     hist.map((c) => {
