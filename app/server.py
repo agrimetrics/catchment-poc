@@ -82,6 +82,15 @@ _TILE_RE = re.compile(r"^/tiles/(\d{1,2})/(\d{1,7})/(\d{1,7})\.png$")
 OBS_PAGE_TIMEOUT = 20   # seconds allowed per upstream page request
 OBS_PAGE_LIMIT = 250    # the archive's hard maximum page size
 OBS_RETRIES = 4         # transient-error attempts per page, each backing off
+# Total wall-clock for one page, retries and backoff included. Without it, an upstream that BLACKHOLES
+# packets — the usual shape of a corporate firewall or an egress-less container — costs 4 x 20s of
+# timeout plus 7s of backoff before the browser is told anything, and the chart just says "Loading…"
+# for a minute and a half per page. A blocked network should be reported, not waited out: retries are
+# there to ride out a throttle, and no amount of them fixes "there is no route".
+OBS_DEADLINE = 45       # seconds before we stop retrying and report what went wrong
+# Retries beyond the first are worth it for a live-but-unhappy archive (429/5xx). A connection that
+# cannot be established or times out is a different diagnosis, and gets one retry, not four.
+OBS_CONNECT_RETRIES = 2
 OBS_CACHE = CACHE_DIR / "observations"
 
 # In-progress full-set assembly, keyed (sampling_point, determinand). A skip=0 request (re)starts it;
@@ -96,6 +105,13 @@ def _fetch_wqe_page(sampling_point: str, determinand: str, skip: int, limit: int
     url = (f"{EA_BASE}/{sampling_point}/observation"
            f"?skip={skip}&limit={limit}&determinand={determinand}&complianceOnly=false")
     delay, last_exc = 1.0, None
+    started = time.monotonic()
+    connect_failures = 0
+
+    def out_of_time(next_wait: float) -> bool:
+        """True when another attempt would run past the deadline — so stop and report now."""
+        return time.monotonic() - started + next_wait + OBS_PAGE_TIMEOUT > OBS_DEADLINE
+
     for _ in range(OBS_RETRIES):
         try:
             req = urllib.request.Request(url, headers={
@@ -123,12 +139,18 @@ def _fetch_wqe_page(sampling_point: str, determinand: str, skip: int, limit: int
             last_exc = exc
             if exc.code in (429, 500, 502, 503, 504):
                 ra = exc.headers.get("Retry-After") if exc.headers else None
-                time.sleep(float(ra) if (ra and str(ra).isdigit()) else delay)
+                wait = float(ra) if (ra and str(ra).isdigit()) else delay
+                if out_of_time(wait):
+                    break
+                time.sleep(wait)
                 delay *= 2
                 continue
             raise
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             last_exc = exc
+            connect_failures += 1
+            if connect_failures >= OBS_CONNECT_RETRIES or out_of_time(delay):
+                break
             time.sleep(delay)
             delay *= 2
     raise last_exc or RuntimeError("WQE page fetch failed")
