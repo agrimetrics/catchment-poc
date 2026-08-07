@@ -73,10 +73,30 @@ therefore rest on a sample the EA would not have counted.
   is still a number: that needs the discharge's flow record, which is not in the water-quality archive
   at all, so it cannot be done from this source.
 - **Unusual weather.** The guidance excludes samples affected by unusual weather (storm conditions,
-  which dilute or overwhelm a works). **Nothing in the water-quality archive flags this**, so it is not
-  implemented and cannot be from this source alone. Doing it properly needs rainfall or
-  storm-overflow-spill data joined on (sampling point, date) — the EDM / storm overflow dataset is the
-  obvious candidate. Until then, a breach recorded on a storm day may be one the EA would discount.
+  which dilute or overwhelm a works). This pipeline does not apply that exclusion, and the reason is a
+  defect here rather than a gap in the source.
+
+  The archive records the exclusion as an observation of its own: determinand **`4838` Unusual Weather
+  Waiver (WRA)**, with a coded `Granted` / `Not Granted` result, sitting on the sample beside the numbers
+  it excuses (`4448`, *Exceptional Circumstances OSM*, is its sibling). It **survives `complianceOnly=true`**
+  — verified: `?determinand=4838&complianceOnly=true` at `SW-50951080` returns the 2018-02-07 `Granted`.
+
+  **But `complianceOnly=true` is a filter over `samplingPurpose`, and a waived sample's purpose is
+  unchanged** — all eight here read `WATER QUALITY OPERATOR SELF MONITORING COMPLIANCE DATA`, identical
+  to a sample with no waiver. There is no waived-compliance purpose for the filter to exclude. So the
+  archive asserts both *"this is a compliance sample"* and *"this sample is excused"*, and its own
+  compliance filter honours only the first. The rule therefore lands on every consumer, unprompted.
+
+  It is absent from `compliance_observations.csv` because `fetch()` requests one determinand at a time,
+  from the list a permit holds conditions for, and `4838` is not on that list. Across the catchment there
+  are **8 waivers** (7 `Granted`, 1 `Not Granted`), on samples carrying **24** of the compliance
+  observations this store holds. **No delivered breach currently rests on one**, so the published
+  assessments are unaffected — the defect is latent, not active.
+
+  To close it: add `4838` to the fetch, and treat a `Granted` waiver as excluding every result on that
+  sample. Note that presence is not the answer — the coded result has to be read, since one of the eight
+  was refused. See [`notebooks/02_water_quality_archive.ipynb`](../../notebooks/02_water_quality_archive.ipynb) §C.2.4
+  and [`notebooks/sweep_waivers.py`](../../notebooks/sweep_waivers.py).
 
 Also not yet handled:
 
