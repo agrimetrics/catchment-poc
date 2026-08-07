@@ -19,13 +19,19 @@ It emits **two** products from the same clip:
 Unlike the other pipelines there is no DuckDB/ontop step: the data is purely geometry + a name +
 a code, so it goes directly to RDF.
 
+Every source-data claim in this file is recomputed from the source layers in
+[`notebooks/05_designations.ipynb`](../../notebooks/05_designations.ipynb).
+
 ## How the scope was whittled down (for convenience)
 
 - **Clipped to the catchment.** The source layers are national. Only sites **intersecting** the
   Poole Harbour operational-catchment boundary (buffered ~3 km so edge sites are kept whole) survive.
-- **One feature per named site.** Multipart geometries are dissolved by site name → **71 SSSI, 7 SAC,
-  3 SPA** (81 sites). The official code is retained (`ref_code` for SSSI, `sac_code`/`spa_code` for
-  SAC/SPA).
+- **One feature per named site.** The sources publish **one feature per polygon, not per site**, so a
+  site is spread across many rows: the SPA layer's 195 features are **6** designated sites, and *Dorset
+  Heathlands* alone accounts for **177** of them. Any "how many SPAs are here?" answered from the row
+  count is out by a factor of ~30. Name and code are 1:1, so the pipeline dissolves multipart geometries
+  by site name → **71 SSSI, 7 SAC, 3 SPA** (81 sites) after the catchment clip. The official code is
+  retained (`ref_code` for SSSI, `sac_code`/`spa_code` for SAC/SPA).
 - **Two resolutions.** The **RDF** keeps near-full geometry fidelity (~2 m simplification) for
   accurate spatial queries; the **display GeoJSON** stays coarse (~30 m) for a light browser payload.
 
@@ -57,19 +63,33 @@ a code, so it goes directly to RDF.
 - **IRIs.** Sites are `http://example.com/nature/{sssi|sac|spa}/{code}`; geometry is a `#geometry`
   fragment of the site IRI.
 - **CRS.** WGS84 lon/lat with an explicit `CRS84` URI at the **start** of every `wktLiteral`, which is
-  where GeoSPARQL requires it. The source GeoJSON carries no `crs` member, and per RFC 7946 that means
-  CRS84 — so the CRS is not guessed here, it is specified by the format.
+  where GeoSPARQL requires it.
 
-  The graph as a whole is in **two** CRSs, and this used to claim otherwise. Discharge, sampling and
+  > **The source declares a CRS its own coordinates contradict.** All three layers carry a `crs`
+  > member — deprecated by RFC 7946, which specifies that GeoJSON coordinates are CRS84
+  > longitude/latitude — and it names `urn:ogc:def:crs:EPSG::4326`. EPSG:4326 is **latitude-then-
+  > longitude** by its own definition; the coordinates are longitude-then-latitude, e.g.
+  > `[-1.167102, 50.852577]`. The declaration and the data disagree about axis order, and the pipeline
+  > follows RFC 7946 (CRS84) — which means being right by *ignoring what the file says*.
+  >
+  > This matters precisely because mixing CRSs is otherwise routine: the EA publishes water data in
+  > EPSG:27700 and any full GeoSPARQL engine reprojects as a matter of course. But reprojection is only
+  > as good as the CRS it is told. An engine that honours `EPSG::4326` as written reads a site at
+  > lon −2.0, lat 50.7 as lon 50.7, lat −2.0 — a point in the South Atlantic, produced without error,
+  > from coordinates that were correct on the way in.
+  >
+  > **A second coordinate system rides along in the attributes** of the very same feature: `easting` /
+  > `northing` (British National Grid metres), `grid_ref`, and `latitude` / `longitude` as DMS strings
+  > (`50:44:13N`, `1:00:22W`), with nothing marking any of them authoritative. The pipeline takes the
+  > geometry and ignores the attribute pair.
+
+  The graph as a whole is in **two** CRSs. Discharge, sampling and
   WINEP points are published by the EA in **EPSG:27700** (British National Grid, metres) and the store
   reproduces those numbers verbatim; the designations and SFI options are CRS84. To make a cross-source
-  `geof:distance` possible at all, every BNG point now *also* carries a **derived CRS84 geometry**
+  `geof:distance` possible at all, every BNG point *also* carries a **derived CRS84 geometry**
   (`#geography-crs84`, marked `geo:hasDefaultGeometry`), because `geof:` functions are defined over
-  CRS84 and most engines — oxigraph included — will not reproject.
-
-  The old claim that this was "one CRS across the whole graph" was not merely untidy; the query built
-  on it read a British National Grid easting as a longitude and answered "no discharges are near any
-  protected site." See [`TODO.md`](TODO.md) — it is worth reading.
+  CRS84 and most engines — oxigraph included — will not reproject. Every geometry says which it is;
+  see [`TODO.md`](TODO.md) for what a mis-stated CRS costs a query.
 
 ## Notes
 

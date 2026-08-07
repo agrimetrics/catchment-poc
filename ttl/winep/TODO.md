@@ -1,11 +1,7 @@
 # WINEP TODO — remaining proposed-limit curation
 
-> **Most of this file was already done, and it did not know it.** Everything below used to quote the
-> **Wessex-wide** figures the parser sees *before* the catchment clip — 268 proposed limits, 196
-> structured, 67 carried over, ~18 `chemical` limits, 12 competing pairs. The **delivered graph** holds
-> **27** proposed limits. Re-derived against the graph as it actually ships, the backlog is about a
-> quarter of what this file claimed, and several items are simply closed. Corrected below; the numbers
-> now come from `winep.duckdb` and the live endpoint, not from the pre-clip population.
+All figures below are from the **delivered graph** (27 proposed limits, `winep.duckdb` and the live
+endpoint), not from the Wessex-wide population the parser sees before the catchment clip.
 
 ## What the parser now does
 
@@ -45,16 +41,55 @@ before adding other companies' actions:
 - generalise the WINEP lede (`LEDE.wessex`, `app/app.js`) — it currently hard-codes "Wessex Water
   has N WINEP actions", which is accurate today but wrong once other companies' actions are added.
 
+## Source defects the parser has to absorb
+
+These are properties of the WINEP workbook, not of the shredder. Each one is a decision the source
+leaves to the consumer.
+
+- **The column header and the cell can contradict each other on the unit.**
+  `Proposed_Iron_/_Aluminium_permit_limits_(ug/l)` declares **µg/l**; the two catchment cells in it
+  read `Fe 4mg/l 95%ile 8mg/l Max.` — **mg/l**, a factor of **1,000**. Nothing arbitrates. The register
+  writes iron limits in microgrammes (`MAXIMUM VALUE 7000 MICROGRAM PER LITRE` at permit `401050`), so
+  read in the header's unit the proposal is 4 µg/l and in the cell's it is 4,000 µg/l; only one can be
+  right. The parser believes the cell, because the cell is the more specific statement — an assumption,
+  and one worth confirming with Wessex Water.
+- **A proposed limit can name no statistic at all.** The nitrogen proposals sit in the free-text
+  `Proposed_permit_other` column, whose header fixes substance, unit and statistic *none* of them:
+  `N 5mg/l`, `N 10mg/l`, `N 15mg/l`. The register's nitrogen limit for the same permit **is**
+  statistic-bearing (`401354`: `MEAN VALUE 10 MILLIGRAM PER LITRE`), so current and proposed cannot be
+  compared without assuming one. The graph carries the verbatim statement rather than inventing a
+  modifier — see the README.
+- **`UT` / `(upper tier)` is an undefined vocabulary.** 10 distinct tiered cells (`4.2 UT 16`,
+  `8.5 UT 50`) and 12 `(upper tier ug/l)` annotations across Wessex, with no definition anywhere in the
+  workbook.
+- **A column can name a parameter *family* rather than a determinand.** The three
+  `Proposed_Chemical_*` columns fix a unit and a statistic but not an analyte, so a value parsed from
+  one has a number, a unit and no substance — nothing in the row says which chemical. 17 such values
+  Wessex-wide; **none in this catchment**.
+- **The seasonal convention is declared and never used.** Three column headers declare
+  `(S=Summer;W=Winter)`. Cells actually using it, across all of Wessex Water: **0**. Meanwhile the
+  register carries genuinely seasonal limits (permit `040067`: BOD 15 mg/l May–October, 20 mg/l
+  November–April), so a proposed limit cannot express what a current limit routinely says.
+- **A mass load appears in a concentration column.** `0.20kg/d` in `Proposed_permit_other` — a
+  different dimension entirely (see the uninterpreted table above). Outside this catchment
+  (Abbotsbury WRC, `040001`), and worth flagging to the dataset owner regardless.
+- **A proposal targets a permit, not a version or an outlet.** WINEP names
+  `Licence_Permit_Obstruction_ID` and nothing finer, while the register keys conditions at
+  `(permit, version, outlet, effluent)`. Blackheath WRC (`042451`) holds **four** ammonia conditions,
+  one per outlet; the proposed `4.2 UT 16` replaces an unrecoverable one of them. Nor is "the current
+  version" resolvable — 26 of this catchment's permit versions have no published effective date. Where
+  the substance happens to be unique to one outlet the ambiguity collapses and the store resolves it;
+  nothing in the *format* guarantees that, so carried-over limits continue **all** matching conditions
+  rather than picking one.
+
 ## Interpretive assumptions worth a review
 
 The parser makes deterministic but *interpretive* choices — confirm these are right:
 
-- ~~**Generic chemical analyte.**~~ **CLOSED — this does not occur in the delivered graph.** The
-  `Proposed_Chemical_*` columns name a parameter *family* rather than a determinand, so limits parsed
-  from them would use `wr:substance/chemical` ("Priority chemical substance (unspecified)"). In the
-  Poole Harbour clip there are **zero** such limits — the ~18 this file used to cite were Wessex-wide,
-  outside the catchment. The parser branch stays (it is correct, and will fire the moment a chemical
-  action lands here), but there is nothing to enrich today.
+- **Generic chemical analyte — nothing to do in this catchment.** Limits parsed from the
+  `Proposed_Chemical_*` columns would use `wr:substance/chemical` ("Priority chemical substance
+  (unspecified)"). The Poole Harbour clip contains **zero** of them. The parser branch stays — it is
+  correct, and will fire the moment a chemical action lands here.
 - **`upper-tier` statistic.** The second value in `8 UT 30`, and `(upper tier)` annotations,
   are tagged with a bespoke `upper-tier` modifier. If "upper tier" means a specific
   percentile in permitting terms, remap it.
@@ -85,11 +120,15 @@ Worked example — permit **401050** (Dorchester WRC), from the raw dataset:
 The Habitats Directive values (0.25 P / 10 N) are tighter **and** complete earlier, so the UWWTR
 backstop (2 P / 15 N) is already superseded — they are alternatives, not a phased sequence.
 
-**Scope (re-derived against the delivered graph):** **5** (permit, substance) pairs have more than
-one proposed limit, and **all five are genuine competing-driver cases** — **401050** (N, P, Fe) and
-**401747** (P, Fe), the Poole permits hit by both a Habitats Directive and a UWWTR driver. This file
-used to say "12 pairs, but 7 are the generic `chemical` placeholder"; both figures were Wessex-wide.
-In the catchment there are **no** `chemical` limits at all, so every competing pair is real.
+**Scope:** **5** (permit, substance) pairs have more than one proposed limit, and **all five are
+genuine competing-driver cases** — **401050** (N, P, Fe) and **401747** (P, Fe), the Poole permits hit
+by both a Habitats Directive and a UWWTR driver.
+
+**The source states no precedence.** `Driver_Code_Primary` is the only thing distinguishing the two
+rows. On phosphorus the Habitats Directive value is both tighter and earlier (2030-03-31 against
+2030-05-13); on nitrogen both actions complete on **2030-03-31**, so the dates separate nothing and
+only the values do. That these are alternatives rather than a phased sequence has to be *inferred*.
+Loaded faithfully, the data reads as one permit carrying two simultaneous phosphorus limits.
 
 **Interpretation to add:** capture each proposed limit's **driver** (`Driver_Code_Primary`, not
 currently shredded) so alternatives are distinguishable, and derive an **effective** proposed
@@ -117,9 +156,8 @@ SELECT ?l ?stmt WHERE {
 > **The `CarriedOverLimit` exclusion is the point.** Without it this query returns **8** rows and
 > reads as an 8-item backlog. Six of those are **carried-over limits**, which have no bound *by design*
 > — they carry an existing condition forward via `reg:continuesCondition` and the bound lives on the
-> condition they continue. They are correctly modelled, not unfinished. The real backlog is **2**, and
-> both are `TBC` — genuinely undecided at source, so there is nothing to do until the permit is
-> confirmed. This file previously advertised its own backlog at **4× its actual size**.
+> condition they continue. They are correctly modelled, not unfinished. The real backlog is **2**: one
+> `TBC`, genuinely undecided at source, and one mass-load cell.
 
 ## Why `limitStatement` is still permanent
 

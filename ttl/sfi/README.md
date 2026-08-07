@@ -17,6 +17,9 @@ extent question scoped to a sub-catchment be exact rather than apportioned from 
 total (which errs by ~25% on a single water body). The parcels come out of the same `ontop
 materialize` as everything else — no separate step.
 
+Every source-data claim in this file is recomputed from the source datasets in
+[`notebooks/06_sfi.ipynb`](../../notebooks/06_sfi.ipynb).
+
 ## How the scope was whittled down (for convenience)
 
 - **Clipped to the catchment.** The source SFI geojson is a national, drawn-polygon dataset. The
@@ -79,7 +82,7 @@ materialize` as everything else — no separate step.
 
   The sheet's third column is **deliberately absent from the graph**. Read literally it is zinc, but
   its magnitudes are physically impossible for zinc and it tracks the phosphorus column at a
-  near-constant ~870:1 — the sediment-to-particulate-P ratio. It is most likely FARMSCOPER's
+  near-constant ~880:1 — the sediment-to-particulate-P ratio. It is most likely FARMSCOPER's
   **sediment** output under a wrong header, but that is unconfirmed, so the store says nothing about
   it rather than asserting a substance it cannot stand behind.
 
@@ -88,20 +91,38 @@ applications carry a computed impact.
 
 ## Data warnings
 
-- **Payment text is captured, not interpreted.** A rate's `defra-farming:paymentNote` holds the
-  source *More_pay_info* verbatim (e.g. "for both sides of an eligible hedgerow per year", or extra
-  per-agreement top-ups like "and £97 per SFI agreement per year"). The computed
+- **Payment text is captured, not interpreted.** **13 options carry qualifying payment text** that
+  changes the answer rather than the wording, and a rate's `defra-farming:paymentNote` holds the
+  source *More_pay_info* verbatim: `CHRW3` (£10 per 100 m) pays for **both sides** of a hedgerow, so
+  `extent × rate` under-counts unless the mapped length is already doubled and nothing says whether it
+  is; `CSAM1` (£6/ha) adds **£97 per SFI agreement per year**, which no per-hectare arithmetic will ever
+  produce. The computed
   `defra-farming:annualPayment` applies **only the base rate × extent** — it does not act on any of
   that qualifying text. So the figure is indicative, not a payable amount: it ignores per-side
   hedgerow doubling, minimum/whole-agreement supplements, and any per-year framing.
-- **Only per-hectare and per-100-metres rates are costed.** Other pay units in the source
-  (per square metre, per plot, per tonne, per-assessment, and the multi-clause hectarage-recipe
-  variants) keep their verbatim `PaymentRate` but get **no** `perQuantity` and therefore **no**
-  computed `annualPayment`. Their duration cells can also be free text (e.g. the organic-conversion
-  "1 year … maximum of 2 consecutive years"), kept verbatim.
-- **Concept scheme covers the expanded offer.** Payment/comment/duration enrichment only exists for
-  the workbook's C-prefixed codes; older SFI 2023 / pilot codes in the catchment get definition +
-  `broader` only (from the PDF).
+- **Only per-hectare and per-100-metres rates are costed.** **87 of the 102** options carry a pay unit
+  that is a clean, applicable quantity; the other **15** are prose or absent — per square metre, per
+  plot, per tonne, per-assessment, and the multi-clause hectarage recipes, several of which are
+  calculation instructions written for a human ("measuring the length of the buffer strip in metres,
+  multiplying that length by the relevant width (10m to 20m)…", where the width is a *range*, so not
+  even a human produces one number). These keep their verbatim `PaymentRate` but get **no**
+  `perQuantity` and therefore **no** computed `annualPayment`. Duration is free text too (e.g. the
+  organic-conversion "1 year … maximum of 2 consecutive years"), so an agreement's term is not
+  machine-readable either.
+- **Only part of the offer is priced, and it is the larger part that is missing.** The payment workbook
+  describes **102** options; the catchment draws **129** distinct option codes, and **58 of them are
+  absent from the workbook entirely** — accounting for **20,032 of the 35,301 drawn rows (57%)**. Those
+  agreements cannot be costed at all. Mostly SFI 2023 codes (19,226 rows), but the workbook does not
+  even cover the whole expanded offer it claims to: **39 C-prefixed codes / 806 rows** have no rate
+  either. Payment/comment/duration enrichment therefore only exists for the codes the workbook holds;
+  the rest get definition + `broader` only (from the PDF).
+
+- **The workbook's text is mojibake, and we repair it.** Windows-1252 punctuation mangled into UTF-8
+  has left a stray `€` in **659 cells, across all 102 option rows** — `you€™ll`, `€“ calculate the
+  hectarage by`, `This action€™s aim`. Since every definition, comment and payment note is copied
+  verbatim, the artefact would otherwise land in the graph, so `clean_text` (`sfi_to_db.py`) maps the
+  known sequences back (`€™` → `’`, `€“` → `–`, …) and drops any lone `€` left over. That mapping is an
+  **inference about intent**, not something the source states; the proper fix is upstream.
 
 - **⚠️ What `Kg … Ha-1 Yr-1` means is NOT yet validated — see `TODO.md`.** We read the headers
   literally ("kilograms per hectare per year") and the graph acts on that reading: the applied impact
@@ -129,5 +150,13 @@ applications carry a computed impact.
 
 - SFI options are **not linked to a substance** — they are a whole-catchment annotation layer and
   do not respond to substance filtering in the app.
+- **There is no land footprint in this source, and no total area under improvement.** The file draws
+  **points**, not field polygons, so an area is only ever a property of an *action*, never of a piece of
+  ground. Of the **12,504** distinct drawn points in the catchment, **74% carry more than one action**
+  (up to 12), and the recorded areas for actions on the same point disagree — one point carries 12.0426
+  ha, 12.00 ha, 12.5526 ha, 0.22 ha and 0.29 ha for the same land. Summing them, which is what "total
+  area under improvement" means to a reader, gives **125,302 ha** against an operational catchment of
+  **73,838 ha**. Even taking the largest single action per point — a lower bound — gives 66,969 ha. The
+  app therefore reports extent **per action type and never totalled**; see `TODO.md` §0.
 - Regenerable intermediates (`sfi.duckdb`, `sfi_raw.ttl`) are gitignored; the whole database is a
   drop/replace rebuild from the raw datasets, so just re-run the script.

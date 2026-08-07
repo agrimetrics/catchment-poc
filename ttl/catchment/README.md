@@ -29,6 +29,9 @@ rdfpipe -i turtle -o turtle ttl/catchment/catchment_raw.ttl > ttl/catchment.ttl
 | `validate_csv_claims.py` | Diffs the CSV-derived findings against the source |
 | `catchment_raw.ttl` | Committed CONSTRUCT output — the source is not public, so the build must run offline |
 
+Every source-data claim in this file is recomputed, and the public CSVs re-probed, in
+[`notebooks/04_catchment_data_explorer.ipynb`](../../notebooks/04_catchment_data_explorer.ipynb).
+
 ## What was extracted
 
 Source URIs kept verbatim; all 10 classification years; all 95 RNAGs including the 2 the published CSV
@@ -142,6 +145,16 @@ as substantially natural in character.
 
 This is also why versioning is load-bearing rather than a detail: read the designation off the base
 waterbody URI and you get **nothing**; read it without pinning a version and rows triple.
+
+Two further things the CSV's flat shape cannot hold. **Geometry:** the graph carries a catchment
+POLYGON and a river MULTILINESTRING per water body as `geo:asWKT`, so no GeoJSON merge was needed to
+build the map; the CSV carries a single point per body, and boundaries are a separate shapefile
+download. **Vocabulary:** 158 SKOS concepts with labels and scheme membership flatten to bare strings,
+which is why the cross-table's grouping column is ambiguous ([ISSUES.md §3a](ISSUES.md)).
+
+The classification series itself survives export intact — 5,852 records, all ten years, all three
+cycles, item-level, with certainty and confidence. That part of the CSV is faithful, and it is the bulk
+of the dataset. What the CSV costs is the records, the history, the geometry and the vocabulary.
 
 ## Scope
 

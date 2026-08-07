@@ -42,7 +42,14 @@ Independent of this project, and worth doing regardless:
    spelled one (20 concepts).
 4. **`wfd:heavilyModified`** — a property with zero data uses whose name and label actively mislead;
    it caused a wrong conclusion during this work.
-5. **372 classifications carry two `classificationValue`s** ([ISSUES.md §13](ISSUES.md)) — always
+5. **The published Challenges cross-table's counting rule is nowhere documented**
+   ([ISSUES.md §3a](ISSUES.md)) — it is not a row count, it excludes 60% of the catchment's challenges
+   without saying so, and grouping by the neighbouring `Business Sector` column instead of `Category`
+   gives 11 cells / 33 rather than 8 / 29. Ask for the definition to be published with the table.
+6. **The CSV publishes only the current water-body version**, so the natural / artificial / heavily-
+   modified designation looks like a single constant value across all 19 bodies. It is not: three
+   rivers changed between versions, and the history exists in the graph and is dropped on export.
+7. **372 classifications carry two `classificationValue`s** ([ISSUES.md §13](ISSUES.md)) — always
    `supports-good` *and* `not-high`, always on Hydromorphological Supporting Elements or Morphology.
    Two axes of one judgement sharing one property; a naive join over-counts by 12%.
 

@@ -1,7 +1,9 @@
 # SFI TODO — Farmscoper pollutant impact
 
 The SFI concept scheme now carries FARMSCOPER-modelled pollutant impact rates (see the README).
-Two source questions remain open, and the store deliberately declines to answer either.
+Two source questions remain open, and the store deliberately declines to answer either. A third —
+that **57% of the drawn rows use option codes the payment workbook does not price** — is recorded in
+the README and is a gap in the published offer, not something curation here can close.
 
 ## 0. Water-body attribution — built, and reconciled (`waterbody_reconcile.py`)
 
@@ -20,7 +22,7 @@ with an **✕ whole catchment** reset. Columns:
 - **Extent** — the action's own **area (ha)** or, for linear actions like hedgerows, **length (m)**,
   taken from the **per-parcel** nodes in `sfi.ttl` (`SFIParcels`), so it is **exact** for the
   sub-catchment (a parcel's hectares belong to one water body — no apportionment). Shown **per action
-  type and never totalled**: 73% of fields carry more than one action and the source records
+  type and never totalled**: 74% of drawn points carry more than one action and the source records
   different areas for different actions on the same point, so a single "area under improvement" is
   double-counted and invalid, and a distinct land footprint is not recoverable from this data. The
   total cell is a dash.
@@ -47,7 +49,10 @@ agreements — and never a summed extent.
 ## 1. Validate what `Kg … Ha-1 Yr-1` actually means
 
 **This is the load-bearing assumption of the whole impact model and it is currently unverified.**
-We read the column headers literally — "kilograms of pollutant, per hectare, per year" — and the
+The sheet's entire documentation of its units is its column headers — `Name`, `Kg Nitrate Ha-1 Yr-1`,
+`Kg P Ha-1 Yr-1`, `Kg Z Ha-1 Yr-1`, `OFDB Actions`, `Scheme Actions` — and no other sheet in the
+workbook (QEIA, Land Use, Info, OFDB Actions, SFI Codes) defines a per-hectare basis either. There is
+also no stated sign convention. We read the column headers literally — "kilograms of pollutant, per hectare, per year" — and the
 graph acts on that reading in two places:
 
 - the concept's rate is emitted with `qudt:unit unit:KiloGM-PER-HA-YR`, and
@@ -83,8 +88,9 @@ We originally bound it to substance `6455` (Zinc) because that is what the heade
 - **Magnitude.** Rates reach **−1,651 kg/ha/yr**; the catchment total came to **−4,407 tonnes/yr**.
   A hectare of topsoil holds on the order of **150–250 kg** of zinc *in total*, so each action would
   be removing several times the soil's entire zinc stock, every year.
-- **Ratio.** The column tracks the phosphorus column at a near-constant **~870:1** (range 528–1085)
-  across all twelve valued treatments. That is the **sediment**-to-particulate-P relationship (soil P
+- **Ratio.** The column tracks the phosphorus column at a near-constant **~880:1** (range 529–1085)
+  across all **13** valued treatments (of 106 in the sheet). That is the
+  **sediment**-to-particulate-P relationship (soil P
   is ~0.1% of sediment by mass). Zinc, at ~60–100 mg/kg of soil, would give a ratio nearer **0.06:1**
   — four orders of magnitude out.
 - **Provenance.** FARMSCOPER's pollutant set is nitrate, phosphorus, **sediment**, ammonia, nitrous

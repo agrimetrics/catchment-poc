@@ -17,6 +17,9 @@ python ttl/regulation/regulation_to_db.py
   && rdfpipe -i turtle -o turtle ttl/regulation/regulation_raw.ttl > ttl/regulation.ttl
 ```
 
+Every source-data claim in this file is recomputed from the registers in
+[`notebooks/01_consented_discharges_pro.ipynb`](../../notebooks/01_consented_discharges_pro.ipynb).
+
 Both `fetch_*` scripts need egress to `environment.data.gov.uk`, and both cache to a committed CSV,
 so the normal build is offline.
 
@@ -37,7 +40,11 @@ points are scoped from the registers themselves (see *What exists vs. what was m
   pipeline therefore does not use this file; it re-fetches the archive's compliance samples itself.
   See [../breaches/README.md](../breaches/README.md).)
 - **Absolute rules only.** Permit rules are filtered to `METHOD = 'ABSOLUTE'`, so the 1,354
-  `COMPARATIVE` (differential inlet-vs-discharge) rules in the region are out. **All** absolute
+  `COMPARATIVE` (differential inlet-vs-discharge) rules in the region are out. Nothing shipped with
+  the register says what either value of `METHOD` means: an absolute limit is judged against the
+  discharge result alone, a comparative one against the *difference* between inlet and discharge, and
+  the two are otherwise identical rows. A consumer that does not know this assesses the 1,354 against
+  the wrong quantity. **All** absolute
   rule types are kept — `MAXIMUM VALUE`, `MINIMUM VALUE`, `95 PERCENTILE`, `MEAN VALUE` — each
   carried as its own bound with its own statistical modifier (see *Limits carry their statistic*
   below).
@@ -68,9 +75,15 @@ the store could hold **no ambient sampling point at all** — a river or a boreh
 join through, so nothing in the old pipeline could have reached one.
 
 Result: **61 permits, 170 permit versions, 1,277 conditions, 1,565 limits, 122 discharge points
-(115 of them with a published location, 102 with a sampling point), 161 sampling points, 17
+(118 of them with a published location, 102 with a sampling point), 167 sampling points, 17
 sampling-point types, 38 regulated determinands.** (Breaches are a derived judgement and live in their
 own graph — see [../breaches/README.md](../breaches/README.md).)
+
+> **The registers disagree about which permits exist.** Permit `043091` carries **14 outlets** in
+> `effluents.csv` and **66 limit rows** in `determinands.csv` — it is a water-company sewage works with
+> a dry-weather flow of 47,700 m³/day — yet it appears in **neither** consents extract, active or
+> revoked. Nothing published therefore says where it discharges. A consumer joining conditions to
+> locations loses its outlets silently: the join returns nothing, which reads exactly like "no outlets".
 
 Substances keep leading zeros and are padded to 4 digits (`0111`). **Permit refs are *mostly* 6-digit**
 — three are not: `400114/CF/01`, `EPRBB3593EG`, `EPRYP3399VF`. The slashes are percent-encoded in the
@@ -89,8 +102,7 @@ look like a number**, which is why the app's table sort treats a column holding 
 > `determinands.csv`, which takes the catchment from 587 conditions over 12 substances to **1,277 over
 > 38**. The 26 new determinands are flow and dry-weather flow, weir settings, storm-overflow telemetry
 > (spill days, FPF data coverage), heavy metals, pesticides and solvents, and a pass/fail site
-> inspection. (An earlier draft of this note claimed the extras included "colour, turbidity and pH" —
-> they do not: all three were already among the 12.)
+> inspection.
 >
 > The app's substance **filter** still offers only the **12** determinands the archive holds a time
 > series for, because those are the only ones it can chart. That is a fact about the *observations*, and
@@ -112,10 +124,10 @@ look like a number**, which is why the app's table sort treats a column holding 
   monitored at, sitting hundreds of metres to over a kilometre apart. The NGR is read from two extracts
   in `../../raw_datasets/access_database_csv_files/`: `consents_active.csv` (in-force permits) and
   `consents_all.csv` (a cut of the *revoked* permits that still carry observations here but are absent
-  from the active register); together they cover **115 of the 122** discharge points. Lets breaches and
+  from the active register); together they cover **118 of the 122** discharge points. Lets breaches and
   permits appear on the map.
 
-  > **No fallback. An outlet with no grid reference gets no geometry.** The other **7** discharge
+  > **No fallback. An outlet with no grid reference gets no geometry.** The other **4** discharge
   > points belong to permits the consents extracts give no `DISCHARGE_NGR` for, so they are published
   > with **no coordinate at all** — never a guessed one. This used to fall back to the coordinates of
   > the sampling point the outlet is `monitoredAt`, "so it still maps rather than vanishing", and that
@@ -139,12 +151,14 @@ look like a number**, which is why the app's table sort treats a column holding 
   > `OUTLET_GRID_REF` (the **outlet**) and `EFFLUENT_GRID_REF` (the **effluent**). A discharge point
   > here is keyed at the *finest* level — `(permit, outlet, effluent)` — but is given the *coarsest*
   > coordinate. And there is **no such thing as a per-permit NGR**: `DISCHARGE_NGR` belongs to the site,
-  > and one site can hold many permits (across the national register, 1085 grid refs are shared by more
-  > than one permit, and in 1083 of them every permit names the same discharge site — RAF Brize Norton
-  > has 13 permits on a single ref). Joining it on `permit_ref` alone therefore turns a **site** fact
+  > and one site can hold many permits (across the national register, 1,076 grid refs are shared by more
+  > than one permit, and in 1,074 of them every permit names the same discharge site — RAF Northolt has
+  > 16 permits on a single ref, Mersey Docks 18, and a placeholder ref `SV0000000001` — the far
+  > south-west corner of the grid — carries 42 permits of one "YWS UNKNOWN SITE"). Joining it on
+  > `permit_ref` alone therefore turns a **site** fact
   > into a **permit** fact, and every outlet of every permit at a site inherits one identical point.
   >
-  > In this catchment that leaves **115 mapped discharge points on just 37 distinct coordinates** — 104
+  > In this catchment that leaves **118 mapped discharge points on just 38 distinct coordinates** — 108
   > of them share a coordinate with another outlet. That is 3.1 outlets per dot. At *Brockhill Watercress Farm*, 7 outlets across 4
   > permits (`043244`, `043245`, `401057`, `401058`) all sit on `POINT(383690 92820)` — while the EA
   > samples them at 4 different sampling points 120–265 m away.
@@ -156,36 +170,32 @@ look like a number**, which is why the app's table sort treats a column holding 
   > [Points apart](../../app/points.html) scores a nearest-neighbour join against **all three** at render
   > time and puts the result on screen — the counter-argument, computed rather than dodged.
   >
-  > Scored over the **87** outlets for which the register carries all three refs (so the rows compare
-  > the same outlets three ways), choosing from the whole **161-point** sampling layer — which is what a
-  > GIS actually holds:
+  > Scored over the **94** outlets for which the register carries all three refs *and* the identifier
+  > names a locatable sampling point (so the rows compare the same outlets three ways), choosing from
+  > the whole **161-point** located sampling layer — which is what a GIS actually holds:
   >
   > | geometry hung on the discharge point | distinct coords | nearest-neighbour correct |
   > | --- | --- | --- |
-  > | `DISCHARGE_NGR` — site (**the store's default**) | 37 | **41 / 87** (47%) |
-  > | `OUTLET_GRID_REF` — outlet | 74 | 64 / 87 (74%) |
-  > | `EFFLUENT_GRID_REF` — effluent | 80 | 66 / 87 (76%) |
-  > | `water:monitoredAt` — **the identifier** | — | **87 / 87** (100%) |
+  > | `DISCHARGE_NGR` — site (**the store's default**) | 38 | **43 / 94** (46%) |
+  > | `OUTLET_GRID_REF` — outlet | 77 | 69 / 94 (73%) |
+  > | `EFFLUENT_GRID_REF` — effluent | 84 | 74 / 94 (79%) |
+  > | `water:monitoredAt` — **the identifier** | — | **94 / 94** (100%) |
   >
-  > Two things to notice. **Precision is not accuracy:** the effluent ref resolves 80 distinct
-  > coordinates to the outlet ref's 74 and buys almost nothing for it, so "just use the most precise
-  > coordinate" is not a rule that saves you. And the 47%-vs-76% gap is **not a fact about the world**
+  > Two things to notice. **Precision is not accuracy:** the effluent ref resolves 84 distinct
+  > coordinates to the outlet ref's 77 and buys six outlets for it, so "just use the most precise
+  > coordinate" is not a rule that saves you. And the 46%-vs-79% gap is **not a fact about the world**
   > — it is decided by which column of a spreadsheet the geometry was hung on, two levels above the
   > feature being joined. Change that schema choice and the "answer" changes. The identifier does not
   > move.
   >
-  > Note the *finest* geometry does no better than the outlet ref, despite resolving more distinct
-  > coordinates (66 vs 60): accuracy is not monotonic in coordinate precision, so "just use the most
-  > precise coordinate" is not a rule that saves you. The spatial join tops out around three in four,
-  > and which quarter it drops is decided by a schema choice taken two levels above the feature being
+  > The spatial join tops out around four in five,
+  > and which fifth it drops is decided by a schema choice taken two levels above the feature being
   > joined. The identifier does not care.
   >
-  > **Worse: the join need not return an outfall at all.** Only 70 of the 161 sampling points monitor
-  > any discharge; the other 91 are rivers, boreholes and bathing waters. A nearest-feature join picks
-  > from all of them, and for **8 of the mapped outlets** its nearest hit monitors no discharge whatsoever.
-  > (Within the 69-outlet set scored in the table above it is **5** — three of the eight carry no outlet or
-  > effluent grid ref, so they are not among the 69. An earlier draft said "8 of the scored outlets",
-  > which conflated the two populations.)
+  > **Worse: the join need not return an outfall at all.** Only 76 of the 167 sampling points are named
+  > by a permit as its discharge monitor; the other **91** are rivers, boreholes, bathing waters and
+  > investigation points. A nearest-feature join picks
+  > from all of them, and for **9 of the scored outlets** its nearest hit monitors no discharge whatsoever.
   > At *Blackheath WRC* (`042451`) the nearest point is `SW-50951085`, **"SHERFORD AT SNAILS BRIDGE US
   > BLACKHEATH"** — a river station sited *upstream* of the works, the one place guaranteed to carry
   > none of its effluent. Proximity scores **0 of 5** on that permit's outlets. Restricting the layer to
@@ -203,10 +213,19 @@ look like a number**, which is why the app's table sort treats a column holding 
   as blank-node concepts with no resolvable IRI, so the store mints `wr:sampling-point-type/{notation}`
   from the notation — the same pattern it uses for substances.
 
-  Which points? The union of **every sampling point in the catchment observation download** (149 — the
+  Which points? The union of **every sampling point in the catchment observation download** (the
   ambient layer: rivers, boreholes, bathing waters, investigation points) and **every point the register
-  names as a permit's effluent sample point** (adding 12 more, including storm overflows the download
-  never mentioned). 161 in all, of which only 70 monitor a discharge. Observational *values* (result,
+  names as a permit's effluent sample point** (including storm overflows the download never mentioned).
+  **167** in all, of which **76** are named by a permit.
+
+  > **91 of the 167 have no permit association at all** — 48 river points, 18 boreholes, 14
+  > pollution/investigation points, 4 comparative inlet points, 2 bathing beaches, and so on. The
+  > archive publishes measurements at all of them, and an adverse result at one of them is adverse
+  > *against nothing*: no permit names the point, so there is no limit to test it against and no party
+  > it attaches to. The store keeps them because the absence is the finding — a nearest-feature join
+  > will happily pick one of these for an outfall (see the geometry note above).
+
+  Observational *values* (result,
   unit, determinand, dates) are deliberately **not** stored — they stay federated, pulled live via the
   `/observations` proxy. WQA IRIs come back `https:` and are normalised to `http:` on the way in.
 
@@ -218,10 +237,19 @@ look like a number**, which is why the app's table sort treats a column holding 
   pipeline (see [../breaches/README.md](../breaches/README.md)); that edge is the real join key the
   breach query uses **instead of** an IRI-prefix `STRSTARTS` filter, which the engine cannot key on and
   which fans out to a Cartesian product.
-- **Permit-version effective dates.** Not in any source CSV, so `fetch_version_dates.py` pulls each
-  version's `effectiveDate`/`revocationDate` from the EA public register into the committed
-  `permit_version_dates.csv` (see that script's header). Only **numeric** permit refs fit the
-  `SW-{permit:06d}-{version:03d}` scheme — 3 EPR/non-numeric permits (5 versions) are left undated.
+- **Permit-version effective dates.** Not in any source CSV — `determinands.csv`, the file that carries
+  the limits, has **no date column at all**, and `consents_active.csv` publishes only each permit's
+  *current* version (permit `042451` carries limits on 8 versions and a date on 1). Deciding which
+  version applied on the day a sample was taken is fundamental to any compliance statement, so
+  `fetch_version_dates.py` scrapes each version's `effectiveDate`/`revocationDate` from the EA public
+  register web pages into the committed `permit_version_dates.csv` (see that script's header).
+
+  That recovers 165 version rows, **144 of them carrying a date**. Of the **170** permit versions in the
+  delivered graph, **26 are left undated** across 18 permits. Three of those permits are undatable in
+  principle: the register's version URLs follow `SW-{permit:06d}-{version:03d}`, which no `EPR…` or
+  slashed reference fits, so `400114/CF/01`, `EPRBB3593EG` and `EPRYP3399VF` (5 versions) cannot be tied
+  to a period from any published source. What the breach engine does with an undated version is set out
+  in [../breaches/README.md](../breaches/README.md).
 
 ## Modelling notes
 

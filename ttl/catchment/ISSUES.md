@@ -101,6 +101,34 @@ row/column, or it asserts that 60% of the catchment's challenges do not exist.
 
 ---
 
+## 3a. The published cross-table's counting rule is undocumented — HIGH
+
+The Challenges table at `…/3367/rnags` publishes 8 cells totalling **29**, and nothing published says
+how that 29 is arrived at. It is not a row count, and the plausible readings all differ:
+
+| reading | value |
+| --- | --- |
+| rows in `rnags.csv` | 93 |
+| … restricted to below-good statuses | 90 |
+| distinct `(water body, status, pressure tier 3)` | 46 |
+| distinct water bodies | 19 |
+| **what the published table shows** | **29** |
+
+The rule that reproduces 29 had to be reverse-engineered (recorded in [PLAN.md](PLAN.md) §3), and it
+requires guessing three separate things: which statuses count as below good; that the count is of
+**distinct** `(water body, status, pressure tier 3)` triples rather than rows; and that the grouping is
+by **`Category`** — not by `Business Sector`, the other sector-shaped column sitting beside it in the
+same file. Group by that one instead and the same data gives **11 cells totalling 33**. Both are
+defensible from the file; only one matches the site.
+
+The rule also silently excludes anything with no national SWMI heading — **57 of the graph's 95
+challenges**, **56 of the CSV's 93**, including all 55 attributed to "No sector responsible". A reader
+of the published table cannot tell they were excluded rather than absent (see §3).
+
+**Action:** ask Defra to publish the table's definition alongside it.
+
+---
+
 ## 4. Concept scheme membership is modelled two incompatible ways — HIGH (traps queries)
 
 Scheme discovery gives a different answer depending on the predicate:

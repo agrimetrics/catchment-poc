@@ -14,6 +14,9 @@ python ttl/breaches/breaches_to_db.py
   && rdfpipe -i turtle -o turtle ttl/breaches/breaches_raw.ttl > ttl/breaches.ttl
 ```
 
+Every source-data claim in this file is recomputed from the archive in
+[`notebooks/02_water_quality_archive.ipynb`](../../notebooks/02_water_quality_archive.ipynb).
+
 ## Why this is a separate graph
 
 A permit, a condition and a limit are **asserted** facts: the Environment Agency published them, and
@@ -48,14 +51,16 @@ This is where a compliance assessment is most easily wrong, so it is spelled out
   point from 149 observations to 0 and leaves a sewage-effluent point untouched. The resulting set
   contains only `COMPLIANCE AUDIT (PERMIT)`, `COMPLIANCE FORMAL (PERMIT)`, `WATER QUALITY OPERATOR
   SELF MONITORING COMPLIANCE DATA` and `WATER QUALITY UWWTD MONITORING DATA`.
-- **`"<5"` is recorded as ZERO, not dropped.** The EA's rule. `link_data.py` drops every non-numeric
-  result, and in the compliance set **34.2% of results are `<` non-detects** — **63.9% of BOD**, **38.1%
-  of suspended solids**, **35.9% of ammonia**. They are not lost at random: they are the *low* ones.
-  Dropping them inflates every mean and, worse, shrinks the sample count `n`, which tightens the LUT
-  band and **manufactures percentile failures that did not happen**. A worked example: on the old
-  numbers Poole WRC failed its BOD 95-percentile in 2023 (3 exceedances, 2 allowed for 15 samples).
-  Counting the non-detects, the year has enough samples to allow 3 — and the breach disappears. It was
-  an artefact.
+- **`"<5"` is recorded as ZERO, not dropped.** The EA's rule. The archive records a non-detect as
+  **text in the result column**, so any consumer coercing that column to a number loses it —
+  `link_data.py` does exactly that. In the committed compliance set (44,999 observations) **36.9% of
+  results are `<` non-detects** — **66.1% of BOD**, **38.0% of suspended solids**, **35.8% of ammonia**.
+  They are not lost at random: they are the *low* ones. Dropping them inflates every mean and, worse,
+  shrinks the sample count `n`, which tightens the LUT band and **manufactures percentile failures that
+  did not happen**. A worked example: Poole WRC (`SW-50950709`), BOD against a 95th-percentile limit of
+  20 mg/l. In 2023 it has 3 exceedances. Counting the non-detects there are **36 samples**, for which the
+  look-up table allows 4 — a **pass**. Drop them and the same year has **15 samples**, which allows 2 —
+  a **FAIL**. The breach is an artefact of the coercion, not an event at the works.
 - **`">33"` is read as 33.** The EA uses the numeric value.
 - **Free text is not a measurement** (`Trace present`, `Not found`, …) and is excluded.
 
@@ -66,12 +71,17 @@ the current output is the conservative direction — but neither is done, and a 
 therefore rest on a sample the EA would not have counted.
 
 - **No discharge.** The guidance excludes samples taken when nothing was being discharged. The archive
-  does record this — as a *result value*, e.g. `No flow/discharge at sampling point` — and
-  `parse_result()` in `breaches_to_db.py` already drops those (`NO_DISCHARGE`). In the current
-  compliance set **zero** such results appear, so the check is a no-op today; it is retained because a
-  refreshed fetch may bring some in. **What is missing** is the case where flow is nil but the result
-  is still a number: that needs the discharge's flow record, which is not in the water-quality archive
-  at all, so it cannot be done from this source.
+  records this **not as a flag on the sample but as an observation of its own** — determinand `7668`,
+  with the coded result `No flow /No sample` (the bulk catchment download holds 1,015 of them), and as
+  result values like `No flow/discharge at sampling point`. `parse_result()` in `breaches_to_db.py`
+  already drops the latter (`NO_DISCHARGE`); in the current compliance set **zero** such results appear,
+  so the check is a no-op today and is retained because a refreshed fetch may bring some in. Two
+  consequences of the modelling. A consumer filtering the result column to numerics drops determinand
+  `7668` along with everything else non-numeric, and with it the fact that there was nothing to sample —
+  "no discharge" and "no data" become indistinguishable. And the exclusion cannot be applied to the case
+  that matters, **flow nil but a number still returned**: no flow record accompanies a compliance
+  sample (the columns are id, sampling point, time, purpose, material, determinand, result, unit), so it
+  cannot be detected from this source at all.
 - **Unusual weather.** The guidance excludes samples affected by unusual weather (storm conditions,
   which dilute or overwhelm a works). This pipeline does not apply that exclusion, and the reason is a
   defect here rather than a gap in the source.
@@ -154,13 +164,9 @@ wr:breach/{id}  a                        defra-reg:LimitBreach, defra-reg:Exceed
                 rdfs:comment            "3 exceedances of the 15 95th-percentile limit in the 12 months to …" .
 ```
 
-> **This section used to describe an invented predicate.** The store minted `defra-reg:breachesBound`
-> under DEFRA's own namespace, because one `Limit` carried every bound and naming the Limit therefore
-> did not discriminate. This README argued the fix was to *"make each statistic its own `Limit`, at
-> which point `breachesLimit` becomes meaningful"* — and that is exactly what happened. `defra-regulation.ttl`
-> now defines **`reg:LimitBreach`** and **`reg:breachesLimit`** (range `reg:Limit`), a Condition holds one
-> Limit per statistic per season, each with a single bound, and the invented term is **gone**. The
-> feedback loop closed.
+> **No term is invented here.** `defra-regulation.ttl` defines **`reg:LimitBreach`** and
+> **`reg:breachesLimit`** (range `reg:Limit`), and a Condition holds one Limit per statistic per season,
+> each with a single bound — so naming the Limit is enough to say which obligation failed.
 
 ## Result
 
