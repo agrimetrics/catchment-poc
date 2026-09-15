@@ -26,8 +26,13 @@
   </header>
 
   <!-- Endpoint comes from config.js (window.APP_CONFIG.sparqlEndpoint); defaults to the same-origin
-       /sparql served by app/server.py. Set it to your own endpoint/proxy for a static deployment. -->
-  <sparql-editor></sparql-editor>
+       /sparql served by app/server.py. Set it to your own endpoint/proxy for a static deployment.
+       default-method="POST": the editor defaults new tabs to SPARQL Protocol POST (form-encoded
+       query=...) instead of GET, so long queries aren't truncated by URL-length limits (browsers,
+       proxies, and some servers cap GET URLs well under what a query with a few UNIONs needs).
+       app/server.py's do_POST already accepts this form; users can still flip a tab back to GET
+       from the editor's request-method toggle if they want a bookmarkable/cacheable query URL. -->
+  <sparql-editor default-method="POST"></sparql-editor>
   <script>
     // The editor runs `new URL(endpoint)` internally, which rejects a relative path — a bare
     // endpoint="/sparql" fails silently with "/sparql is not a valid URL" and no query ever fires.
