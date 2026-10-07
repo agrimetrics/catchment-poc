@@ -1,0 +1,52 @@
+@prefix core: <http://environment.data.gov.uk/ontology/core/> .
+@prefix defra-nature: <http://environment.data.gov.uk/ontology/nature/> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+geo:asWKT rdfs:label "as WKT"@en .
+
+geo:hasGeometry rdfs:label "has geometry"@en .
+
+rdfs:label rdfs:label "label"@en .
+
+skos:inScheme rdfs:label "is in scheme"@en .
+
+skos:notation rdfs:label "notation"@en .
+
+skos:prefLabel rdfs:label "preferred label"@en .
+
+core:hasClassification rdfs:label "has classification"@en .
+
+defra-nature:ProtectedSite a sh:NodeShape ;
+    rdfs:label "Protected Site"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path core:hasClassification ] ;
+    sh:targetClass defra-nature:ProtectedSite .
+
+skos:ConceptScheme a sh:NodeShape ;
+    rdfs:label "Concept Scheme"@en ;
+    sh:targetClass skos:ConceptScheme .
+
+skos:Concept a sh:NodeShape ;
+    rdfs:label "Concept"@en ;
+    sh:targetClass skos:Concept .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first skos:ConceptScheme ;
+    rdf:rest () .
+
+[] rdf:first defra-nature:ProtectedSite ;
+    rdf:rest () .
+
+[] rdf:first geo:Geometry ;
+    rdf:rest () .
+

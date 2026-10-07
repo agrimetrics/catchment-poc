@@ -1,0 +1,221 @@
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix ns1: <http://example.com/farming/> .
+@prefix ns2: <http://environment.data.gov.uk/ontology/core/> .
+@prefix ns3: <http://environment.data.gov.uk/ontology/farming/> .
+@prefix ns4: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ns1:applicationType rdfs:label "scheme strand"@en .
+
+ns1:area rdfs:label "total area"@en .
+
+ns1:mtl rdfs:label "total length"@en .
+
+ns1:opt_year rdfs:label "option year"@en .
+
+ns1:refYear rdfs:label "application year"@en .
+
+ns1:scheme rdfs:label "SFI scheme strand"@en .
+
+ns1:schememodule rdfs:label "scheme module"@en .
+
+ns1:units rdfs:label "units"@en .
+
+ns1:uom_desc rdfs:label "unit of measure"@en .
+
+ns4:numericValue rdfs:label "numeric value"@en .
+
+ns4:unit rdfs:label "unit"@en .
+
+geo:hasGeometry rdfs:label "has geometry"@en .
+
+rdfs:comment rdfs:label "comment"@en .
+
+rdfs:label rdfs:label "label"@en .
+
+skos:broader rdfs:label "has broader"@en .
+
+skos:definition rdfs:label "definition"@en .
+
+skos:inScheme rdfs:label "is in scheme"@en .
+
+skos:notation rdfs:label "notation"@en .
+
+skos:prefLabel rdfs:label "preferred label"@en .
+
+ns2:applicabilityPeriod rdfs:label "applicability period"@en .
+
+ns2:applicableFrom rdfs:label "applicable from"@en .
+
+ns2:applicableTo rdfs:label "applicable to"@en .
+
+ns2:hasApplicability rdfs:label "has applicability"@en .
+
+ns2:hasClassification rdfs:label "has classification"@en .
+
+ns2:hasPart rdfs:label "has part"@en .
+
+ns2:partOf rdfs:label "part of"@en .
+
+ns3:annualPayment rdfs:label "annual payment"@en .
+
+ns3:duration rdfs:label "duration"@en .
+
+ns3:impactNote rdfs:label "impact note"@en .
+
+ns3:paymentNote rdfs:label "payment note"@en .
+
+ns3:paymentRate rdfs:label "payment rate"@en .
+
+ns3:perQuantity rdfs:label "per quantity"@en .
+
+ns3:pollutantImpactRate rdfs:label "pollutant impact rate"@en .
+
+ns3:annualPollutantImpact rdfs:label "annual pollutant impact"@en .
+
+ns3:substance rdfs:label "substance"@en .
+
+skos:Concept a sh:NodeShape ;
+    rdfs:label "Concept"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node ns3:PaymentRate ;
+            sh:path ns3:paymentRate ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path ns3:duration ],
+        [ a sh:PropertyShape ;
+            sh:node ns3:PollutantImpactRate ;
+            sh:path ns3:pollutantImpactRate ] ;
+    sh:targetClass skos:Concept .
+
+skos:ConceptScheme a sh:NodeShape ;
+    rdfs:label "Concept Scheme"@en ;
+    sh:targetClass skos:ConceptScheme .
+
+ns2:Applicability a sh:NodeShape ;
+    rdfs:label "Applicability"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ns2:ApplicabilityPeriod ;
+            sh:path ns2:applicabilityPeriod ] ;
+    sh:targetClass ns2:Applicability .
+
+ns2:ApplicabilityPeriod a sh:NodeShape ;
+    rdfs:label "Appicability Period"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path ns2:applicableTo ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path ns2:applicableFrom ] ;
+    sh:targetClass ns2:ApplicabilityPeriod .
+
+ns3:Application a sh:NodeShape ;
+    rdfs:label "Application"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ns2:Applicability ;
+            sh:path ns2:hasApplicability ],
+        [ a sh:PropertyShape ;
+            sh:node ns4:QuantityValue ;
+            sh:path ns3:annualPollutantImpact ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node ns3:Option ;
+            sh:path ns2:hasPart ] ;
+    sh:targetClass ns3:Application .
+
+ns3:Option a sh:NodeShape ;
+    rdfs:label "Option"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path ns2:hasClassification ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ns3:Application ;
+            sh:path ns2:partOf ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node ns4:QuantityValue ;
+            sh:path ns3:annualPayment ],
+        [ a sh:PropertyShape ;
+            sh:node ns4:QuantityValue ;
+            sh:path ns3:annualPollutantImpact ] ;
+    sh:targetClass ns3:Option .
+
+ns3:PaymentRate a sh:NodeShape ;
+    rdfs:label "Payment Rate"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node ns4:QuantityValue ;
+            sh:path ns3:perQuantity ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path ns3:paymentNote ] ;
+    sh:targetClass ns3:PaymentRate .
+
+ns3:PollutantImpactRate a sh:NodeShape ;
+    rdfs:label "Pollutant Impact Rate"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path ns3:substance ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path ns3:impactNote ] ;
+    sh:targetClass ns3:PollutantImpactRate .
+
+ns4:QuantityValue a sh:NodeShape ;
+    rdfs:label "Quantity Value"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path ns3:substance ] ;
+    sh:targetClass ns4:QuantityValue .
+
+[] rdf:first ns3:Application ;
+    rdf:rest () .
+
+[] rdf:first ns3:Option ;
+    rdf:rest () .
+
+[] rdf:first ns2:Applicability ;
+    rdf:rest () .
+
+[] rdf:first ns3:PaymentRate ;
+    rdf:rest () .
+
+[] rdf:first ns3:PollutantImpactRate ;
+    rdf:rest () .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first skos:ConceptScheme ;
+    rdf:rest () .
+
+[] rdf:first ns4:QuantityValue ;
+    rdf:rest () .
+
+[] rdf:first ns2:ApplicabilityPeriod ;
+    rdf:rest () .
+

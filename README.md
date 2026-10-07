@@ -403,6 +403,50 @@ The ontology the mappings target lives in the sibling **`ontology-work`** repo
 (`defra-core-ontology.ttl`, `defra-regulation.ttl`, `defra-water.ttl`, `defra-farming.ttl`,
 `defra-nature.ttl`).
 
+**SHACL shapes.** Each committed graph has a `ttl/<dataset>.shacl.ttl` sibling, inferred from the
+graph's own instance data by [sheXer](https://github.com/weso/shexer) (dev dependency) — not hand
+modelled, so it describes what the data *actually contains* rather than a normative constraint set.
+`ttl/generate_shacl.py` also unifies each shape's own IRI with its `sh:targetClass` (sheXer mints a
+separate synthetic one by default, which is fine for validation but breaks a query-builder driven by
+the shapes — see the script's docstring), prunes the `sh:path rdf:type` shapes sheXer adds per class
+(redundant once `sh:targetClass` scopes the shape, and unwanted as a pickable "type" property in a
+UI), and labels every remaining predicate and target class with an `rdfs:label` sourced from the
+DEFRA ontology, the relevant external vocab spec, or — failing both — the project's own
+documentation of that column. Regenerate after any graph or ontology change:
+
+```bash
+poetry run python ttl/generate_shacl.py
+```
+
+**Sparnatural** (`app/sparnatural.html`) is a visual, SHACL-driven query builder over the same
+`/sparql` endpoint — pick a class and a chain of related properties instead of writing SPARQL by
+hand; the generated query loads into the same editor as the SPARQL page (`sparql.html`) and runs
+there. The library ships as a single prebuilt bundle, vendored (not CDN-loaded) into
+`app/vendor/sparnatural/` the same way Leaflet and the SPARQL editor are.
+
+It does **not** read the full `ttl/*.shacl.ttl` files above — those mix in every vocabulary sheXer
+observed in the instance data (SKOS, GeoSPARQL, QUDT, SOSA, the EA's own external
+`catchment-planning/` terms, ad hoc CSV-shredding properties with no ontology home at all), which
+makes a picker spanning every domain in the *source data* rather than the DEFRA model, and fails to
+be useful. Instead it reads five curated `ttl/<dataset>.sparnatural.shacl.ttl` siblings
+(`write_sparnatural_config` in `ttl/generate_shacl.py`), filtered to DEFRA-ontology-scoped vocabulary
+only: any class/predicate in a `defra-*` namespace, plus the specific external classes the ontology
+files themselves formally reference via `rdfs:range`/`rdfs:domain`/`rdfs:subClassOf` (`qudt:Quantity`,
+`qudt:QuantityValue`, `geo:Feature`, `skos:Concept`, `skos:ConceptScheme`, `sosa:ObservableProperty`,
+`sosa:Observation`, `sosa:FeatureOfInterest`, `dcterms:PeriodOfTime`) — not merely mentioned in a
+comment. `catchment.ttl` is excluded entirely: it deliberately keeps the EA's own external vocabulary
+verbatim, not DEFRA's (see `ttl/catchment/README.md`).
+
+This is a strict reading, taken deliberately over a looser one that would also keep the "display"
+predicates a reused external class needs to be useful on its own (`skos:prefLabel`, `geo:asWKT`,
+`qudt:numericValue`/`unit`, none of which any `defra-*` axiom actually declares). The cost is real:
+`qudt:QuantityValue`, `sosa:ObservableProperty`, `sosa:Observation`, `sosa:FeatureOfInterest` and
+`skos:ConceptScheme` end up with zero properties in the curated config and so don't appear in the
+picker at all — e.g. a Condition's regulated substance is reachable, but its label and notation are
+not, and a Limit's numeric value/unit aren't queryable through the builder. Widen
+`SPARNATURAL_EXTERNAL_CLASSES`/the predicate rule in `ttl/generate_shacl.py` if that turns out to be
+too restrictive in practice.
+
 ## Scope, warnings & assumptions (summary)
 
 Cross-cutting points a consumer of the graph should know. Detail — and every column-level choice —
@@ -456,13 +500,17 @@ is in the linked per-dataset READMEs.
 ## Repository layout
 
 ```
-app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static + .md),
+app/                     three-ways web app: server.py (pyoxigraph + SPARQL + proxy + static + .md/.ttl),
                          index.html, app.js, style.css, config.js (endpoints, no rebuild needed),
                          points.{html,js,css} (Points apart — the argument, in six screens),
                          docs.{html,js,css} (Markdown docs viewer), sparql.{html,css} (SPARQL editor),
-                         vendor/ (leaflet, proj4, marked, sparql-editor — no CDN at runtime),
+                         sparnatural.{html,css} (visual SHACL-driven query builder),
+                         vendor/ (leaflet, proj4, marked, sparql-editor, sparnatural — no CDN at runtime),
                          catchment.geojson, {sssi,sac,spa}.geojson, TODO.md
-ttl/                     the five committed graphs + per-dataset pipelines
+ttl/                     the five committed graphs + inferred SHACL shapes + per-dataset pipelines
+  generate_shacl.py      sheXer: ttl/<dataset>.ttl -> ttl/<dataset>.shacl.ttl (full) and, for the
+                         five DEFRA-modelled datasets, -> ttl/<dataset>.sparnatural.shacl.ttl
+                         (curated to DEFRA-ontology-scoped vocabulary, for the Sparnatural picker)
   regulation/ breaches/ winep/ sfi/ designations/   {pipeline, README.md}
                          (+ winep/TODO.md, designations/TODO.md, regulation/fetch_version_dates.py,
                           regulation/fetch_sampling_points.py, breaches/fetch_compliance_observations.py)

@@ -1,0 +1,96 @@
+@prefix core: <http://environment.data.gov.uk/ontology/core/> .
+@prefix defra-nature: <http://environment.data.gov.uk/ontology/nature/> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+core:hasClassification rdfs:label "has classification"@en .
+
+geo:asWKT rdfs:label "as WKT"@en .
+
+geo:hasGeometry rdfs:label "has geometry"@en .
+
+skos:inScheme rdfs:label "is in scheme"@en .
+
+skos:prefLabel rdfs:label "preferred label"@en .
+
+defra-nature:ProtectedSite a sh:NodeShape ;
+    rdfs:label "Protected Site"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path core:hasClassification ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ] ;
+    sh:targetClass defra-nature:ProtectedSite .
+
+rdfs:label rdfs:label "label"@en .
+
+skos:notation rdfs:label "notation"@en .
+
+geo:Geometry a sh:NodeShape ;
+    rdfs:label "Geometry"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType geo:wktLiteral ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path geo:asWKT ] ;
+    sh:targetClass geo:Geometry .
+
+skos:Concept a sh:NodeShape ;
+    rdfs:label "Concept"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:ConceptScheme ;
+            sh:path skos:inScheme ] ;
+    sh:targetClass skos:Concept .
+
+skos:ConceptScheme a sh:NodeShape ;
+    rdfs:label "Concept Scheme"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ] ;
+    sh:targetClass skos:ConceptScheme .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first skos:ConceptScheme ;
+    rdf:rest () .
+
+[] rdf:first defra-nature:ProtectedSite ;
+    rdf:rest () .
+
+[] rdf:first geo:Geometry ;
+    rdf:rest () .
+

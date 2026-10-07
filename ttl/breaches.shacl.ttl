@@ -1,0 +1,234 @@
+@prefix defra-core: <http://environment.data.gov.uk/ontology/core/> .
+@prefix defra-reg: <http://environment.data.gov.uk/ontology/regulation/> .
+@prefix ns1: <http://example.com/water-regulation/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+defra-core:applicabilityPeriod rdfs:label "applicability period"@en .
+
+defra-core:applicableFrom rdfs:label "applicable from"@en .
+
+defra-core:applicableTo rdfs:label "applicable to"@en .
+
+skos:definition rdfs:label "definition"@en .
+
+skos:inScheme rdfs:label "is in scheme"@en .
+
+skos:notation rdfs:label "notation"@en .
+
+skos:prefLabel rdfs:label "preferred label"@en .
+
+sosa:hasFeatureOfInterest rdfs:label "has feature of interest"@en .
+
+skos:Concept a sh:NodeShape ;
+    rdfs:label "Concept"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:ConceptScheme ;
+            sh:path skos:inScheme ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:definition ] ;
+    sh:targetClass skos:Concept .
+
+defra-core:ApplicabilityPeriod a sh:NodeShape ;
+    rdfs:label "Appicability Period"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:path defra-core:applicableTo ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path defra-core:applicableFrom ] ;
+    sh:targetClass defra-core:ApplicabilityPeriod .
+
+defra-core:hasApplicability rdfs:label "has applicability"@en .
+
+defra-reg:ExceedanceBreach a sh:NodeShape ;
+    rdfs:label "Exceedance Breach"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path defra-reg:breachesLimit ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node sosa:Observation ;
+            sh:path defra-reg:evidencedByObservation ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-core:Applicability ;
+            sh:path defra-core:hasApplicability ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path defra-reg:breachesCondition ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:path ns1:judgedOnUndatedVersion ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:comment ] ;
+    sh:targetClass defra-reg:ExceedanceBreach .
+
+defra-reg:ShortfallBreach a sh:NodeShape ;
+    rdfs:label "Shortfall Breach"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path defra-reg:breachesLimit ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path defra-reg:breachesCondition ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:comment ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node sosa:Observation ;
+            sh:path defra-reg:evidencedByObservation ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-core:Applicability ;
+            sh:path defra-core:hasApplicability ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:path ns1:judgedOnUndatedVersion ] ;
+    sh:targetClass defra-reg:ShortfallBreach .
+
+defra-reg:breachesCondition rdfs:label "breaches condition"@en .
+
+defra-reg:breachesLimit rdfs:label "breaches limit"@en .
+
+defra-reg:evidencedByObservation rdfs:label "evidencing observations"@en .
+
+ns1:judgedOnUndatedVersion rdfs:label "judged on an undated permit version"@en .
+
+skos:ConceptScheme a sh:NodeShape ;
+    rdfs:label "Concept Scheme"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:comment ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:prefLabel ] ;
+    sh:targetClass skos:ConceptScheme .
+
+defra-reg:LimitBreach a sh:NodeShape ;
+    rdfs:label "Limit Breach"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-core:Applicability ;
+            sh:path defra-core:hasApplicability ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path defra-reg:breachesLimit ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:path ns1:judgedOnUndatedVersion ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:comment ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path defra-reg:breachesCondition ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node sosa:Observation ;
+            sh:path defra-reg:evidencedByObservation ] ;
+    sh:targetClass defra-reg:LimitBreach .
+
+rdfs:comment rdfs:label "comment"@en .
+
+defra-core:Applicability a sh:NodeShape ;
+    rdfs:label "Applicability"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-core:ApplicabilityPeriod ;
+            sh:path defra-core:applicabilityPeriod ] ;
+    sh:targetClass defra-core:Applicability .
+
+sosa:Observation a sh:NodeShape ;
+    rdfs:label "Observation"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path sosa:hasFeatureOfInterest ] ;
+    sh:targetClass sosa:Observation .
+
+[] rdf:first defra-reg:LimitBreach ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:ExceedanceBreach ;
+    rdf:rest () .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:LimitBreach ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:ShortfallBreach ;
+    rdf:rest () .
+
+[] rdf:first skos:ConceptScheme ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:ShortfallBreach ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:LimitBreach ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:ExceedanceBreach ;
+    rdf:rest () .
+
+[] rdf:first defra-core:Applicability ;
+    rdf:rest () .
+
+[] rdf:first sosa:Observation ;
+    rdf:rest () .
+
+[] rdf:first defra-core:ApplicabilityPeriod ;
+    rdf:rest () .
+

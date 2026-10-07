@@ -4,6 +4,8 @@ Loads the regulation / winep / sfi Turtle graphs into an in-memory Oxigraph
 store (the "federated data layer") and serves two things from one origin:
 
   GET/POST /sparql   -> SPARQL 1.1 query, returns application/sparql-results+json
+  GET      /ttl/*.ttl -> the graphs + generated SHACL shapes at repo root, as text/turtle
+                          (Sparnatural's config `src` attribute fetches these same-origin)
   GET      /*        -> static files from this directory (the Leaflet frontend)
 
 Serving both from one process means the browser makes same-origin requests, so
@@ -370,6 +372,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.endswith(".md"):
             self._serve_markdown(path)
             return
+        if path.endswith(".ttl"):
+            self._serve_turtle(path)
+            return
         self._serve_static(path)
 
     def do_POST(self):
@@ -408,6 +413,28 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/markdown; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _serve_turtle(self, path: str):
+        """Serve a Turtle file from the repository root (Sparnatural's SHACL-config `src` attribute
+        fetches these directly, same-origin).
+
+        Same restricted-resolve pattern as `_serve_markdown`: static files live in app/, but the
+        ttl/ graphs and their generated ttl/*.shacl.ttl shapes live at ROOT, so this resolves
+        against ROOT — restricted to .ttl files under ROOT, `..` traversal rejected by the
+        resolved-parent check.
+        """
+        rel = path.lstrip("/")
+        target = (ROOT / rel).resolve()
+        if ROOT not in target.parents or target.suffix != ".ttl" or not target.is_file():
+            self.send_error(404)
+            return
+        data = target.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/turtle; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
 

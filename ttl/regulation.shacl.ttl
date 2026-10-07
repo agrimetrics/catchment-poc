@@ -1,0 +1,504 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix defra-core: <http://environment.data.gov.uk/ontology/core/> .
+@prefix defra-reg: <http://environment.data.gov.uk/ontology/regulation/> .
+@prefix defra-water: <http://environment.data.gov.uk/ontology/water/> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix iop: <https://w3id.org/iadopt/ont/> .
+@prefix ns1: <http://example.com/water-regulation/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix ssn: <http://www.w3.org/ns/ssn/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+defra-core:applicabilityPeriod rdfs:label "applicability period"@en .
+
+defra-core:applicableFrom rdfs:label "applicable from"@en .
+
+defra-core:applicableTo rdfs:label "applicable to"@en .
+
+defra-core:appliesTo rdfs:label "applies to"@en .
+
+defra-core:hasIdentifier rdfs:label "has identifier"@en .
+
+defra-core:identifierValue rdfs:label "identifier value"@en .
+
+defra-reg:documentsPermit rdfs:label "document permit"@en .
+
+defra-reg:hasCondition rdfs:label "has condition"@en .
+
+defra-reg:hasLimit rdfs:label "has limit"@en .
+
+defra-reg:limitStatement rdfs:label "limit statement"@en .
+
+defra-reg:lowerBound rdfs:label "lower bound"@en .
+
+defra-reg:permitSite rdfs:label "permit for site"@en .
+
+defra-reg:upperBound rdfs:label "upper bound"@en .
+
+ns1:appliesFromMonth rdfs:label "applies from month"@en .
+
+ns1:appliesToMonth rdfs:label "applies to month"@en .
+
+ns1:crs rdfs:label "CRS"@en .
+
+ns1:gridReferenceLevel rdfs:label "grid reference level"@en .
+
+qudt:numericValue rdfs:label "numeric value"@en .
+
+qudt:unit rdfs:label "unit"@en .
+
+geo:asWKT rdfs:label "as WKT"@en .
+
+owl:sameAs rdfs:label "same as"@en .
+
+iop:hasStatisticalModifier rdfs:label "has statistical modifier"@en .
+
+defra-core:hasApplicability rdfs:label "has applicability"@en .
+
+defra-reg:PermitDocument a sh:NodeShape ;
+    rdfs:label "Permit Document"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node defra-core:Applicability ;
+            sh:path defra-core:hasApplicability ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-water:WaterDischargePermit ;
+            sh:path defra-reg:documentsPermit ] ;
+    sh:targetClass defra-reg:PermitDocument .
+
+defra-reg:regulatedProperty rdfs:label "regulated property"@en .
+
+defra-water:monitoredAt rdfs:label "monitored at"@en .
+
+ns1:samplingPointStatus rdfs:label "sampling point status"@en .
+
+ns1:samplingPointType rdfs:label "sampling point type"@en .
+
+dcterms:source rdfs:label "Source"@en .
+
+skos:altLabel rdfs:label "alternative label"@en .
+
+skos:definition rdfs:label "definition"@en .
+
+skos:exactMatch rdfs:label "has exact match"@en .
+
+skos:notation rdfs:label "notation"@en .
+
+ssn:hasProperty rdfs:label "is sampled for"@en .
+
+defra-core:ApplicabilityPeriod a sh:NodeShape ;
+    rdfs:label "Applicability Period"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:path defra-core:applicableTo ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path defra-core:applicableFrom ] ;
+    sh:targetClass defra-core:ApplicabilityPeriod .
+
+defra-core:Identifier a sh:NodeShape ;
+    rdfs:label "Identifier"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path defra-core:identifierValue ] ;
+    sh:targetClass defra-core:Identifier .
+
+defra-reg:Condition a sh:NodeShape ;
+    rdfs:label "Condition"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-core:Applicability ;
+            sh:path defra-core:hasApplicability ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node sosa:ObservableProperty ;
+            sh:path defra-reg:regulatedProperty ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node defra-reg:Limit ;
+            sh:path defra-reg:hasLimit ] ;
+    sh:targetClass defra-reg:Condition .
+
+defra-reg:Limit a sh:NodeShape ;
+    rdfs:label "Limit"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node sosa:ObservableProperty ;
+            sh:path defra-reg:regulatedProperty ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path ns1:appliesToMonth ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node qudt:QuantityValue ;
+            sh:path defra-reg:upperBound ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path defra-reg:limitStatement ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node qudt:QuantityValue ;
+            sh:path defra-reg:lowerBound ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path ns1:appliesFromMonth ] ;
+    sh:targetClass defra-reg:Limit .
+
+defra-water:WaterDischargePermit a sh:NodeShape ;
+    rdfs:label "Water Discharge Permit"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node defra-core:Identifier ;
+            sh:path defra-core:hasIdentifier ],
+        [ a sh:PropertyShape ;
+            sh:node defra-reg:Condition ;
+            sh:path defra-reg:hasCondition ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node defra-reg:DischargePoint ;
+            sh:path defra-reg:permitSite ] ;
+    sh:targetClass defra-water:WaterDischargePermit .
+
+qudt:Unit a sh:NodeShape ;
+    rdfs:label "Unit"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path owl:sameAs ] ;
+    sh:targetClass qudt:Unit .
+
+geo:hasDefaultGeometry rdfs:label "has default geometry"@en .
+
+geo:hasGeometry rdfs:label "has geometry"@en .
+
+rdfs:comment rdfs:label "comment"@en .
+
+skos:inScheme rdfs:label "is in scheme"@en .
+
+defra-core:Applicability a sh:NodeShape ;
+    rdfs:label "Applicability"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node defra-core:ApplicabilityPeriod ;
+            sh:path defra-core:applicabilityPeriod ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node defra-reg:DischargePoint ;
+            sh:path defra-core:appliesTo ] ;
+    sh:targetClass defra-core:Applicability .
+
+qudt:QuantityValue a sh:NodeShape ;
+    rdfs:label "Quantity Value"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node iop:StatisticalModifier ;
+            sh:path iop:hasStatisticalModifier ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path qudt:numericValue ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node qudt:Unit ;
+            sh:path qudt:unit ] ;
+    sh:targetClass qudt:QuantityValue .
+
+geo:Feature a sh:NodeShape ;
+    rdfs:label "Feature"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path ns1:samplingPointType ],
+        [ a sh:PropertyShape ;
+            sh:node sosa:ObservableProperty ;
+            sh:path ssn:hasProperty ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node sosa:FeatureOfInterest ;
+            sh:path defra-water:monitoredAt ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path ns1:samplingPointStatus ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasDefaultGeometry ] ;
+    sh:targetClass geo:Feature .
+
+skos:ConceptScheme a sh:NodeShape ;
+    rdfs:label "Concept Scheme"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path rdfs:comment ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:prefLabel ] ;
+    sh:targetClass skos:ConceptScheme .
+
+iop:StatisticalModifier a sh:NodeShape ;
+    rdfs:label "Statistical Modifier"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:altLabel ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:ConceptScheme ;
+            sh:path skos:inScheme ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path dcterms:source ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:definition ] ;
+    sh:targetClass iop:StatisticalModifier .
+
+defra-reg:DischargePoint a sh:NodeShape ;
+    rdfs:label "Discharge Point"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasDefaultGeometry ],
+        [ a sh:PropertyShape ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node sosa:FeatureOfInterest ;
+            sh:path defra-water:monitoredAt ] ;
+    sh:targetClass defra-reg:DischargePoint .
+
+sosa:FeatureOfInterest a sh:NodeShape ;
+    rdfs:label "Feature of Interest"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path ns1:samplingPointType ],
+        [ a sh:PropertyShape ;
+            sh:node sosa:ObservableProperty ;
+            sh:path ssn:hasProperty ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasDefaultGeometry ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path ns1:samplingPointStatus ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path rdfs:comment ] ;
+    sh:targetClass sosa:FeatureOfInterest .
+
+skos:prefLabel rdfs:label "preferred label"@en .
+
+sosa:ObservableProperty a sh:NodeShape ;
+    rdfs:label "Observable Property"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path skos:exactMatch ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node skos:ConceptScheme ;
+            sh:path skos:inScheme ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:prefLabel ] ;
+    sh:targetClass sosa:ObservableProperty .
+
+geo:Geometry a sh:NodeShape ;
+    rdfs:label "Geometry"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType geo:wktLiteral ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path geo:asWKT ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path ns1:gridReferenceLevel ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:comment ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path ns1:crs ] ;
+    sh:targetClass geo:Geometry .
+
+skos:Concept a sh:NodeShape ;
+    rdfs:label "Concept"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:altLabel ],
+        [ a sh:PropertyShape ;
+            sh:nodeKind sh:IRI ;
+            sh:path skos:inScheme ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:definition ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path dcterms:source ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path skos:exactMatch ] ;
+    sh:targetClass skos:Concept .
+
+[] rdf:first defra-core:Identifier ;
+    rdf:rest () .
+
+[] rdf:first geo:Geometry ;
+    rdf:rest () .
+
+[] rdf:first sosa:ObservableProperty ;
+    rdf:rest () .
+
+[] rdf:first iop:StatisticalModifier ;
+    rdf:rest () .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:Condition ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:Limit ;
+    rdf:rest () .
+
+[] rdf:first defra-water:WaterDischargePermit ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:PermitDocument ;
+    rdf:rest () .
+
+[] rdf:first qudt:Unit ;
+    rdf:rest () .
+
+[] rdf:first defra-core:Applicability ;
+    rdf:rest () .
+
+[] rdf:first qudt:QuantityValue ;
+    rdf:rest () .
+
+[] rdf:first geo:Feature ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:DischargePoint ;
+    rdf:rest () .
+
+[] rdf:first sosa:FeatureOfInterest ;
+    rdf:rest () .
+
+[] rdf:first skos:ConceptScheme ;
+    rdf:rest () .
+
+[] rdf:first iop:StatisticalModifier ;
+    rdf:rest () .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first defra-core:ApplicabilityPeriod ;
+    rdf:rest () .
+
+[] rdf:first defra-reg:DischargePoint ;
+    rdf:rest () .
+
+[] rdf:first geo:Feature ;
+    rdf:rest () .
+
+[] rdf:first sosa:FeatureOfInterest ;
+    rdf:rest () .
+
+[] rdf:first geo:Feature ;
+    rdf:rest () .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first sosa:ObservableProperty ;
+    rdf:rest () .
+

@@ -1,0 +1,616 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rff: <http://environment.data.gov.uk/catchment-planning/def/reason-for-failure/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ver: <http://purl.org/linked-data/version#> .
+@prefix wbc: <http://environment.data.gov.uk/catchment-planning/def/waterbody-classification/> .
+@prefix wfd: <http://environment.data.gov.uk/catchment-planning/def/water-framework-directive/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+rff:activity rdfs:label "Activity"@en .
+
+rff:activityCertainty rdfs:label "Activity Certainty"@en .
+
+rff:apportionment rdfs:label "Apportionment"@en .
+
+rff:businessSector rdfs:label "Business Sector"@en .
+
+rff:category rdfs:label "Category"@en .
+
+rff:categoryCertainty rdfs:label "Category Certainty"@en .
+
+rff:nationalSWMIheader rdfs:label "National SWMI Header"@en .
+
+rff:pressureTier3 rdfs:label "Pressure Tier 3"@en .
+
+rff:problem rdfs:label "Problem"@en .
+
+rff:reasonForFailureType rdfs:label "Reason For Failure Type"@en .
+
+rff:swmi rdfs:label "SWMI"@en .
+
+rff:swmiCertainty rdfs:label "SWMI Certainty"@en .
+
+wfd:hydromorphologicalDesignation rdfs:label "Hydromorphological Designation"@en .
+
+wbc:classification rdfs:label "Classification"@en .
+
+wbc:classificationCertainty rdfs:label "Classification Certainty"@en .
+
+wbc:classificationDeteriorationType rdfs:label "Classification Deterioration Type"@en .
+
+wbc:classificationUid rdfs:label "Classification UID"@en .
+
+wbc:classificationValue rdfs:label "Classification Value"@en .
+
+skos:inScheme rdfs:label "is in scheme"@en .
+
+skos:prefLabel rdfs:label "preferred label"@en .
+
+rff:ReasonForFailure a sh:NodeShape ;
+    rdfs:label "ReasonForFailure"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:swmi ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:activityCertainty ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rff:pressureTier3 ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:swmiCertainty ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:WaterBody ;
+            sh:path wfd:waterBody ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:businessSector ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:apportionment ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:categoryCertainty ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path rff:nationalSWMIheader ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path wbc:classificationItem ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wbc:Classification ;
+            sh:path wbc:classification ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:gYear ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path wbc:classificationYear ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:reasonForFailureType ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:activity ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:cycle ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path rff:category ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path rff:problem ] ;
+    sh:targetClass rff:ReasonForFailure .
+
+wfd:cycle rdfs:label "Cycle"@en .
+
+wfd:waterBody rdfs:label "Water Body"@en .
+
+wbc:classificationItem rdfs:label "Classification Item"@en .
+
+wbc:classificationYear rdfs:label "Classification Year"@en .
+
+rdfs:comment rdfs:label "comment"@en .
+
+skos:topConceptOf rdfs:label "is top concept in scheme"@en .
+
+<http://environment.data.gov.uk/catchment-planning/def/geometry/Catchment> a sh:NodeShape ;
+    rdfs:label "Catchment"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType geo:wktLiteral ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path geo:asWKT ] ;
+    sh:targetClass <http://environment.data.gov.uk/catchment-planning/def/geometry/Catchment> .
+
+<http://environment.data.gov.uk/catchment-planning/def/geometry/RiverLine> a sh:NodeShape ;
+    rdfs:label "River Line"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType geo:wktLiteral ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path geo:asWKT ] ;
+    sh:targetClass <http://environment.data.gov.uk/catchment-planning/def/geometry/RiverLine> .
+
+wfd:HydromorphologicalDesignation a sh:NodeShape ;
+    rdfs:label "Hydromorphological Designation"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:comment ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path skos:topConceptOf ] ;
+    sh:targetClass wfd:HydromorphologicalDesignation .
+
+wfd:inManagementCatchment rdfs:label "In Management Catchment"@en .
+
+wfd:inRiverBasinDistrict rdfs:label "In River Basin District"@en .
+
+wbc:Classification a sh:NodeShape ;
+    rdfs:label "Classification"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path wbc:classificationUid ],
+        [ a sh:PropertyShape ;
+            sh:node skos:Concept ;
+            sh:path wbc:classificationDeteriorationType ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:node skos:Concept ;
+            sh:path wbc:classificationCertainty ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:WaterBody ;
+            sh:path wfd:waterBody ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:cycle ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path wbc:classificationItem ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node skos:Concept ;
+            sh:path wbc:classificationValue ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:gYear ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path wbc:classificationYear ] ;
+    sh:targetClass wbc:Classification .
+
+geo:asWKT rdfs:label "as WKT"@en .
+
+wfd:Catchment a sh:NodeShape ;
+    rdfs:label "Catchment"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:inRiverBasinDistrict ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:inManagementCatchment ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:integer ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ] ;
+    sh:targetClass wfd:Catchment .
+
+wfd:OperationalCatchment a sh:NodeShape ;
+    rdfs:label "Operational Catchment"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:inRiverBasinDistrict ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:integer ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:inManagementCatchment ] ;
+    sh:targetClass wfd:OperationalCatchment .
+
+wfd:inOperationalCatchment rdfs:label "In Operational Catchment"@en .
+
+dcterms:hasVersion rdfs:label "Has Version"@en .
+
+ver:currentVersion rdfs:label "current version"@en .
+
+geo:hasGeometry rdfs:label "has geometry"@en .
+
+wfd:River a sh:NodeShape ;
+    rdfs:label "River"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path dcterms:hasVersion ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 2 ;
+            sh:minCount 2 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path ver:currentVersion ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:SurfaceWater ;
+            sh:path wfd:inOperationalCatchment ] ;
+    sh:targetClass wfd:River .
+
+wfd:RiverOrLake a sh:NodeShape ;
+    rdfs:label "River Or Lake"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:SurfaceWater ;
+            sh:path wfd:inOperationalCatchment ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 2 ;
+            sh:minCount 2 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path ver:currentVersion ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path dcterms:hasVersion ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ] ;
+    sh:targetClass wfd:RiverOrLake .
+
+wfd:SurfaceWaterBody a sh:NodeShape ;
+    rdfs:label "Surface Water Body"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path ver:currentVersion ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:SurfaceWater ;
+            sh:path wfd:inOperationalCatchment ],
+        [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path dcterms:hasVersion ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 2 ;
+            sh:minCount 2 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ] ;
+    sh:targetClass wfd:SurfaceWaterBody .
+
+rdfs:label rdfs:label "label"@en .
+
+wfd:WaterBody a sh:NodeShape ;
+    rdfs:label "Water Body"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path dcterms:hasVersion ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node ver:Version ;
+            sh:path ver:currentVersion ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:SurfaceWater ;
+            sh:path wfd:inOperationalCatchment ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 2 ;
+            sh:minCount 2 ;
+            sh:node geo:Geometry ;
+            sh:path geo:hasGeometry ] ;
+    sh:targetClass wfd:WaterBody .
+
+wfd:SurfaceWater a sh:NodeShape ;
+    rdfs:label "Surface Water"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:inRiverBasinDistrict ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path wfd:inManagementCatchment ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:integer ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ] ;
+    sh:targetClass wfd:SurfaceWater .
+
+geo:Geometry a sh:NodeShape ;
+    rdfs:label "Geometry"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:dataType geo:wktLiteral ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path geo:asWKT ] ;
+    sh:targetClass geo:Geometry .
+
+ver:Version a sh:NodeShape ;
+    rdfs:label "Version"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node wfd:HydromorphologicalDesignation ;
+            sh:path wfd:hydromorphologicalDesignation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ] ;
+    sh:targetClass ver:Version .
+
+skos:notation rdfs:label "notation"@en .
+
+skos:Concept a sh:NodeShape ;
+    rdfs:label "Concept"@en ;
+    sh:property [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path skos:inScheme ],
+        [ a sh:PropertyShape ;
+            sh:dataType rff:businessCategorySectorNotation ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType rff:PressureNotation ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType rff:ApportionmentNotation ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path rdfs:label ],
+        [ a sh:PropertyShape ;
+            sh:dataType rff:CertaintyNotation ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path skos:prefLabel ],
+        [ a sh:PropertyShape ;
+            sh:dataType rff:SWMINotation ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:dataType rff:ActivityNotation ;
+            sh:maxCount 1 ;
+            sh:path skos:notation ],
+        [ a sh:PropertyShape ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:path skos:topConceptOf ],
+        [ a sh:PropertyShape ;
+            sh:dataType xsd:string ;
+            sh:maxCount 1 ;
+            sh:path rdfs:comment ] ;
+    sh:targetClass skos:Concept .
+
+[] rdf:first wfd:OperationalCatchment ;
+    rdf:rest () .
+
+[] rdf:first wfd:Catchment ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWater ;
+    rdf:rest () .
+
+[] rdf:first wfd:Catchment ;
+    rdf:rest () .
+
+[] rdf:first wfd:OperationalCatchment ;
+    rdf:rest () .
+
+[] rdf:first wfd:RiverOrLake ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:WaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:River ;
+    rdf:rest () .
+
+[] rdf:first wfd:RiverOrLake ;
+    rdf:rest () .
+
+[] rdf:first wfd:WaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:River ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:River ;
+    rdf:rest () .
+
+[] rdf:first wfd:WaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:RiverOrLake ;
+    rdf:rest () .
+
+[] rdf:first wfd:River ;
+    rdf:rest () .
+
+[] rdf:first wfd:RiverOrLake ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:WaterBody ;
+    rdf:rest () .
+
+[] rdf:first wfd:OperationalCatchment ;
+    rdf:rest () .
+
+[] rdf:first wfd:Catchment ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWater ;
+    rdf:rest () .
+
+[] rdf:first <http://environment.data.gov.uk/catchment-planning/def/geometry/RiverLine> ;
+    rdf:rest () .
+
+[] rdf:first <http://environment.data.gov.uk/catchment-planning/def/geometry/Catchment> ;
+    rdf:rest () .
+
+[] rdf:first geo:Geometry ;
+    rdf:rest () .
+
+[] rdf:first ver:Version ;
+    rdf:rest () .
+
+[] rdf:first skos:Concept ;
+    rdf:rest () .
+
+[] rdf:first geo:Geometry ;
+    rdf:rest () .
+
+[] rdf:first <http://environment.data.gov.uk/catchment-planning/def/geometry/Catchment> ;
+    rdf:rest () .
+
+[] rdf:first <http://environment.data.gov.uk/catchment-planning/def/geometry/RiverLine> ;
+    rdf:rest () .
+
+[] rdf:first geo:Geometry ;
+    rdf:rest () .
+
+[] rdf:first wfd:HydromorphologicalDesignation ;
+    rdf:rest () .
+
+[] rdf:first wbc:Classification ;
+    rdf:rest () .
+
+[] rdf:first rff:ReasonForFailure ;
+    rdf:rest () .
+
+[] rdf:first wfd:SurfaceWater ;
+    rdf:rest () .
+

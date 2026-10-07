@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sparnatural · Poole Harbour Rivers Demonstrator</title>
+  <meta name="description" content="Visual, SHACL-driven query builder for the federated data layer" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- The vendored library's own stylesheet -- without this, every Sparnatural icon (no explicit
+       width/height, sized entirely by this file's CSS) renders at its raw unstyled intrinsic size. -->
+  <link rel="stylesheet" href="vendor/sparnatural/sparnatural.css" />
+  <link rel="stylesheet" href="sparnatural.css" />
+
+  <!-- Endpoint configuration (window.APP_CONFIG), shared with the map app. Classic script in <head>
+       so it runs before the inline setup below. -->
+  <script src="config.js"></script>
+  <!-- Sparnatural: a single prebuilt UMD bundle (npm dist/browser/), vendored so the page loads only
+       from this origin. See app/vendor/sparnatural/. Registers the <spar-natural> custom element;
+       classic script (not a module), safe to load in <head> since custom elements upgrade any
+       matching tag already in the DOM once the definition registers, regardless of parse order. -->
+  <script src="vendor/sparnatural/sparnatural.js"></script>
+  <!-- Results are shown in the same SPARQL editor used by sparql.html, not Sparnatural's own result
+       renderer — this reuses a component already proven against this endpoint instead of vendoring
+       YASGUI a second time inside Sparnatural's own bundle. See sparql.html for the same pattern. -->
+  <script type="module" src="vendor/sparql-editor/sparql-editor.js"></script>
+</head>
+<body>
+  <header>
+    <div class="gov-crest" aria-hidden="true"></div>
+    <div class="title">
+      <h1>Sparnatural</h1>
+      <span class="subtitle">Build a query visually, over the DEFRA-modelled vocabulary — regulation · breaches · WINEP · SFI · designations</span>
+    </div>
+    <a class="docs-link" href="index.html" title="Return to the map app">← Back to app</a>
+  </header>
+
+  <!-- Config sourced from ttl/generate_shacl.py's output: sheXer-inferred SHACL shapes, curated
+       down to DEFRA-ontology-scoped vocabulary only (write_sparnatural_config -- not the full
+       .shacl.ttl files, which mix in every vocabulary the data happens to use), pruned of the
+       sh:path rdf:type discriminator shapes (structural noise for a picker UI), and labelled with
+       rdfs:label on every predicate and target class. Multiple files space-separated in `src`
+       merge into one config, so the picker spans all five DEFRA-modelled graphs even though the
+       shapes were mined one graph at a time. Paths are relative to THIS page, resolved by the
+       browser the same way any relative fetch would be -- portable under a BASE_PATH sub-path
+       deployment like the rest
+       of the app. Server-side: app/server.py's /ttl/*.ttl route (added alongside this page) serves
+       these same-origin.
+
+       The <spar-natural> element itself is built in the script below, not written here as a plain
+       tag: it reads ALL of its config attributes (src, endpoint, ...) synchronously in
+       connectedCallback, which fires the instant the browser parses the tag. Setting `endpoint`
+       afterwards via setAttribute (as sparql.html does for <sparql-editor>) is too late -- it reads
+       null, throws inside its own constructor before ever fetching the SHACL config, and nothing
+       recovers. So every attribute has to exist before the element is inserted into the DOM. -->
+  <div id="sparnatural-mount"></div>
+
+  <section id="results-panel">
+    <h2>Query &amp; results</h2>
+    <p class="hint">Built from the picker above — edit it directly here too, same editor as the
+      <a href="sparql.html">SPARQL page</a>.</p>
+    <sparql-editor default-method="POST"></sparql-editor>
+  </section>
+
+  <script>
+    (function () {
+      // Same absolute-URL resolution as sparql.html: resolve against the PAGE url (sub-path safe)
+      // up front, since this has to be a real attribute value before the element ever connects.
+      var raw = (window.APP_CONFIG && window.APP_CONFIG.sparqlEndpoint) || "sparql";
+      var ep = new URL(raw, document.baseURI).href;
+
+      var sn = document.createElement("spar-natural");
+      sn.id = "sparnatural";
+      // The .sparnatural.shacl.ttl files, not the plain .shacl.ttl ones: those are the full
+      // sheXer-mined shapes (every vocabulary the data happens to use -- SKOS, GeoSPARQL, QUDT,
+      // SOSA, the EA's own external catchment-planning terms, ad hoc CSV columns with no ontology
+      // home), which makes an unusable picker spanning every domain in the source data rather than
+      // the DEFRA model. These are curated down to DEFRA-ontology-scoped vocabulary only -- see
+      // ttl/generate_shacl.py's write_sparnatural_config. catchment.ttl is excluded entirely: it
+      // deliberately keeps the EA's own external vocabulary verbatim, not DEFRA's.
+      sn.setAttribute("src", [
+        "ttl/breaches.sparnatural.shacl.ttl", "ttl/designations.sparnatural.shacl.ttl",
+        "ttl/regulation.sparnatural.shacl.ttl", "ttl/sfi.sparnatural.shacl.ttl",
+        "ttl/winep.sparnatural.shacl.ttl",
+      ].join(" "));
+      sn.setAttribute("endpoint", ep);
+      sn.setAttribute("lang", "en");
+      sn.setAttribute("defaultlang", "en");
+      sn.setAttribute("limit", "200");
+      document.getElementById("sparnatural-mount").appendChild(sn);
+
+      var ed = document.querySelector("sparql-editor");
+
+      function currentTab() {
+        try {
+          var y = ed.yasgui;
+          return y && y.getTab && y.getTab();
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // Keep the SPARQL editor's endpoint pinned the same way sparql.html does, once YASGUI is up.
+      var n = 0;
+      var iv = setInterval(function () {
+        var t = currentTab();
+        if (t) {
+          clearInterval(iv);
+          if (t.setEndpoint && t.getRequestConfig().endpoint !== ep) t.setEndpoint(ep);
+        } else if (++n > 100) {
+          clearInterval(iv);
+        }
+      }, 100);
+
+      // Sparnatural fires `queryUpdated` on every picker change (may still be mid-build) and
+      // `submit` when the user hits its own run button. Mirror the query text into the editor on
+      // every update so it's visible as it forms, but only EXECUTE on submit -- auto-running on
+      // every intermediate change would spam the endpoint with queries the user hasn't finished.
+      function syncQuery(e) {
+        var q = e && e.detail && e.detail.queryString;
+        var t = currentTab();
+        if (!q || !t || !t.setQuery) return;
+        t.setQuery(q);
+      }
+      sn.addEventListener("queryUpdated", syncQuery);
+      sn.addEventListener("submit", function (e) {
+        syncQuery(e);
+        var t = currentTab();
+        if (t && t.query) t.query();
+      });
+    })();
+  </script>
+</body>
+</html>

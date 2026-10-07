@@ -1,0 +1,29 @@
+/* Sparnatural page. The vendored `sparnatural.js` bundle brings its own (Bootstrap-derived)
+ * styling; the app's GOV.UK header/footer chrome sits around it. Results render in the same
+ * sparql-editor component as sparql.html, tinted to match (see sparql.css). */
+
+body { background: #fff; }
+
+spar-natural { display: block; margin: 1em; }
+
+#results-panel {
+  margin: 1em;
+}
+
+#results-panel .hint {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+#results-panel .hint a { color: var(--accent); }
+
+sparql-editor {
+  display: block;
+  --btn-color: #fff;
+  --btn-bg-color: var(--accent);
+  color: var(--text);
+}
+
+.yasr table.dataTable td { color: var(--text); }
+.yasr a, .yasr a.iri { color: var(--accent); }
+.yasr .rowNumber, .yasr .dataTables_info { color: var(--muted); }
